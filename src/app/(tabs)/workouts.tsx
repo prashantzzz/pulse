@@ -46,10 +46,11 @@ export default function WorkoutsScreen() {
       <View style={{ marginTop: spacing.lg, gap: spacing.md, paddingHorizontal: spacing.md }}>
         {tab === 'My Plans'
           ? SEED_PLANS.map((p) => (
+              // Tapping the card only previews the plan — the timer starts
+              // exclusively via the Start button inside each day card.
               <PlanCard
                 key={p.id}
                 plan={p}
-                onPress={() => begin(p)}
                 onStart={() => begin(p)}
               />
             ))

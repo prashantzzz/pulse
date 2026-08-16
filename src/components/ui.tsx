@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, gradients, radius, shadows, spacing, type } from '../theme';
+import { colors, gradients, radius, shadows, spacing, type, useAccent } from '../theme';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -239,6 +239,9 @@ export function Screen({
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
 }) {
+  // re-render this screen's whole subtree the moment the accent changes so
+  // every `colors.*` / `gradients.*` read below picks up the new theme live
+  useAccent();
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
   return (

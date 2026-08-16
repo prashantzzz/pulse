@@ -67,15 +67,11 @@ export function SetRow({
             `Set ${index}`
           )}
         </T>
-        <SetTypeTag type={setType} />
+        {/* warm-up already reads in the label below, so no pill (avoids overlap) */}
+        {setType !== 'warmup' ? <SetTypeTag type={setType} /> : null}
       </View>
 
       <View style={{ flex: 1 }}>
-        {prev && !completed ? (
-          <T variant="micro" muted style={{ fontSize: 10 }}>
-            Last: {prev.weightKg != null ? `${prev.weightKg} × ${prev.reps ?? '—'}` : '—'}
-          </T>
-        ) : null}
         <T variant="small" dim style={{ fontSize: 12 }}>
           {setType === 'warmup' ? 'Warm-up' : 'Working set'}
         </T>
@@ -94,11 +90,12 @@ export function SetRow({
       </Pressable>
 
       <View style={styles.values}>
+        {/* unlogged sets preview the last workout's numbers as a dim target */}
         <T variant="numSm" style={{ color: completed ? colors.text : weight != null ? colors.text : colors.textMuted, minWidth: 34, textAlign: 'right' }}>
-          {weight != null ? weight : '—'}
+          {weight != null ? weight : prev?.weightKg ?? '–'}
         </T>
-        <T variant="numSm" style={{ color: completed ? colors.accent : colors.text, minWidth: 22, textAlign: 'right' }}>
-          {reps != null ? reps : '—'}
+        <T variant="numSm" style={{ color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted, minWidth: 22, textAlign: 'right' }}>
+          {reps != null ? reps : prev?.reps ?? '–'}
         </T>
       </View>
     </Pressable>

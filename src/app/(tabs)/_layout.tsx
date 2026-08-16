@@ -6,7 +6,7 @@ import { T } from '../../components/Text';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, gradients, radius } from '../../theme';
+import { colors, gradients, radius, useAccent } from '../../theme';
 
 type RouteName = 'home' | 'workouts' | 'log' | 'progress' | 'profile';
 
@@ -25,6 +25,8 @@ function PulseTabBar({
   state: { index: number; routeNames: string[] };
   navigation: { emit: (e: { type: string; target: string }) => { defaultPrevented?: boolean } };
 }) {
+  // keep the tab bar (FAB gradient, focused icon pill) in sync with the accent live
+  useAccent();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 

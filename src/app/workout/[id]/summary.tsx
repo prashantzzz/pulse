@@ -11,9 +11,10 @@ import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDurationLabel } from '../../../lib/format';
 import { detectPRs, formatCompact, whatChanged, workoutStats } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { colors, gradients, radius, spacing } from '../../../theme';
+import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../../theme';
 
 export default function SummaryScreen() {
+  useAccent();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
@@ -69,7 +70,7 @@ export default function SummaryScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* celebration header */}
-      <LinearGradient colors={['#1C2A12', '#0A0B0D']} style={styles.header}>
+      <LinearGradient colors={[accentTint(colors.accent, 0.17), '#0A0B0D']} style={styles.header}>
         <Animated.View style={{ opacity: confetti.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.9] }) }}>
           <View style={styles.celebrateIcon}>
             <Ionicons name="trophy" size={34} color={colors.bg} />

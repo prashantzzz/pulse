@@ -1,12 +1,12 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
-import { EXERCISE_GIFS } from '../data/exercise-gifs';
+import { EXERCISE_VIDEOS } from '../data/exercise-videos';
 import { FIGURE_ANIMS, PULSE_MOTIF, type FigureAnim, type Point, type Pose } from '../data/poses';
-import { colors, radius, shadows } from '../theme';
+import { accentTint, colors, radius, shadows } from '../theme';
 import type { Exercise } from '../types';
 import { T } from './Text';
 
@@ -172,6 +172,41 @@ function PulseMotif({ height }: { height: number }) {
   );
 }
 
+/**
+ * Looping HD exercise video (Vital Animations, original footage). The clips are
+ * shot on a light studio background, so they play on a matching light card —
+ * no chroma-keying, no blend modes — and the whole frame is visible.
+ */
+function ExerciseVideo({ source }: { source: number }) {
+  const player = useVideoPlayer(source, (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
+
+  // Start playback only after the VideoView has mounted — on web the player's
+  // play() is a no-op until its <video> element is attached, so calling it in
+  // the setup callback leaves the clip paused ("not loaded"). An effect runs
+  // after mount on every platform and keeps the loop smooth.
+  useEffect(() => {
+    player.play();
+  }, [player]);
+
+  // Important: give the view an explicit 100%×100% box. On web, a replaced
+  // element (<video>) with `auto` dimensions keeps its intrinsic size (the
+  // clips are 1080×1080) even when absolutely positioned with all insets 0,
+  // so it overflows the card and gets cropped by `overflow: hidden`. With an
+  // explicit box, `contentFit="contain"` scales the footage to fit the card
+  // and the white background shows through the letterbox bars.
+  return (
+    <VideoView
+      player={player}
+      style={styles.video}
+      contentFit="contain"
+      nativeControls={false}
+    />
+  );
+}
+
 export function ExerciseAnimation({
   exercise,
   height = 230,
@@ -181,34 +216,44 @@ export function ExerciseAnimation({
   height?: number;
   showBadge?: boolean;
 }) {
-  const gif = EXERCISE_GIFS[exercise.id];
+  const video = EXERCISE_VIDEOS[exercise.id];
   const anim = FIGURE_ANIMS[exercise.animation];
   const isPulse = PULSE_MOTIF.has(exercise.animation) || !anim;
 
   return (
     <View style={[styles.wrap, { height }]}>
-      <LinearGradient
-        colors={['#1C2317', '#0D0F12']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
-      />
-      <View style={[styles.glow, { backgroundColor: `${colors.accent}12` }]} />
-      {gif ? (
-        // Real looping exercise animation (bundled from the free exercises-dataset)
-        <Image source={gif} style={StyleSheet.absoluteFill} contentFit="contain" transition={150} cachePolicy="memory-disk" />
-      ) : isPulse ? (
-        <PulseMotif height={height} />
+      {video ? (
+        <>
+          {/* light studio background matches the footage — the full frame shows */}
+          <View style={[StyleSheet.absoluteFill, styles.videoCardBg]} />
+          <ExerciseVideo source={video} />
+          {showBadge ? (
+            <View style={styles.videoBadge}>
+              <T variant="micro" style={{ color: colors.white, fontWeight: '600' }}>
+                ● HD animation
+              </T>
+            </View>
+          ) : null}
+        </>
       ) : (
-        <FigureBody anim={anim} height={height} />
+        <>
+          <LinearGradient
+            colors={[accentTint(colors.accent, 0.16), '#0D0F12']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
+          />
+          <View style={[styles.glow, { backgroundColor: `${colors.accent}12` }]} />
+          {isPulse ? <PulseMotif height={height} /> : <FigureBody anim={anim} height={height} />}
+          {showBadge ? (
+            <View style={styles.badge}>
+              <T variant="micro" style={{ color: colors.accent }}>
+                ● Looping animation
+              </T>
+            </View>
+          ) : null}
+        </>
       )}
-      {showBadge ? (
-        <View style={styles.badge}>
-          <T variant="micro" style={{ color: colors.accent }}>
-            ● Looping animation
-          </T>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -227,11 +272,29 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 110,
   },
+  videoCardBg: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E3DF',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+  },
   badge: {
     position: 'absolute',
     top: 12,
     right: 12,
     backgroundColor: 'rgba(10, 11, 13, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  videoBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(10, 11, 13, 0.68)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,

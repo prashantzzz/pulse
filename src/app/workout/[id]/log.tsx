@@ -75,7 +75,7 @@ export default function LogSetScreen() {
 
   const finish = () => {
     save(true, false);
-    toast('Set complete 💪');
+    toast('Set complete');
     router.replace(`/workout/${workout.id}/rest?sec=90`);
   };
 

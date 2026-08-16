@@ -37,6 +37,17 @@ import { ToastHost } from '../components/misc';
 import { applyAccent, colors } from '../theme';
 import { usePulse } from '../store/useStore';
 
+// hide native browser scrollbars on web so the app scrolls like an Android app
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.id = 'pulse-no-scrollbars';
+  style.textContent = `
+    * { scrollbar-width: none; -ms-overflow-style: none; }
+    *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_500Medium,

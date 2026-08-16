@@ -14,7 +14,7 @@ import { SEED_PLANS } from '../../data/seed';
 import { formatCompact } from '../../lib/stats';
 import { currentStreak, detectPRs, prRadar, totalVolume, workoutsInLastDays, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { colors, gradients, radius, spacing } from '../../theme';
+import { accentTint, colors, gradients, radius, spacing } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 function todaysPlan(): WorkoutPlan {
@@ -79,7 +79,7 @@ export default function HomeScreen() {
 
       {/* streak banner */}
       <View style={styles.streakBanner}>
-        <LinearGradient colors={['#1C2317', '#111316']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[accentTint(colors.accent, 0.17), '#111316']} style={StyleSheet.absoluteFill} />
         <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
           <Ionicons name="flame" size={22} color={colors.accent} />
         </View>

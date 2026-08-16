@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { BottomSheet, Stepper, toast } from '../components/misc';
-import { ExerciseThumb } from '../components/muscle-icon';
 import { Button, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
 import { EXERCISE_MAP, EXERCISES, searchExercises } from '../data/exercises';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, useAccent } from '../theme';
 
 interface DraftExercise {
   exerciseId: string;
@@ -20,6 +19,7 @@ interface DraftExercise {
 const REP_PRESETS = ['4-6', '6-10', '8-12', '10-15', '12-20'];
 
 export default function BuilderScreen() {
+  useAccent();
   const router = useRouter();
   const { add } = useLocalSearchParams<{ add?: string }>();
   const saveBuiltWorkout = usePulse((s) => s.saveBuiltWorkout);
@@ -134,7 +134,6 @@ export default function BuilderScreen() {
                 if (!e) return null;
                 return (
                   <View key={i} style={styles.draftCard}>
-                    <ExerciseThumb muscle={e.muscleGroup} size={46} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Pressable onPress={() => router.push(`/exercise/${d.exerciseId}` as never)}>
                         <T variant="bodySemi" numberOfLines={1}>
@@ -162,47 +161,62 @@ export default function BuilderScreen() {
         <Button label="+ Add Exercise" variant="outline" full size="lg" onPress={() => setPickerOpen(true)} />
       </View>
 
-      {/* exercise picker */}
+      {/* exercise picker — results scroll above a search bar pinned to the
+          bottom so typing never resizes the list and the field stays above
+          the keyboard on phones */}
       <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} title="Add exercise">
-        <View style={styles.pickerSearch}>
-          <Icon name="search" size={18} color={colors.textMuted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search exercises..."
-            placeholderTextColor={colors.textMuted}
-            style={styles.pickerInput}
-          />
-        </View>
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={{ gap: spacing.xs }}>
-            {pickerResults.map((e) => (
-              <Pressable key={e.id} onPress={() => addExercise(e.id)} style={styles.pickerRow}>
-                <ExerciseThumb muscle={e.muscleGroup} size={38} />
-                <View style={{ flex: 1 }}>
-                  <T variant="bodySemi" style={{ fontSize: 14 }}>
-                    {e.name}
-                  </T>
-                  <T variant="micro" muted>
-                    {e.muscleGroup} · {e.equipment}
-                  </T>
-                </View>
-                {drafts.some((d) => d.exerciseId === e.id) ? (
-                  <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-                ) : (
-                  <View style={[styles.pickerAdd, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="add" size={16} color={colors.accent} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: spacing.sm, gap: spacing.xs }}>
+              {pickerResults.map((e) => (
+                <Pressable key={e.id} onPress={() => addExercise(e.id)} style={styles.pickerRow}>
+                  <View style={{ flex: 1 }}>
+                    <T variant="bodySemi" style={{ fontSize: 14 }}>
+                      {e.name}
+                    </T>
+                    <T variant="micro" muted>
+                      {e.muscleGroup} · {e.equipment}
+                    </T>
                   </View>
-                )}
-              </Pressable>
-            ))}
-            {pickerResults.length === 0 ? (
-              <T variant="small" dim center style={{ paddingVertical: 20 }}>
-                No matches
-              </T>
-            ) : null}
+                  {drafts.some((d) => d.exerciseId === e.id) ? (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+                  ) : (
+                    <View style={[styles.pickerAdd, { backgroundColor: colors.accentSoft }]}>
+                      <Ionicons name="add" size={16} color={colors.accent} />
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+              {pickerResults.length === 0 ? (
+                <T variant="small" dim center style={{ paddingVertical: 20 }}>
+                  No matches
+                </T>
+              ) : null}
+            </ScrollView>
+
+            <View style={styles.pickerSearch}>
+              <Icon name="search" size={18} color={colors.textMuted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search exercises..."
+                placeholderTextColor={colors.textMuted}
+                style={styles.pickerInput}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {query ? (
+                <Pressable onPress={() => setQuery('')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
-        </ScrollView>
+        </KeyboardAvoidingView>
       </BottomSheet>
 
       {/* edit sets sheet */}
@@ -305,7 +319,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
+    flexShrink: 0,
   },
   pickerInput: { flex: 1, paddingVertical: 12, color: colors.text, fontSize: 15, fontFamily: 'Inter_400Regular' },
   pickerRow: {

@@ -4,10 +4,11 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
-import { colors, gradients, type } from '../theme';
+import { accentTint, colors, gradients, type, useAccent } from '../theme';
 import { usePulse } from '../store/useStore';
 
 export default function SplashScreen() {
+  useAccent();
   const router = useRouter();
   const onboarded = usePulse((s) => s.onboarded);
   const fade = useRef(new Animated.Value(0)).current;
@@ -29,7 +30,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#101509', '#0A0B0D', '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.1), '#0A0B0D', '#0A0B0D']} style={StyleSheet.absoluteFill} />
       <View style={[styles.glowTop, { backgroundColor: `${colors.accent}12` }]} />
       <View style={[styles.glowBottom, { backgroundColor: `${colors.accent}12` }]} />
       <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>

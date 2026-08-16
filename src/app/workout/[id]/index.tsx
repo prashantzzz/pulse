@@ -11,14 +11,16 @@ import { Button, Icon, Row, Screen } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
 import { useNow, usePulse } from '../../../store/useStore';
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, useAccent } from '../../../theme';
 
 export default function ActiveWorkoutScreen() {
+  useAccent();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const workouts = usePulse((s) => s.workouts);
   const completeSet = usePulse((s) => s.completeSet);
+  const patchSet = usePulse((s) => s.patchSet);
   const finishWorkout = usePulse((s) => s.finishWorkout);
   const cancelActiveWorkout = usePulse((s) => s.cancelActiveWorkout);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -60,9 +62,17 @@ export default function ActiveWorkoutScreen() {
   const lastDoneSet = [...workout.exercises].reverse().find((we) => we.sets.some((s) => s.completed));
   const nextExercise = workout.exercises.find((we) => we.sets.some((s) => !s.completed));
 
+  // The plus button toggles completion so an accidental tap can be undone.
   const quickComplete = (exerciseId: string, setId: string) => {
-    completeSet(exerciseId, setId);
-    toast('Set complete 💪');
+    const we = workout.exercises.find((w) => w.exerciseId === exerciseId);
+    const set = we?.sets.find((s) => s.id === setId);
+    if (set?.completed) {
+      patchSet(exerciseId, setId, { completed: false, completedAt: null });
+      toast('Set marked incomplete');
+    } else {
+      completeSet(exerciseId, setId);
+      toast('Set complete');
+    }
   };
 
   return (
@@ -168,9 +178,12 @@ export default function ActiveWorkoutScreen() {
                     />
                   ))}
                   {we.notes ? (
-                    <T variant="micro" muted style={{ marginTop: 4 }}>
-                      📝 {we.notes}
-                    </T>
+                    <Row gap={6} style={{ marginTop: 4 }}>
+                      <Ionicons name="document-text-outline" size={13} color={colors.textMuted} />
+                      <T variant="micro" muted style={{ flex: 1 }}>
+                        {we.notes}
+                      </T>
+                    </Row>
                   ) : null}
                 </View>
               ) : null}
@@ -224,7 +237,7 @@ export default function ActiveWorkoutScreen() {
           </T>
         </View>
         <Button
-          label={pct === 100 ? 'Complete 🎉' : 'Finish Workout'}
+          label={pct === 100 ? 'Complete' : 'Finish Workout'}
           size="md"
           onPress={() => {
             const finished = finishWorkout();

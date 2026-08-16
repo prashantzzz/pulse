@@ -35,6 +35,13 @@ const VIEWS = ['Strength', 'Volume', 'Consistency', 'Body', 'Records'] as const;
 const TIMEFRAMES = ['7D', '1M', '3M', '6M', '1Y'] as const;
 
 const TF_WEEKS: Record<string, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
+const TF_LABELS: Record<(typeof TIMEFRAMES)[number], string> = {
+  '7D': 'This Week',
+  '1M': 'This Month',
+  '3M': 'Last 3 Months',
+  '6M': 'Last 6 Months',
+  '1Y': 'This Year',
+};
 
 export default function ProgressScreen() {
   const { width } = useWindowDimensions();
@@ -131,7 +138,7 @@ export default function ProgressScreen() {
         </View>
         <View style={[styles.periodBadge, { backgroundColor: colors.accentSoft }]}>
           <T variant="smallMedium" accent style={{ fontSize: 12 }}>
-            This Month
+            {TF_LABELS[tf]}
           </T>
         </View>
       </Row>
@@ -248,7 +255,7 @@ export default function ProgressScreen() {
               </T>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
                 <DonutChart
-                  segments={volByMuscle.slice(0, 6).map((v, i) => ({ label: v.muscle, value: v.volume, color: colors.chart[i % colors.chart.length] }))}
+                  segments={volByMuscle.slice(0, 6).map((v, i) => ({ label: v.muscle, value: v.volume, color: chartColor(i) }))}
                   size={150}
                   centerValue={`${(volByMuscle.slice(0, 6).reduce((s, v) => s + v.volume, 0) / 1000).toFixed(1)}k`}
                   centerLabel="Total kg"
@@ -257,7 +264,7 @@ export default function ProgressScreen() {
                   {volByMuscle.slice(0, 6).map((v, i) => (
                     <Row key={v.muscle} align="space-between">
                       <Row gap={8}>
-                        <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: colors.chart[i % colors.chart.length] }} />
+                        <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: chartColor(i) }} />
                         <T variant="smallMedium" style={{ fontSize: 13 }}>
                           {v.muscle}
                         </T>
@@ -492,6 +499,9 @@ export default function ProgressScreen() {
     </Screen>
   );
 }
+
+/** chart series colors — the first slice follows the live accent, the rest stay distinct */
+const chartColor = (i: number) => (i === 0 ? colors.accent : colors.chart[i % colors.chart.length]);
 
 function SummaryCard({ label, value, accent, icon, flex1 }: { label: string; value: string; accent?: boolean; icon: React.ComponentProps<typeof Ionicons>['name']; flex1?: boolean }) {
   return (

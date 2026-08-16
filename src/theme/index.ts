@@ -4,6 +4,7 @@
  * the rest of the palette is fixed.
  */
 import { Platform } from 'react-native';
+import { useSyncExternalStore } from 'react';
 
 export type AccentKey = 'lime' | 'lavender' | 'mint' | 'sky' | 'teal' | 'coral' | 'rose' | 'gold';
 
@@ -73,6 +74,39 @@ export const ACCENTS: Record<AccentKey, AccentPalette> = {
 
 let currentAccent: AccentKey = 'lime';
 
+// --- reactive accent subscription -------------------------------------------
+// Components that read the (mutated) `colors` object need a re-render signal
+// when the accent changes. `applyAccent` bumps a version and notifies every
+// `useAccent()` subscriber so already-mounted screens update in real time
+// (previously the theme only refreshed after a full app restart).
+let accentVersion = 0;
+const accentListeners = new Set<() => void>();
+
+function notifyAccentChange(): void {
+  accentVersion += 1;
+  accentListeners.forEach((l) => l());
+}
+
+/**
+ * Subscribe the calling component to accent changes — call it at the top of
+ * any screen/component that renders theme colors so it re-renders (and reads
+ * the fresh `colors.*` / `gradients.*` values) the moment the user picks a new
+ * accent, without needing a navigation or app restart.
+ */
+export function useAccent(): AccentKey {
+  useSyncExternalStore(
+    (cb) => {
+      accentListeners.add(cb);
+      return () => {
+        accentListeners.delete(cb);
+      };
+    },
+    () => accentVersion,
+    () => accentVersion,
+  );
+  return currentAccent;
+}
+
 /**
  * Swap the live accent family in place. Call before rendering so every
  * component — including those reading `colors.accent` during render — picks
@@ -89,6 +123,21 @@ export function applyAccent(key: AccentKey): void {
   colors.accentSoft2 = p.accentSoft2;
   gradients.accent = [p.gradient[0], p.gradient[1]];
   gradients.accentVertical = [p.gradient[0], p.gradient[1]];
+  gradients.hero = [accentTint(p.accent, 0.17), '#0A0B0D'];
+  notifyAccentChange();
+}
+
+/**
+ * A dark, near-black tint of a color — used as the base of subtle brand
+ * gradients (streak banners, hero cards) so they follow the selected accent
+ * instead of staying lime-green.
+ */
+export function accentTint(hex: string, amount = 0.16): string {
+  const r = parseInt(hex.slice(1, 3), 16) || 0;
+  const g = parseInt(hex.slice(3, 5), 16) || 0;
+  const b = parseInt(hex.slice(5, 7), 16) || 0;
+  const to2 = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+  return `#${to2(r * amount)}${to2(g * amount)}${to2(b * amount)}`;
 }
 
 export const colors = {
@@ -159,7 +208,7 @@ export const gradients = {
   purple: ['#C4B5FD', '#7C3AED'] as [string, string],
   surface: ['#1C2026', '#121417'] as [string, string],
   card: ['#1A1E24', '#121417'] as [string, string],
-  hero: ['#182A12', '#0A0B0D'] as [string, string],
+  hero: ['#182A12', '#0A0B0D'] as [string, string], // mutated live by applyAccent
   charcoal: ['#23282F', '#111316'] as [string, string],
   silhouette: ['#2C323B', '#191D23'] as [string, string],
 };

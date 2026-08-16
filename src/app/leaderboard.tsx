@@ -9,7 +9,7 @@ import { Avatar } from '../components/misc';
 import { Chip, Row, Screen, ScreenHeader } from '../components/ui';
 import { consistencyPct, currentStreak, detectPRs, progressScore, totalVolume, workoutsInLastDays } from '../lib/stats';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing } from '../theme';
+import { accentTint, colors, radius, spacing } from '../theme';
 import type { Friend } from '../types';
 
 const FILTERS = ['This Week', 'This Month', 'All Time'] as const;
@@ -47,7 +47,7 @@ export default function LeaderboardScreen() {
 
         {/* podium */}
         <View style={styles.podium}>
-          <LinearGradient colors={['#1C2317', '#111316']} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[accentTint(colors.accent, 0.17), '#111316']} style={StyleSheet.absoluteFill} />
           <View style={[styles.podiumGlow, { backgroundColor: `${colors.accent}14` }]} />
           <Row align="space-between">
             {ranked.slice(0, 3).map((f, i) => {

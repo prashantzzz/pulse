@@ -1,15 +1,15 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, gradients, radius, spacing } from '../theme';
-import type { WorkoutPlan } from '../types';
+import { accentTint, colors, gradients, radius, spacing } from '../theme';
+import type { Workout, WorkoutPlan } from '../types';
 import { T } from './Text';
 import { Row, Tag } from './ui';
-import { ExerciseThumb } from './muscle-icon';
+import { ExerciseThumb, planIcon } from './muscle-icon';
 import { EXERCISE_MAP } from '../data/exercises';
 import { workoutStats } from '../lib/stats';
-import type { Workout } from '../types';
 
 // ---------------------------------------------------------------------------
 // Plan card (Workouts tab)
@@ -24,40 +24,50 @@ export function PlanCard({
   onPress?: () => void;
   onStart?: () => void;
 }) {
-  const first = EXERCISE_MAP[plan.exercises[0]?.exerciseId];
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(plan.exercises.reduce((s, e) => s + e.sets * 3, 0) * 1.15 + 8);
 
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.planCard, pressed && { opacity: 0.9 }]}>
-      <View style={styles.planCardInner}>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Row gap={8}>
-            <T variant="h3">{plan.emoji} {plan.title}</T>
-            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
-          </Row>
-          <Row gap={6} wrap>
-            {plan.muscles.map((m) => (
-              <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
-            ))}
-          </Row>
-          <T variant="small" dim style={{ marginTop: 4 }}>
-            {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
+  // The card itself is intentionally inert (tapping a day must not start the
+  // timer) — only the Start button begins the workout.
+  const inner = (
+    <View style={styles.planCardInner}>
+      <View style={{ flex: 1, gap: 6 }}>
+        <Row gap={8}>
+          <MaterialCommunityIcons name={planIcon(plan.emoji)} size={18} color={colors.text} />
+          <T variant="h3" style={{ flex: 1 }} numberOfLines={1}>
+            {plan.title}
           </T>
-        </View>
-        {first ? (
-          <View style={{ alignItems: 'flex-end', gap: 8 }}>
-            <ExerciseThumb muscle={first.muscleGroup} size={52} />
-            <Pressable onPress={onStart} hitSlop={6} style={[styles.startBtn, { backgroundColor: colors.accent }]}>
-              <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
-                Start
-              </T>
-              <Ionicons name="play" size={12} color={colors.bg} />
-            </Pressable>
-          </View>
-        ) : null}
+          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
+        </Row>
+        <Row gap={6} wrap>
+          {plan.muscles.map((m) => (
+            <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
+          ))}
+        </Row>
+        <T variant="small" dim style={{ marginTop: 4 }}>
+          {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
+        </T>
       </View>
+      {onStart ? (
+        <Pressable
+          onPress={onStart}
+          hitSlop={6}
+          style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
+          <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
+            Start
+          </T>
+          <Ionicons name="play" size={12} color={colors.bg} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  return onPress ? (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.planCard, pressed && { opacity: 0.9 }]}>
+      {inner}
     </Pressable>
+  ) : (
+    <View style={styles.planCard}>{inner}</View>
   );
 }
 
@@ -132,7 +142,7 @@ export function TodayWorkoutCard({
 
   return (
     <View style={[styles.heroCard, { borderColor: `${colors.accent}2E` }]}>
-      <LinearGradient colors={['#1A2A10', '#0E1410', '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.16), '#0E1410', '#0A0B0D']} style={StyleSheet.absoluteFill} />
       <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
       <View style={{ padding: spacing.lg, gap: 10 }}>
         <Row align="space-between">

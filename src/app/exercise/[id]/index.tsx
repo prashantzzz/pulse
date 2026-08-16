@@ -9,9 +9,10 @@ import { T } from '../../../components/Text';
 import { Button, Card, Icon, Row, Screen, ScreenHeader, Tag } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { usePulse } from '../../../store/useStore';
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, useAccent } from '../../../theme';
 
 export default function ExerciseDetailScreen() {
+  useAccent();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const favorites = usePulse((s) => s.favorites);
@@ -54,9 +55,6 @@ export default function ExerciseDetailScreen() {
 
         <View style={{ paddingHorizontal: spacing.lg }}>
           <ExerciseAnimation exercise={exercise} height={240} />
-          <T variant="micro" muted style={{ fontSize: 10, marginTop: 4, textAlign: 'center' }}>
-            Animation: Gym Visual · exercises-dataset (free, MIT)
-          </T>
 
           <View style={{ marginTop: spacing.md, gap: 4 }}>
             <T variant="h2">{exercise.name}</T>

@@ -8,10 +8,10 @@ import { T } from '../../components/Text';
 import { AchievementBadge, Avatar } from '../../components/misc';
 import { Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
-import { currentStreak, detectPRs, longestStreak, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
+import { computeAchievements } from '../../lib/achievements';
+import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { colors, gradients, radius, spacing } from '../../theme';
-import type { IonName } from '../../components/ui';
+import { accentTint, colors, gradients, radius, spacing } from '../../theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -23,18 +23,9 @@ export default function ProfileScreen() {
   const volume = totalVolume(workouts);
   const sets = workouts.reduce((s, w) => s + workoutStats(w).sets, 0);
   const prCount = workouts.reduce((n, w) => n + detectPRs(w, workouts).length, 0);
-  const exercisesUsed = new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId))).size;
 
-  const achievements: { icon: IonName; title: string; desc: string; earned: boolean; progress?: number }[] = [
-    { icon: 'trophy', title: 'First PR', desc: 'Break your first record', earned: prCount > 0 },
-    { icon: 'barbell', title: '10 Workouts', desc: 'Complete 10 sessions', earned: workouts.length >= 10, progress: Math.min(1, workouts.length / 10) },
-    { icon: 'layers', title: '100 Sets', desc: 'Log 100 working sets', earned: sets >= 100, progress: Math.min(1, sets / 100) },
-    { icon: 'scale', title: '100K kg Lifted', desc: 'Move 100,000 kg total', earned: volume >= 100000, progress: Math.min(1, volume / 100000) },
-    { icon: 'flame', title: '30 Day Streak', desc: 'Train 30 days in a row', earned: longestStreak(workouts) >= 30, progress: Math.min(1, longestStreak(workouts) / 30) },
-    { icon: 'calendar', title: 'Consistency Master', desc: '4+ sessions/week for a month', earned: workouts.length >= 16, progress: Math.min(1, workouts.length / 16) },
-    { icon: 'star', title: '5 PRs', desc: 'Set 5 personal records', earned: prCount >= 5, progress: Math.min(1, prCount / 5) },
-    { icon: 'git-network', title: 'Exercise Variety', desc: 'Train with 12+ exercises', earned: exercisesUsed >= 12, progress: Math.min(1, exercisesUsed / 12) },
-  ];
+  // exercise-based achievements, shared with the full gallery
+  const achievements = computeAchievements(workouts);
 
   const byMuscle = volumeByMuscle(workouts, 60);
   const strongest = byMuscle[0];
@@ -44,7 +35,7 @@ export default function ProfileScreen() {
     <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
       {/* header */}
       <View style={styles.headerCard}>
-        <LinearGradient colors={['#182112', '#0D0F12']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[accentTint(colors.accent, 0.15), '#0D0F12']} style={StyleSheet.absoluteFill} />
         <View style={[styles.headerGlow, { backgroundColor: `${colors.accent}14` }]} />
         <Row align="space-between">
           <Avatar name={profile?.name ?? 'Athlete'} size={64} hue={90} showRing={streak > 0} />
@@ -157,7 +148,7 @@ export default function ProfileScreen() {
       {/* achievements */}
       <Section title="Achievements" action="View all" onAction={() => router.push('/achievements' as never)}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {achievements.slice(0, 4).map((a) => (
+          {achievements.slice(0, 8).map((a) => (
             <AchievementBadge key={a.title} icon={a.icon} title={a.title} desc={a.desc} earned={a.earned} progress={a.progress} />
           ))}
         </View>

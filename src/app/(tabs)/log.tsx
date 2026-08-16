@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -8,6 +9,7 @@ import { T } from '../../components/Text';
 import { BottomSheet } from '../../components/misc';
 import { Button, Icon, Row, Screen, Tag } from '../../components/ui';
 import { SEED_PLANS } from '../../data/seed';
+import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
 import { colors, gradients, radius, spacing } from '../../theme';
 import type { IonName } from '../../components/ui';
@@ -96,7 +98,7 @@ export default function LogScreen() {
                 onPress={() => begin(p)}
                 style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.85 }]}>
                 <View style={styles.planEmoji}>
-                  <T variant="h3">{p.emoji}</T>
+                  <MaterialCommunityIcons name={planIcon(p.emoji)} size={22} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <T variant="bodySemi">{p.title}</T>
