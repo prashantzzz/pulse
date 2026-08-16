@@ -1,0 +1,513 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+
+import { AccentPreview } from '../components/accent-preview';
+import { T } from '../components/Text';
+import { BottomSheet, toast } from '../components/misc';
+import { Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
+import { parseWorkoutsCsv, workoutsToCsv, type CsvImportResult } from '../lib/csv';
+import { workoutStats } from '../lib/stats';
+import { usePulse } from '../store/useStore';
+import { ACCENTS, colors, radius, spacing, type AccentKey } from '../theme';
+import type { Workout } from '../types';
+
+const ACCENT_ORDER = Object.keys(ACCENTS) as AccentKey[];
+
+export default function SettingsScreen() {
+  const profile = usePulse((s) => s.profile);
+  const setProfile = usePulse((s) => s.setProfile);
+  const accentKey = usePulse((s) => s.accentKey);
+  const setAccent = usePulse((s) => s.setAccent);
+  const workouts = usePulse((s) => s.workouts);
+  const importWorkouts = usePulse((s) => s.importWorkouts);
+  const resetDemo = usePulse((s) => s.resetDemo);
+  const clearAllData = usePulse((s) => s.clearAllData);
+  const [editName, setEditName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile?.name ?? '');
+  const [editGender, setEditGender] = useState(false);
+  const [editAccent, setEditAccent] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [unitsLb, setUnitsLb] = useState(false);
+  const [haptics, setHaptics] = useState(true);
+  const [autoRest, setAutoRest] = useState(true);
+  const [importPreview, setImportPreview] = useState<CsvImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const exportCSV = async () => {
+    if (workouts.length === 0) {
+      toast('No workouts to export yet');
+      return;
+    }
+    const csv = workoutsToCsv(workouts);
+    try {
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pulse-workouts.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        try {
+          await navigator.clipboard.writeText(csv);
+          toast(`Exported ${workouts.length} workouts · file downloaded & copied`);
+        } catch {
+          toast(`Exported ${workouts.length} workouts · file downloaded`);
+        }
+      } else {
+        const uri = `${FileSystem.cacheDirectory}pulse-workouts.csv`;
+        await FileSystem.writeAsStringAsync(uri, csv);
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Export workouts' });
+        } else {
+          await FileSystem.copyAsync({ from: uri, to: `${FileSystem.documentDirectory}pulse-workouts.csv` });
+          toast(`Saved ${workouts.length} workouts`);
+        }
+      }
+    } catch {
+      toast('Export failed');
+    }
+  };
+
+  const pickImport = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        fileInputRef.current?.click();
+      } else {
+        const res = await DocumentPicker.getDocumentAsync({
+          type: ['text/csv', 'text/comma-separated-values', 'application/csv'],
+          copyToCacheDirectory: true,
+        });
+        if (res.canceled || !res.assets?.length) return;
+        const text = await FileSystem.readAsStringAsync(res.assets[0].uri);
+        handleImported(text);
+      }
+    } catch {
+      toast('Import failed');
+    }
+  };
+
+  const handleImported = (text: string) => {
+    const result = parseWorkoutsCsv(text);
+    if (!result.workouts.length) {
+      toast('No workouts found in that file');
+      return;
+    }
+    setImportPreview(result);
+  };
+
+  const confirmImport = () => {
+    if (!importPreview) return;
+    importWorkouts(importPreview.workouts);
+    const n = importPreview.workouts.length;
+    setImportPreview(null);
+    toast(`${n} workout${n === 1 ? '' : 's'} imported`);
+  };
+
+  const previewSets = importPreview?.workouts.reduce((acc, w) => acc + w.exercises.reduce((a, e) => a + e.sets.length, 0), 0) ?? 0;
+
+  return (
+    <Screen scroll>
+      <ScreenHeader title="Settings" back />
+
+      <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            Profile
+          </T>
+          <Pressable onPress={() => setEditName(true)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="person-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">{profile?.name ?? 'Athlete'}</T>
+                <T variant="micro" muted>
+                  {profile?.experience} · {profile?.goal.join(', ')}
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable onPress={() => setEditGender(true)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="body-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Body model</T>
+                <T variant="micro" muted>
+                  Muscle map shows a {(profile?.gender ?? 'male') === 'male' ? 'male' : 'female'} figure
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            Appearance
+          </T>
+          <Pressable onPress={() => setEditAccent(true)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: ACCENTS[accentKey].accent }} />
+              </View>
+              <View>
+                <T variant="bodySemi">App color</T>
+                <T variant="micro" muted>
+                  {ACCENTS[accentKey].label} · dark-theme friendly
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            Training Preferences
+          </T>
+          <PrefRow label="Units" desc="Kilograms" right={<T variant="smallMedium" dim>kg / lb toggle soon</T>} onToggle={() => setUnitsLb((v) => !v)} switchValue={unitsLb} />
+          <PrefRow label="Auto-start rest timer" desc="After completing a set" onToggle={() => setAutoRest((v) => !v)} switchValue={autoRest} />
+          <PrefRow label="Haptic feedback" desc="Vibration on set completion" onToggle={() => setHaptics((v) => !v)} switchValue={haptics} />
+        </Card>
+
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            Your Data
+          </T>
+          <Pressable onPress={exportCSV} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="download-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Export CSV</T>
+                <T variant="micro" muted>
+                  {workouts.length} workouts · standard tracker format
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable onPress={pickImport} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="cloud-upload-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Import CSV</T>
+                <T variant="micro" muted>
+                  Bring in workouts from any tracker
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable onPress={resetDemo} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="refresh-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Reset demo data</T>
+                <T variant="micro" muted>
+                  Restore the sample training history
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable onPress={() => setConfirmClear(true)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: 'rgba(255,91,102,0.12)' }]}>
+                <Icon name="trash-outline" size={18} color={colors.red} />
+              </View>
+              <View>
+                <T variant="bodySemi" style={{ color: colors.red }}>
+                  Clear all data
+                </T>
+                <T variant="micro" muted>
+                  Start completely fresh
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            About
+          </T>
+          <Row align="space-between">
+            <Row gap={12}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="pulse" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">PULSE</T>
+                <T variant="micro" muted>
+                  v1.1.0 · Train smart. Get strong.
+                </T>
+              </View>
+            </Row>
+          </Row>
+        </Card>
+      </View>
+
+      {/* hidden web file input for CSV import */}
+      {Platform.OS === 'web' ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv,text/comma-separated-values"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              file
+                .text()
+                .then((text) => handleImported(text))
+                .catch(() => toast('Could not read that file'));
+            }
+            e.target.value = '';
+          }}
+        />
+      ) : null}
+
+      {/* edit app color */}
+      <BottomSheet visible={editAccent} onClose={() => setEditAccent(false)} title="App color">
+        <T variant="small" dim style={{ marginBottom: spacing.md }}>
+          Pick the accent that powers the whole app. Changes apply instantly.
+        </T>
+        <View style={styles.accentRow}>
+          {ACCENT_ORDER.map((k) => {
+            const sel = accentKey === k;
+            return (
+              <Pressable
+                key={k}
+                onPress={() => setAccent(k)}
+                accessibilityLabel={`${ACCENTS[k].label} accent`}
+                style={[styles.accentSwatchWrap, sel && styles.accentSwatchWrapSel]}>
+                <View style={[styles.accentSwatch, { backgroundColor: ACCENTS[k].accent }]}>
+                  {sel ? <Icon name="checkmark" size={16} color={colors.bg} /> : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+        <T variant="smallSemi" center style={{ marginTop: spacing.md, color: ACCENTS[accentKey].accent, textTransform: 'capitalize' }}>
+          {ACCENTS[accentKey].label}
+        </T>
+        <View style={{ marginTop: spacing.md }}>
+          <AccentPreview palette={ACCENTS[accentKey]} />
+        </View>
+      </BottomSheet>
+
+      {/* edit body model */}
+      <BottomSheet visible={editGender} onClose={() => setEditGender(false)} title="Body model">
+        <T variant="small" dim style={{ marginBottom: spacing.sm }}>
+          Used by the muscle map in Progress and exercise form guides.
+        </T>
+        {(['male', 'female'] as const).map((g) => (
+          <Pressable
+            key={g}
+            onPress={() => {
+              setProfile({ gender: g });
+              setEditGender(false);
+              toast(`Body model set to ${g}`);
+            }}
+            style={[styles.genderOption, (profile?.gender ?? 'male') === g && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}>
+            <Icon name={g === 'male' ? 'male' : 'female'} size={20} color={(profile?.gender ?? 'male') === g ? colors.accent : colors.textDim} />
+            <T variant="bodySemi" style={{ flex: 1, textTransform: 'capitalize' }}>
+              {g}
+            </T>
+            {(profile?.gender ?? 'male') === g ? <Icon name="checkmark-circle" size={20} color={colors.accent} /> : null}
+          </Pressable>
+        ))}
+      </BottomSheet>
+
+      {/* edit name */}
+      <BottomSheet visible={editName} onClose={() => setEditName(false)} title="Edit name">
+        <TextInput
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          placeholder="Your name"
+          placeholderTextColor={colors.textMuted}
+          style={styles.nameInput}
+        />
+        <Pressable
+          onPress={() => {
+            setProfile({ name: nameDraft.trim() || 'Athlete' });
+            setEditName(false);
+            toast('Profile updated');
+          }}
+          style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+          <T variant="bodySemi" style={{ color: colors.bg }}>
+            Save
+          </T>
+        </Pressable>
+      </BottomSheet>
+
+      {/* import preview */}
+      <BottomSheet visible={!!importPreview} onClose={() => setImportPreview(null)} title="Import workouts">
+        {importPreview ? (
+          <View style={{ gap: spacing.md }}>
+            <Row align="space-between" gap={8}>
+              <ImportStat value={`${importPreview.workouts.length}`} label="Workouts" />
+              <ImportStat value={`${previewSets}`} label="Sets" />
+              <ImportStat value={`${importPreview.newExercises.length}`} label="New exercises" />
+            </Row>
+            <View style={styles.previewList}>
+              {importPreview.workouts.slice(0, 5).map((w) => (
+                <Row key={w.id} align="space-between" style={{ paddingVertical: 6 }}>
+                  <T variant="bodySemi">{w.title}</T>
+                  <T variant="smallMedium" dim>
+                    {new Date(w.startTime).toLocaleDateString()}
+                  </T>
+                </Row>
+              ))}
+              {importPreview.workouts.length > 5 ? (
+                <T variant="micro" muted>
+                  + {importPreview.workouts.length - 5} more
+                </T>
+              ) : null}
+            </View>
+            {importPreview.newExercises.length > 0 ? (
+              <T variant="micro" dim>
+                {importPreview.newExercises.slice(0, 3).join(', ')}
+                {importPreview.newExercises.length > 3 ? ' …' : ''} added to your exercise library.
+              </T>
+            ) : null}
+            <Pressable onPress={confirmImport} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+              <T variant="bodySemi" style={{ color: colors.bg }}>
+                Import {importPreview.workouts.length} workout{importPreview.workouts.length === 1 ? '' : 's'}
+              </T>
+            </Pressable>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      {/* confirm clear */}
+      <BottomSheet visible={confirmClear} onClose={() => setConfirmClear(false)} title="Clear all data?">
+        <T variant="body" dim>
+          This removes every workout, measurement and achievement from this device. This can't be undone.
+        </T>
+        <Pressable
+          onPress={() => {
+            clearAllData();
+            setConfirmClear(false);
+            toast('All data cleared');
+          }}
+          style={[styles.saveBtn, { backgroundColor: colors.red, marginTop: spacing.lg }]}>
+          <T variant="bodySemi" style={{ color: colors.bg }}>
+            Yes, clear everything
+          </T>
+        </Pressable>
+      </BottomSheet>
+    </Screen>
+  );
+}
+
+function ImportStat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surface2, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' }}>
+      <T variant="h3" accent>
+        {value}
+      </T>
+      <T variant="micro" muted>
+        {label}
+      </T>
+    </View>
+  );
+}
+
+function PrefRow({ label, desc, switchValue, onToggle, right }: { label: string; desc: string; switchValue: boolean; onToggle: () => void; right?: React.ReactNode }) {
+  return (
+    <View style={[styles.settingRow, { alignItems: 'center' }]}>
+      <View style={{ flex: 1 }}>
+        <T variant="bodySemi">{label}</T>
+        <T variant="micro" muted>
+          {desc}
+        </T>
+      </View>
+      {right ?? <Switch value={switchValue} onValueChange={onToggle} trackColor={{ true: colors.accentDim, false: colors.surface4 }} thumbColor={switchValue ? colors.accent : colors.textMuted} />}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  settingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nameInput: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    color: colors.text,
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+  },
+  accentRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
+  accentSwatchWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  accentSwatchWrapSel: { borderColor: colors.text, transform: [{ scale: 1.06 }] },
+  accentSwatch: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  saveBtn: {
+    marginTop: spacing.md,
+    borderRadius: 999,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  previewList: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+});

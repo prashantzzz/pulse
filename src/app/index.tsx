@@ -1,98 +1,110 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { T } from '../components/Text';
+import { colors, gradients, type } from '../theme';
+import { usePulse } from '../store/useStore';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function SplashScreen() {
+  const router = useRouter();
+  const onboarded = usePulse((s) => s.onboarded);
+  const fade = useRef(new Animated.Value(0)).current;
+  const rise = useRef(new Animated.Value(24)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(rise, { toValue: 0, useNativeDriver: true, damping: 16, stiffness: 120 }),
+    ]).start();
+  }, [fade, rise]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [onboarded, router]);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+    <View style={styles.root}>
+      <LinearGradient colors={['#101509', '#0A0B0D', '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <View style={[styles.glowTop, { backgroundColor: `${colors.accent}12` }]} />
+      <View style={[styles.glowBottom, { backgroundColor: `${colors.accent}12` }]} />
+      <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>
+        {/* pulse mark */}
+        <View style={styles.logoWrap}>
+          <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 30 }]} />
+          <T variant="hero" style={{ color: colors.bg, fontSize: 34, lineHeight: 40 }}>
+            P
+          </T>
+        </View>
+        <T variant="hero" style={{ marginTop: 24, letterSpacing: 6, fontSize: 40 }}>
+          PULSE
+        </T>
+        <T variant="body" dim style={{ marginTop: 10, letterSpacing: 0.4 }}>
+          Train smart. Get strong. Stay consistent.
+        </T>
+      </Animated.View>
+      <View style={styles.footer}>
+        <View style={styles.loaderTrack}>
+          <Animated.View
+            style={[
+              styles.loaderFill,
+              { backgroundColor: colors.accent },
+              {
+                transform: [
+                  {
+                    scaleX: fade.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }),
+                  },
+                ],
+              },
+            ]}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        </View>
+        <T variant="micro" muted style={{ marginTop: 12 }}>
+          Your personal training companion
+        </T>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  root: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  glowTop: {
+    position: 'absolute',
+    top: -120,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  glowBottom: {
+    position: 'absolute',
+    bottom: -160,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: 'rgba(43,210,126,0.06)',
+  },
+  center: { alignItems: 'center' },
+  logoWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    overflow: 'hidden',
+    ...type.h1,
   },
-  title: {
-    textAlign: 'center',
+  footer: { position: 'absolute', bottom: 70, alignItems: 'center' },
+  loaderTrack: {
+    width: 120,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.surface3,
+    overflow: 'hidden',
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  loaderFill: { width: '100%', height: '100%', borderRadius: 2 },
 });

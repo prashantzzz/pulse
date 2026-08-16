@@ -1,18 +1,85 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Platform, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+// react-native-web dev mode logs `Received false for a non-boolean attribute
+// collapsable` for every RN Animated component. It is harmless and never
+// happens in production — filter it so the Expo dev overlay stays quiet.
+// Likewise, react-native-svg passes RNW responder props onto SVG DOM nodes on
+// web, and React DOM dev warns about each one (tap handling still works —
+// react-native-svg maps onPress to onClick on web).
+if (Platform.OS === 'web' && typeof console !== 'undefined' && __DEV__) {
+  const origError = console.error;
+  const svgResponderProps = ['onStartShouldSetResponder', 'onResponderTerminationRequest', 'onResponderGrant', 'onResponderMove', 'onResponderRelease', 'onResponderTerminate'];
+  console.error = (...args: unknown[]) => {
+    const first = typeof args[0] === 'string' ? args[0] : '';
+    const second = typeof args[1] === 'string' ? args[1] : '';
+    if (first.includes('non-boolean attribute') && (first.includes('collapsable') || first.includes('Received'))) return;
+    if (first.includes('Unknown event handler property') && svgResponderProps.includes(second)) return;
+    origError(...args);
+  };
+}
 
-SplashScreen.preventAutoHideAsync();
+import { ToastHost } from '../components/misc';
+import { applyAccent, colors } from '../theme';
+import { usePulse } from '../store/useStore';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+  const hydrated = usePulse((s) => s.hydrated);
+  const accentKey = usePulse((s) => s.accentKey);
+
+  // apply the user's accent palette before rendering so every component (and
+  // re-render) reads the current colors; subscribed above so switching the
+  // accent re-renders the whole tree with the new palette
+  applyAccent(accentKey);
+
+  if (!fontsLoaded || !hydrated) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <StatusBar style="light" />
+      </View>
+    );
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+          animation: 'slide_from_right',
+        }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="workout/[id]/summary" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="gym-mode" options={{ animation: 'fade' }} />
+      </Stack>
+      <ToastHost />
+    </GestureHandlerRootView>
   );
 }

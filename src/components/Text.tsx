@@ -1,0 +1,57 @@
+import { Text as RNText, type TextProps } from 'react-native';
+
+import { colors, type } from '../theme';
+
+export type TextVariant = keyof typeof type;
+
+export interface TextProps2 extends TextProps {
+  variant?: TextVariant;
+  color?: string;
+  /** dim secondary color */
+  dim?: boolean;
+  muted?: boolean;
+  accent?: boolean;
+  center?: boolean;
+  weight?: 'regular' | 'medium' | 'semibold' | 'bold';
+}
+
+const weightMap = {
+  regular: { fontWeight: '400' },
+  medium: { fontWeight: '500' },
+  semibold: { fontWeight: '600' },
+  bold: { fontWeight: '700' },
+} as const;
+
+export function T({
+  variant = 'body',
+  color,
+  dim,
+  muted,
+  accent,
+  center,
+  weight,
+  style,
+  children,
+  ...rest
+}: TextProps2) {
+  return (
+    <RNText
+      style={[
+        type[variant],
+        // PULSE is a dark theme — light text is the default so no text ever
+        // renders invisible on a dark surface. Override with dim/muted/accent
+        // or an explicit `color` (e.g. dark text on lime buttons).
+        { color: colors.text },
+        dim && { color: colors.textDim },
+        muted && { color: colors.textMuted },
+        accent && { color: colors.accent },
+        color && { color },
+        center && { textAlign: 'center' },
+        weight && weightMap[weight],
+        style,
+      ]}
+      {...rest}>
+      {children}
+    </RNText>
+  );
+}
