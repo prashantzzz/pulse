@@ -39,7 +39,7 @@ export default function LeaderboardScreen() {
   return (
     <Screen scroll>
       <ScreenHeader title="Leaderboard" subtitle={`You're ranked #${myRank}`} back />
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View>
         <Row gap={8}>
           {FILTERS.map((f) => (
             <Chip key={f} label={f} selected={filter === f} onPress={() => setFilter(f)} />

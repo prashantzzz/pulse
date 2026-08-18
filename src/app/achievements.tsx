@@ -19,7 +19,7 @@ export default function AchievementsScreen() {
     <Screen scroll>
       <ScreenHeader title="Achievements" subtitle={`${earnedCount} of ${all.length} unlocked`} back />
 
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View>
         <Card style={{ padding: spacing.md }}>
           <T variant="h3" style={{ marginBottom: 2 }}>
             {earnedCount}/{all.length}

@@ -125,7 +125,7 @@ export default function ActiveWorkoutScreen() {
         </T>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 150, paddingTop: spacing.sm }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: 150, paddingTop: spacing.sm }}>
         {workout.exercises.map((we) => {
           const ex = EXERCISE_MAP[we.exerciseId];
           if (!ex) return null;

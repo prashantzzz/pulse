@@ -34,7 +34,7 @@ export default function MeasureScreen() {
   return (
     <Screen scroll>
       <ScreenHeader title="Body Measurement" subtitle="Track the changes that matter" back />
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View style={{ gap: spacing.md }}>
         <Card style={{ padding: spacing.lg, gap: spacing.xl }}>
           <Field label="Weight (kg)" value={weight} onChange={setWeight} step={0.5} decimals={1} />
           <Field label="Body fat (%)" value={bodyFat} onChange={setBodyFat} step={0.5} decimals={1} />

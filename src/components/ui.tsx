@@ -159,12 +159,42 @@ export function Segmented<T extends string>({
   value,
   onChange,
   style,
+  scrollable,
 }: {
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
   style?: StyleProp<ViewStyle>;
+  scrollable?: boolean;
 }) {
+  if (scrollable || options.length > 4) {
+    return (
+      <View style={{ marginHorizontal: -spacing.md, paddingHorizontal: spacing.md }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.segmentedScroll, style]}>
+          {options.map((opt) => {
+            const active = opt === value;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => onChange(opt)}
+                style={[styles.segmentScrollItem, active && { backgroundColor: colors.accent }]}>
+                <T
+                  variant="smallSemi"
+                  numberOfLines={1}
+                  style={{ color: active ? colors.bg : colors.textDim, fontSize: 13 }}>
+                  {opt}
+                </T>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.segmented, style]}>
       {options.map((opt) => {
@@ -176,6 +206,7 @@ export function Segmented<T extends string>({
             style={[styles.segment, active && { backgroundColor: colors.accent }]}>
             <T
               variant="smallSemi"
+              numberOfLines={1}
               style={{ color: active ? colors.bg : colors.textDim, fontSize: 12.5 }}>
               {opt}
             </T>
@@ -271,7 +302,7 @@ export function ScreenHeader({
   onRight,
   titleColor,
 }: {
-  title: string;
+  title?: string;
   subtitle?: string;
   back?: boolean;
   right?: IonName;
@@ -286,14 +317,16 @@ export function ScreenHeader({
       <View style={styles.headerSide}>
         {back ? (
           <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Go back">
-            <Icon name="chevron-back" size={22} />
+            <Icon name="chevron-back" size={22} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
       <View style={styles.headerCenter}>
-        <T variant="h2" style={{ color: titleColor, textAlign: 'center' }} numberOfLines={1}>
-          {title}
-        </T>
+        {title ? (
+          <T variant="h2" style={{ color: titleColor ?? colors.text, textAlign: 'center' }} numberOfLines={1}>
+            {title}
+          </T>
+        ) : null}
         {subtitle ? (
           <T variant="small" dim center style={{ marginTop: 2 }}>
             {subtitle}
@@ -303,7 +336,7 @@ export function ScreenHeader({
       <View style={styles.headerSide}>
         {right ? (
           <Pressable onPress={onRight} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={rightLabel}>
-            <Icon name={right} size={22} />
+            <Icon name={right} size={22} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -490,6 +523,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
   },
+  segmentedScroll: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface2,
+    borderRadius: radius.pill,
+    padding: 4,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segmentScrollItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   card: {
     backgroundColor: colors.surface,
@@ -504,7 +553,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   // non-scroll screens that own an inner ScrollView need a bounded height
   screenBody: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
 
   header: {
     flexDirection: 'row',

@@ -29,7 +29,7 @@ export default function ChallengeScreen() {
     <Screen scroll>
       <ScreenHeader title="Friend Challenge" subtitle="Turn training into friendly rivalry" back />
 
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View>
         <T variant="label" dim style={{ marginBottom: spacing.sm }}>
           Choose a challenge
         </T>

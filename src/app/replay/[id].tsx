@@ -43,7 +43,7 @@ export default function ReplayScreen() {
     <Screen scroll>
       <ScreenHeader title="Workout Replay" subtitle={formatDate(workout.startTime)} back />
 
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View>
         <Card gradient="charcoal" style={{ padding: spacing.lg }}>
           <Row align="space-between">
             <View style={{ flex: 1 }}>

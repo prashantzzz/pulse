@@ -48,7 +48,13 @@ function PulseTabBar({
   const router = useRouter();
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View
+      style={[
+        styles.bar,
+        {
+          marginBottom: Math.max(insets.bottom, 12),
+        },
+      ]}>
       {TAB_META.map((tab, i) => {
         const focused = state.index === i;
         const isCenter = tab.name === 'log';
@@ -125,14 +131,22 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 24,
+    marginHorizontal: 16,
     paddingTop: 10,
+    paddingBottom: 10,
     paddingHorizontal: 8,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
   },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   iconWrap: {

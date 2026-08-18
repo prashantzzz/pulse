@@ -89,7 +89,7 @@ export default function LogSetScreen() {
       <Screen scroll contentStyle={{ paddingBottom: 160 }}>
         <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back />
 
-        <View style={{ paddingHorizontal: spacing.lg }}>
+        <View>
           <Card gradient="charcoal" style={{ padding: spacing.md }}>
             <Row gap={12}>
               <Icon name="barbell-outline" size={20} color={colors.accent} />

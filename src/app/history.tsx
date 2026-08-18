@@ -36,7 +36,7 @@ export default function HistoryScreen() {
           <Chip key={f} label={f} selected={filter === f} onPress={() => setFilter(f)} />
         ))}
       </ScrollView>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 40, gap: spacing.sm }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: 40, gap: spacing.sm }}>
         {filtered.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
