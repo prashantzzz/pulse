@@ -1,19 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';import { SEED_FAVORITES,
+import { createJSONStorage, persist } from 'zustand/middleware';
+import {
+  SEED_FAVORITES,
   SEED_FRIENDS,
   SEED_MEASUREMENTS,
   SEED_PROFILE,
   SEED_WORKOUTS,
 } from '../data/seed';
-import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
 import type {
   ActiveWorkout,
   BodyMeasurement,
   ExerciseSet,
   Friend,
+  ManualPR,
   UserProfile,
   Workout,
   WorkoutExercise,
@@ -36,6 +38,8 @@ interface PulseState {
   measurements: BodyMeasurement[];
   favorites: string[];
   friends: Friend[];
+  /** personal records logged manually (outside a session) */
+  manualPRs: ManualPR[];
   activeWorkout: ActiveWorkout | null;
 
   setHydrated: () => void;
@@ -52,12 +56,19 @@ interface PulseState {
   /** Patch a set within the active workout */
   patchSet: (exerciseId: string, setId: string, patch: Partial<ExerciseSet>) => void;
   completeSet: (exerciseId: string, setId: string) => void;
+  /** Freeze the workout's elapsed timer; the elapsed time is captured so it survives navigation */
+  pauseActiveWorkout: () => void;
+  /** Un-pause by shifting startTime forward by the paused duration */
+  resumeActiveWorkout: () => void;
+  /** Discard the active workout entirely */
   cancelActiveWorkout: () => void;
   /** Finalize active workout into history; returns the finished workout */
   finishWorkout: () => Workout | null;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
   addMeasurement: (m: BodyMeasurement) => void;
+  addManualPR: (pr: Omit<ManualPR, 'id'>) => void;
+  removeManualPR: (id: string) => void;
   /** Merge CSV-imported workouts (deduped by title+start time) */
   importWorkouts: (imported: Workout[]) => void;
   resetDemo: () => void;
@@ -76,6 +87,7 @@ export const usePulse = create<PulseState>()(
       measurements: [],
       favorites: [],
       friends: [],
+      manualPRs: [],
       activeWorkout: null,
 
       setHydrated: () => set({ hydrated: true }),
@@ -118,7 +130,6 @@ export const usePulse = create<PulseState>()(
           endTime: now.toISOString(),
           source: 'user',
           exercises: specs.map((spec, i) => {
-            const ex = EXERCISE_MAP[spec.exerciseId];
             const sets: ExerciseSet[] = Array.from({ length: spec.sets }, (_, si) => ({
               id: genId('s'),
               setIndex: si + 1,
@@ -186,14 +197,48 @@ export const usePulse = create<PulseState>()(
           };
         }),
 
+      pauseActiveWorkout: () =>
+        set((s) => {
+          if (!s.activeWorkout || s.activeWorkout.paused) return s;
+          return {
+            activeWorkout: {
+              ...s.activeWorkout,
+              paused: true,
+              pausedAt: new Date().toISOString(),
+            },
+          };
+        }),
+
+      resumeActiveWorkout: () =>
+        set((s) => {
+          const aw = s.activeWorkout;
+          if (!aw || !aw.paused || !aw.pausedAt) return s;
+          // shift startTime forward by the paused duration so every existing
+          // `now - startTime` calculation keeps working unchanged
+          const pausedMs = Date.now() - new Date(aw.pausedAt).getTime();
+          return {
+            activeWorkout: {
+              ...aw,
+              paused: false,
+              pausedAt: null,
+              startTime: new Date(new Date(aw.startTime).getTime() + pausedMs).toISOString(),
+            },
+          };
+        }),
+
       cancelActiveWorkout: () => set({ activeWorkout: null }),
 
       finishWorkout: () => {
         const { activeWorkout } = get();
         if (!activeWorkout) return null;
+        // when finishing while paused, end the workout at the pause moment so
+        // the recorded duration matches the displayed (frozen) elapsed time
+        const end = activeWorkout.paused ? (activeWorkout.pausedAt ?? new Date().toISOString()) : new Date().toISOString();
         const finished: Workout = {
           ...activeWorkout,
-          endTime: new Date().toISOString(),
+          paused: undefined,
+          pausedAt: undefined,
+          endTime: end,
         };
         set((s) => ({
           workouts: [...s.workouts, finished],
@@ -220,6 +265,14 @@ export const usePulse = create<PulseState>()(
 
       addMeasurement: (m) => set((s) => ({ measurements: [...s.measurements, m] })),
 
+      addManualPR: (pr) =>
+        set((s) => ({
+          manualPRs: [{ id: genId('pr'), ...pr }, ...s.manualPRs],
+        })),
+
+      removeManualPR: (id) =>
+        set((s) => ({ manualPRs: s.manualPRs.filter((p) => p.id !== id) })),
+
       importWorkouts: (imported) =>
         set((s) => {
           const existing = new Set(s.workouts.map((w) => `${w.title}|${w.startTime}`));
@@ -245,6 +298,7 @@ export const usePulse = create<PulseState>()(
           measurements: SEED_MEASUREMENTS,
           favorites: SEED_FAVORITES,
           friends: SEED_FRIENDS,
+          manualPRs: [],
           activeWorkout: null,
           onboarded: true,
           seeded: true,
@@ -256,6 +310,7 @@ export const usePulse = create<PulseState>()(
           measurements: [],
           favorites: [],
           friends: [],
+          manualPRs: [],
           activeWorkout: null,
           profile: null,
           onboarded: false,
@@ -274,6 +329,7 @@ export const usePulse = create<PulseState>()(
         measurements: s.measurements,
         favorites: s.favorites,
         friends: s.friends,
+        manualPRs: s.manualPRs,
         activeWorkout: s.activeWorkout,
       }),
       onRehydrateStorage: () => (state) => {

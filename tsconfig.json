@@ -15,5 +15,5 @@
     "**/*.ts",
     "**/*.tsx"
   ],
-  "exclude": ["scripts", "node_modules"]
+  "exclude": ["scripts", "node_modules", "**/__tests__/**"]
 }

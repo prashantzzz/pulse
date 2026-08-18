@@ -15,13 +15,14 @@ type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 const MUSCLE_ICONS: Record<MuscleGroup, MciName> = {
   Chest: 'human-handsup',
   Back: 'human-male',
-  Legs: 'run',
   Shoulders: 'weight-lifter',
   Biceps: 'arm-flex-outline',
   Triceps: 'arm-flex',
-  Core: 'ab-testing',
-  Calves: 'run-fast',
+  Quads: 'human',
+  Hamstrings: 'human-female',
   Glutes: 'gymnastics',
+  Calves: 'run-fast',
+  Core: 'ab-testing',
   Forearms: 'dumbbell',
   Cardio: 'heart-pulse',
 };
@@ -46,18 +47,19 @@ export function planIcon(emoji: string): MciName {
 const GROUP_GRADIENT: Record<MuscleGroup, keyof typeof gradients> = {
   Chest: 'accentVertical',
   Back: 'teal',
-  Legs: 'emerald',
   Shoulders: 'cyan',
   Biceps: 'gold',
   Triceps: 'purple',
-  Core: 'orange',
-  Calves: 'emerald',
+  Quads: 'emerald',
+  Hamstrings: 'cyan',
   Glutes: 'purple',
+  Calves: 'emerald',
+  Core: 'orange',
   Forearms: 'gold',
   Cardio: 'red',
 };
 
-export function MuscleGlyph({ muscle, size = 34, color = '#0A0B0D' }: { muscle: MuscleGroup; size?: number; color?: string }) {
+export function MuscleGlyph({ muscle, size = 34, color = colors.bg }: { muscle: MuscleGroup; size?: number; color?: string }) {
   return <MaterialCommunityIcons name={muscleIcon(muscle)} size={size} color={color} />;
 }
 

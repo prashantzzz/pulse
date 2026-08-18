@@ -3,7 +3,7 @@
  * The accent family (accent/accentSoft/gradients) is user-selectable;
  * the rest of the palette is fixed.
  */
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 import { useSyncExternalStore } from 'react';
 
 export type AccentKey = 'lime' | 'lavender' | 'mint' | 'sky' | 'teal' | 'coral' | 'rose' | 'gold';
@@ -175,6 +175,14 @@ export const colors = {
   // Chart series
   chart: ['#B8FF20', '#2BD27E', '#2FD8D0', '#38BDF8', '#A78BFA', '#FF9F43', '#FF5B66', '#FFC53D'],
 
+  // Soft translucent tints for status colors (mirror the accentSoft pattern)
+  dangerSoft: 'rgba(255, 91, 102, 0.15)',
+  dangerSoft2: 'rgba(255, 91, 102, 0.12)',
+  goldSoft: 'rgba(255, 197, 61, 0.12)',
+  tealSoft: 'rgba(47, 216, 208, 0.12)',
+  cyanSoft: 'rgba(56, 189, 248, 0.12)',
+  emeraldSoft: 'rgba(43, 210, 126, 0.12)',
+
   // Fitness zone colors (muscle heatmap)
   zoneWell: '#2BD27E',
   zoneMod: '#FFC53D',
@@ -225,8 +233,6 @@ export const fonts = {
   bodySemi: 'Inter_600SemiBold',
   bodyBold: 'Inter_700Bold',
 } as const;
-
-import type { TextStyle } from 'react-native';
 
 export const type: Record<string, TextStyle> = {
   /** App name / massive numbers */

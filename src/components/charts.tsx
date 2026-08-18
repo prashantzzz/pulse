@@ -72,16 +72,27 @@ export function LineChart({
   const min = Math.min(0, baseline);
   const range = max - min || 1;
 
+  // Every data index maps to a fixed slot across the full time range, so a
+  // point is drawn at its real position on the x-axis. Zero values mean "no
+  // data that period" — they're gaps, not dips: the line breaks there, no dot
+  // is drawn, and the neighboring weeks don't get connected across the gap.
   const pts = data.map((v, i) => ({
     x: padX + (i / Math.max(1, data.length - 1)) * (width - padX * 2),
     y: padTop + (1 - (v - min) / range) * (height - padTop - padBottom),
   }));
 
-  const line = smoothPath(pts);
-  const area =
-    pts.length > 1
-      ? `${line} L ${pts[pts.length - 1].x} ${height - padBottom} L ${pts[0].x} ${height - padBottom} Z`
-      : '';
+  // contiguous runs of non-zero indices → one line segment each
+  const segments: number[][] = [];
+  let run: number[] = [];
+  data.forEach((v, i) => {
+    if (v > 0) run.push(i);
+    else if (run.length) {
+      segments.push(run);
+      run = [];
+    }
+  });
+  if (run.length) segments.push(run);
+  const lineSegs = segments.filter((s) => s.length > 1);
 
   const gridLines = [0.25, 0.5, 0.75].map((f) => padTop + f * (height - padTop - padBottom));
 
@@ -104,12 +115,23 @@ export function LineChart({
             />
           ))
         : null}
-      {area ? <Path d={area} fill="url(#linefill)" /> : null}
-      <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      {lineSegs.map((seg, si) => {
+        const segPts = seg.map((i) => pts[i]);
+        const line = smoothPath(segPts);
+        const area = `${line} L ${segPts[segPts.length - 1].x} ${height - padBottom} L ${segPts[0].x} ${height - padBottom} Z`;
+        return (
+          <g key={si}>
+            <Path d={area} fill="url(#linefill)" />
+            <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          </g>
+        );
+      })}
       {showDots
-        ? pts.map((p, i) => (
-            <Circle key={i} cx={p.x} cy={p.y} r={3.2} fill={colors.bg} stroke={color} strokeWidth={2} />
-          ))
+        ? pts.map((p, i) =>
+            data[i] > 0 ? (
+              <Circle key={i} cx={p.x} cy={p.y} r={3.2} fill={colors.bg} stroke={color} strokeWidth={2} />
+            ) : null,
+          )
         : null}
       {labels
         ? labels.map((l, i) =>
@@ -234,7 +256,18 @@ export function DonutChart({
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
-  let acc = 0;
+  // Precompute each segment's stroke offset so no variable is mutated during
+  // render (offset = circumference - accumulated arc length - segment length).
+  const { offsets } = segments.reduce(
+    (state, seg) => {
+      const frac = seg.value / total;
+      const len = Math.max(0, c * frac - (gap > 0 ? c * gap : 0));
+      state.offsets.push(c - state.acc - len);
+      state.acc += c * frac;
+      return state;
+    },
+    { acc: 0, offsets: [] as number[] },
+  );
 
   return (
     <Svg width={size} height={size}>
@@ -244,8 +277,7 @@ export function DonutChart({
         {segments.map((seg, i) => {
           const frac = seg.value / total;
           const len = Math.max(0, c * frac - (gap > 0 ? c * gap : 0));
-          const offset = c - acc - len;
-          acc += c * frac;
+          const offset = offsets[i];
           return (
             <Circle
               key={i}

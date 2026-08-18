@@ -2,19 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { Avatar } from '../components/misc';
 import { Chip, Row, Screen, ScreenHeader } from '../components/ui';
 import { consistencyPct, currentStreak, detectPRs, progressScore, totalVolume, workoutsInLastDays } from '../lib/stats';
 import { usePulse } from '../store/useStore';
-import { accentTint, colors, radius, spacing } from '../theme';
+import { accentTint, colors, radius, spacing, useAccent } from '../theme';
 import type { Friend } from '../types';
 
 const FILTERS = ['This Week', 'This Month', 'All Time'] as const;
 
 export default function LeaderboardScreen() {
+  useAccent();
   const router = useRouter();
   const friends = usePulse((s) => s.friends);
   const workouts = usePulse((s) => s.workouts);
@@ -47,7 +48,7 @@ export default function LeaderboardScreen() {
 
         {/* podium */}
         <View style={styles.podium}>
-          <LinearGradient colors={[accentTint(colors.accent, 0.17), '#111316']} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
           <View style={[styles.podiumGlow, { backgroundColor: `${colors.accent}14` }]} />
           <Row align="space-between">
             {ranked.slice(0, 3).map((f, i) => {

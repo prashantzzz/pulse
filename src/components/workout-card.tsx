@@ -1,7 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
 import { accentTint, colors, gradients, radius, spacing } from '../theme';
 import type { Workout, WorkoutPlan } from '../types';
@@ -9,65 +10,115 @@ import { T } from './Text';
 import { Row, Tag } from './ui';
 import { ExerciseThumb, planIcon } from './muscle-icon';
 import { EXERCISE_MAP } from '../data/exercises';
+import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { workoutStats } from '../lib/stats';
 
 // ---------------------------------------------------------------------------
 // Plan card (Workouts tab)
 // ---------------------------------------------------------------------------
 
-export function PlanCard({
-  plan,
-  onPress,
-  onStart,
-}: {
-  plan: WorkoutPlan;
-  onPress?: () => void;
-  onStart?: () => void;
-}) {
+/**
+ * A plan day card. Tapping the card expands/collapses the exercise list with a
+ * smooth height animation; the Start button is independent and launches the
+ * workout (and its timer) directly.
+ */
+export function PlanCard({ plan, onStart }: { plan: WorkoutPlan; onStart?: () => void }) {
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(plan.exercises.reduce((s, e) => s + e.sets * 3, 0) * 1.15 + 8);
+  const [open, setOpen] = useState(false);
+  const openAnim = useAnimatedValue(0);
+  const [contentH, setContentH] = useState(0);
 
-  // The card itself is intentionally inert (tapping a day must not start the
-  // timer) — only the Start button begins the workout.
-  const inner = (
-    <View style={styles.planCardInner}>
-      <View style={{ flex: 1, gap: 6 }}>
-        <Row gap={8}>
-          <MaterialCommunityIcons name={planIcon(plan.emoji)} size={18} color={colors.text} />
-          <T variant="h3" style={{ flex: 1 }} numberOfLines={1}>
-            {plan.title}
-          </T>
-          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
-        </Row>
-        <Row gap={6} wrap>
-          {plan.muscles.map((m) => (
-            <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
-          ))}
-        </Row>
-        <T variant="small" dim style={{ marginTop: 4 }}>
-          {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
-        </T>
-      </View>
-      {onStart ? (
-        <Pressable
-          onPress={onStart}
-          hitSlop={6}
-          style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
-          <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
-            Start
-          </T>
-          <Ionicons name="play" size={12} color={colors.bg} />
-        </Pressable>
-      ) : null}
+  useEffect(() => {
+    Animated.timing(openAnim, {
+      toValue: open ? 1 : 0,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [open, openAnim]);
+
+  return (
+    <View style={styles.planCard}>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        accessibilityLabel={`${plan.title}, ${plan.exercises.length} exercises`}
+        accessibilityState={{ expanded: open }}
+        // note: no accessibilityRole here — the Start button below is nested
+        // inside this pressable, and two HTML <button> roles would be invalid
+        style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+        <View style={styles.planCardInner}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Row gap={8}>
+              <MaterialCommunityIcons name={planIcon(plan.emoji)} size={18} color={colors.text} />
+              <T variant="h3" style={{ flex: 1 }} numberOfLines={1}>
+                {plan.title}
+              </T>
+              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+            </Row>
+            <Row gap={6} wrap>
+              {plan.muscles.map((m) => (
+                <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
+              ))}
+            </Row>
+            <T variant="small" dim style={{ marginTop: 4 }}>
+              {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
+            </T>
+          </View>
+          {onStart ? (
+            <Pressable
+              onPress={onStart}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Start ${plan.title} workout`}
+              style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
+              <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
+                Start
+              </T>
+              <Ionicons name="play" size={12} color={colors.bg} />
+            </Pressable>
+          ) : null}
+        </View>
+      </Pressable>
+
+      {/* expandable exercise list — always rendered so height can be measured,
+          clipped and animated by the wrapper */}
+      <Animated.View
+        accessibilityElementsHidden={!open}
+        importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
+        aria-hidden={!open}
+        style={{
+          height: openAnim.interpolate({ inputRange: [0, 1], outputRange: [0, contentH] }),
+          opacity: openAnim,
+          overflow: 'hidden',
+        }}>
+        <View
+          onLayout={(e) => setContentH(e.nativeEvent.layout.height)}
+          style={styles.expandWrap}>
+          <View style={styles.exDivider} />
+          {plan.exercises.map((spec) => {
+            const ex = EXERCISE_MAP[spec.exerciseId];
+            if (!ex) return null;
+            return (
+              <View key={spec.exerciseId} style={styles.exRow}>
+                <ExerciseThumb muscle={ex.muscleGroup} size={30} />
+                <View style={{ flex: 1 }}>
+                  <T variant="smallSemi" numberOfLines={1}>
+                    {ex.name}
+                  </T>
+                  <T variant="micro" muted>
+                    {ex.equipment} · {ex.muscleGroup}
+                  </T>
+                </View>
+                <T variant="smallMedium" dim>
+                  {spec.sets} × {spec.targetReps}
+                </T>
+              </View>
+            );
+          })}
+        </View>
+      </Animated.View>
     </View>
-  );
-
-  return onPress ? (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.planCard, pressed && { opacity: 0.9 }]}>
-      {inner}
-    </Pressable>
-  ) : (
-    <View style={styles.planCard}>{inner}</View>
   );
 }
 
@@ -142,7 +193,7 @@ export function TodayWorkoutCard({
 
   return (
     <View style={[styles.heroCard, { borderColor: `${colors.accent}2E` }]}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.16), '#0E1410', '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.16), '#0E1410', colors.bg]} style={StyleSheet.absoluteFill} />
       <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
       <View style={{ padding: spacing.lg, gap: 10 }}>
         <Row align="space-between">
@@ -220,6 +271,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
+  },
+  expandWrap: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    gap: 2,
+  },
+  exDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  exRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 6,
   },
 
   historyCard: {

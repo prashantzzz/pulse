@@ -25,7 +25,6 @@ import type {
   MuscleGroup,
   SetType,
   Workout,
-  WorkoutExercise,
 } from '../types';
 
 export const CSV_HEADER =
@@ -166,10 +165,10 @@ function inferFromName(name: string): {
   const equipment = eqMatch ? eqMatch[0] : 'Bodyweight';
 
   if (/(squat|legpress|lunge)/.test(n)) {
-    muscleGroup = 'Legs'; movement = 'Legs'; region = 'Lower';
-    animation = n.includes('lunge') ? 'lunge' : n.includes('legpress') ? 'squat' : 'squat';
-  } else if (/(deadlift|rdl|hipthrust|glute)/.test(n)) {
-    muscleGroup = n.includes('glute') ? 'Glutes' : 'Legs';
+    muscleGroup = 'Quads'; movement = 'Legs'; region = 'Lower';
+    animation = n.includes('lunge') ? 'lunge' : 'squat';
+  } else if (/(deadlift|rdl|hipthrust|glute|legcurl|hamstring)/.test(n)) {
+    muscleGroup = n.includes('glute') ? 'Glutes' : 'Hamstrings';
     movement = 'Legs'; region = 'Lower'; animation = 'deadlift';
   } else if (/(calf|raise|heel)/.test(n)) {
     muscleGroup = 'Calves'; movement = 'Legs'; region = 'Lower'; animation = 'calf'; type = 'Isolation';

@@ -210,21 +210,6 @@ const lunge: FigureAnim = {
 
 // ----------------------------------------------------------------- SIDE VIEW
 
-/** Neutral standing (side) */
-const neutralSide: Pose = {
-  joints: {
-    head: F(56, 11),
-    neck: F(56, 19),
-    shoulder: F(56, 25),
-    elbow: F(64, 37),
-    wrist: F(64, 51),
-    hip: F(52, 57),
-    knee: F(52, 90),
-    ankle: F(54, 120),
-    foot: F(64, 120),
-  },
-};
-
 /** Bench press — lying on a bench (side view) */
 const bench: FigureAnim = {
   view: 'side',

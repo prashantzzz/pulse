@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import {
   Animated,
   Pressable,
@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, gradients, radius, shadows, spacing, type, useAccent } from '../theme';
+import { useAnimatedValue } from '../lib/useAnimatedValue';
+import { colors, gradients, radius, shadows, spacing, useAccent } from '../theme';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -64,7 +65,7 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   full?: boolean;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useAnimatedValue(1);
   const pressIn = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 40 }).start();
   const pressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40 }).start();
 
@@ -239,8 +240,8 @@ export function Screen({
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
 }) {
-  // re-render this screen's whole subtree the moment the accent changes so
-  // every `colors.*` / `gradients.*` read below picks up the new theme live
+  // re-render on accent change; the screen component itself also subscribes
+  // (see useAccent) so its `children` elements are recreated with fresh colors
   useAccent();
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
@@ -248,6 +249,7 @@ export function Screen({
     <SafeAreaView style={[styles.screen, style]} edges={edges}>
       <Wrapper
         {...(scrollProps ?? {})}
+        style={scroll ? undefined : styles.screenBody}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           { paddingBottom: insets.bottom + 40 },
@@ -265,6 +267,7 @@ export function ScreenHeader({
   subtitle,
   back,
   right,
+  rightLabel = 'Action',
   onRight,
   titleColor,
 }: {
@@ -272,6 +275,8 @@ export function ScreenHeader({
   subtitle?: string;
   back?: boolean;
   right?: IonName;
+  /** accessibility label for the right-hand icon button */
+  rightLabel?: string;
   onRight?: () => void;
   titleColor?: string;
 }) {
@@ -280,7 +285,7 @@ export function ScreenHeader({
     <View style={styles.header}>
       <View style={styles.headerSide}>
         {back ? (
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerBtn}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Go back">
             <Icon name="chevron-back" size={22} />
           </Pressable>
         ) : null}
@@ -297,7 +302,7 @@ export function ScreenHeader({
       </View>
       <View style={styles.headerSide}>
         {right ? (
-          <Pressable onPress={onRight} hitSlop={10} style={styles.headerBtn}>
+          <Pressable onPress={onRight} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel={rightLabel}>
             <Icon name={right} size={22} />
           </Pressable>
         ) : null}
@@ -497,6 +502,8 @@ const styles = StyleSheet.create({
   cardGradient: { backgroundColor: 'transparent', borderColor: 'transparent' },
 
   screen: { flex: 1, backgroundColor: colors.bg },
+  // non-scroll screens that own an inner ScrollView need a bounded height
+  screenBody: { flex: 1 },
   scrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
 
   header: {

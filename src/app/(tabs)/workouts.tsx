@@ -5,14 +5,15 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { EmptyState } from '../../components/misc';
-import { Button, Icon, Row, Screen, Segmented } from '../../components/ui';
+import { Button, Row, Screen, Segmented } from '../../components/ui';
 import { PlanCard } from '../../components/workout-card';
 import { SEED_PLANS } from '../../data/seed';
 import { usePulse } from '../../store/useStore';
-import { colors, spacing } from '../../theme';
+import { colors, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 export default function WorkoutsScreen() {
+  useAccent();
   const router = useRouter();
   const startWorkout = usePulse((s) => s.startWorkout);
   const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
@@ -46,13 +47,9 @@ export default function WorkoutsScreen() {
       <View style={{ marginTop: spacing.lg, gap: spacing.md, paddingHorizontal: spacing.md }}>
         {tab === 'My Plans'
           ? SEED_PLANS.map((p) => (
-              // Tapping the card only previews the plan — the timer starts
-              // exclusively via the Start button inside each day card.
-              <PlanCard
-                key={p.id}
-                plan={p}
-                onStart={() => begin(p)}
-              />
+              // Tapping the card expands its exercise list (see PlanCard); the
+              // timer starts exclusively via the Start button inside the card.
+              <PlanCard key={p.id} plan={p} onStart={() => begin(p)} />
             ))
           : (
             <View style={{ marginTop: 20 }}>

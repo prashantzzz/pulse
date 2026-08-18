@@ -25,10 +25,17 @@ export default function GymModeScreen() {
   const currentSet = currentEx?.sets.find((s) => !s.completed);
   const ex = currentEx ? EXERCISE_MAP[currentEx.exerciseId] : undefined;
 
-  useEffect(() => {
+  // Seed the steppers with the current set's stored values when moving to a
+  // new set. Track the last-synced set id and adjust state during render (the
+  // React-recommended pattern) instead of calling setState inside an effect.
+  // Start at undefined so the very first render syncs too (matching the old
+  // mount effect).
+  const [syncedSetId, setSyncedSetId] = useState<string | undefined>(undefined);
+  if (currentSet?.id !== syncedSetId) {
+    setSyncedSetId(currentSet?.id);
     if (currentSet?.weightKg != null) setWeight(currentSet.weightKg);
     if (currentSet?.reps != null) setReps(currentSet.reps);
-  }, [currentSet?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   useEffect(() => {
     if (restLeft <= 0) return;
@@ -63,7 +70,7 @@ export default function GymModeScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.12), '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
 
       {/* minimal top bar */}
       <View style={styles.top}>

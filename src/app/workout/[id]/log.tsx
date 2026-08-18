@@ -5,16 +5,17 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../../../components/Text';
 import { Stepper, toast } from '../../../components/misc';
-import { Button, Card, Icon, Row, Screen, ScreenHeader, Tag } from '../../../components/ui';
+import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { previousSet } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, useAccent } from '../../../theme';
 
 const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
 export default function LogSetScreen() {
-  const { id, exercise, set } = useLocalSearchParams<{ id: string; exercise: string; set: string }>();
+  useAccent();
+  const { exercise, set } = useLocalSearchParams<{ id: string; exercise: string; set: string }>();
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const workouts = usePulse((s) => s.workouts);
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,197,61,0.12)',
+    backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ExerciseAnimation } from '../../../components/animation';
+import { MediaCarousel } from '../../../components/media-carousel';
 import { BottomSheet } from '../../../components/misc';
+import { MuscleTargetMap } from '../../../components/muscle-map';
 import { T } from '../../../components/Text';
-import { Button, Card, Icon, Row, Screen, ScreenHeader, Tag } from '../../../components/ui';
+import { Button, Card, Icon, Row, Screen, ScreenHeader, Section, Tag } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { usePulse } from '../../../store/useStore';
 import { colors, radius, spacing, useAccent } from '../../../theme';
@@ -18,6 +20,7 @@ export default function ExerciseDetailScreen() {
   const favorites = usePulse((s) => s.favorites);
   const toggleFavorite = usePulse((s) => s.toggleFavorite);
   const startWorkout = usePulse((s) => s.startWorkout);
+  const profile = usePulse((s) => s.profile);
   const [addSheet, setAddSheet] = useState(false);
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
@@ -27,7 +30,7 @@ export default function ExerciseDetailScreen() {
         <ScreenHeader title="Not found" back />
         <View style={{ padding: spacing.lg }}>
           <T variant="body" dim>
-            This exercise doesn't exist.
+            This exercise doesn&apos;t exist.
           </T>
         </View>
       </Screen>
@@ -51,10 +54,18 @@ export default function ExerciseDetailScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Screen scroll contentStyle={{ paddingBottom: 120 }}>
-        <ScreenHeader title={exercise.name} back right={fav ? 'bookmark' : 'bookmark-outline'} onRight={() => toggleFavorite(exercise.id)} />
+        <ScreenHeader title={exercise.name} back right={fav ? 'bookmark' : 'bookmark-outline'} rightLabel="Toggle favorite" onRight={() => toggleFavorite(exercise.id)} />
 
         <View style={{ paddingHorizontal: spacing.lg }}>
-          <ExerciseAnimation exercise={exercise} height={240} />
+          <MediaCarousel
+            labels={['Animation', 'Muscles']}
+            pages={[
+              <ExerciseAnimation key="anim" exercise={exercise} height={240} gender={profile?.gender ?? 'male'} />,
+              <View key="muscles" style={styles.muscleCard}>
+                <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
+              </View>,
+            ]}
+          />
 
           <View style={{ marginTop: spacing.md, gap: 4 }}>
             <T variant="h2">{exercise.name}</T>
@@ -68,7 +79,7 @@ export default function ExerciseDetailScreen() {
             {exercise.secondaryMuscles.map((m) => (
               <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
             ))}
-            <Tag label={exercise.movement} color={colors.teal} bg="rgba(47,216,208,0.12)" />
+            <Tag label={exercise.movement} color={colors.teal} bg={colors.tealSoft} />
           </Row>
 
           <Card style={{ marginTop: spacing.md, padding: spacing.md }}>
@@ -86,13 +97,13 @@ export default function ExerciseDetailScreen() {
             </Row>
           </Card>
 
-          <Section2 title="About">
+          <Section title="About">
             <T variant="body" dim>
               {exercise.about}
             </T>
-          </Section2>
+          </Section>
 
-          <Section2 title="Perfect Your Form">
+          <Section title="Perfect Your Form">
             <Card onPress={() => router.push(`/exercise/${exercise.id}/form` as never)} style={{ padding: spacing.md }}>
               <View style={{ gap: spacing.sm }}>
                 {exercise.steps.map((s, i) => (
@@ -120,9 +131,9 @@ export default function ExerciseDetailScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.accent} />
               </Row>
             </Card>
-          </Section2>
+          </Section>
 
-          <Section2 title="Common Mistakes">
+          <Section title="Common Mistakes">
             <Card style={{ padding: spacing.md, gap: spacing.xs }}>
               {exercise.commonMistakes.map((m, i) => (
                 <Row key={i} gap={10}>
@@ -133,36 +144,36 @@ export default function ExerciseDetailScreen() {
                 </Row>
               ))}
             </Card>
-          </Section2>
+          </Section>
 
-          <Section2 title="Coach's Notes">
+          <Section title="Coach's Notes">
             <Card style={{ padding: spacing.md, gap: spacing.sm }}>
               <NoteRow icon="repeat-outline" label="Recommended rep range" text={exercise.repRange} accent />
               <NoteRow icon="pulse-outline" label="Breathing" text={exercise.breathing} />
             </Card>
-          </Section2>
+          </Section>
 
-          <Section2 title="Tips">
+          <Section title="Tips">
             <Card style={{ padding: spacing.md, gap: spacing.sm }}>
               <NoteRow icon="leaf-outline" label="Beginner" text={exercise.beginnerTips.join(' · ')} color={colors.success} />
               <NoteRow icon="trending-up-outline" label="Progression" text={exercise.progressionTips.join(' · ')} color={colors.accent} />
               <NoteRow icon="shield-checkmark-outline" label="Safety" text={exercise.safetyTips.join(' · ')} color={colors.orange} />
             </Card>
-          </Section2>
+          </Section>
 
-          <Section2 title="Can't use this equipment?">
+          <Section title="Can't use this equipment?">
             <Row gap={8} wrap>
               {exercise.alternatives.map((altId) => {
                 const alt = EXERCISE_MAP[altId];
                 if (!alt) return null;
                 return (
                   <Pressable key={altId} onPress={() => router.push(`/exercise/${altId}` as never)}>
-                    <Tag label={alt.name} color={colors.cyan} bg="rgba(56,189,248,0.12)" />
+                    <Tag label={alt.name} color={colors.cyan} bg={colors.cyanSoft} />
                   </Pressable>
                 );
               })}
             </Row>
-          </Section2>
+          </Section>
         </View>
       </Screen>
 
@@ -214,17 +225,6 @@ export default function ExerciseDetailScreen() {
   );
 }
 
-function Section2({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={{ marginTop: spacing.xl }}>
-      <T variant="h3" style={{ marginBottom: spacing.sm }}>
-        {title}
-      </T>
-      {children}
-    </View>
-  );
-}
-
 function NoteRow({ icon, label, text, accent, color }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; text: string; accent?: boolean; color?: string }) {
   const c = color ?? (accent ? colors.accent : colors.textDim);
   return (
@@ -259,6 +259,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  muscleCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#0D0F12',
+    overflow: 'hidden',
+    padding: spacing.sm,
+    height: 240,
   },
   ctaBar: {
     position: 'absolute',

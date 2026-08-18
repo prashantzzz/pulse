@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { BottomSheet, Stepper, toast } from '../components/misc';
-import { Button, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
-import { EXERCISE_MAP, EXERCISES, searchExercises } from '../data/exercises';
+import { Button, Icon, Row, Screen, ScreenHeader } from '../components/ui';
+import { EXERCISE_MAP, searchExercises } from '../data/exercises';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
 
@@ -29,12 +29,18 @@ export default function BuilderScreen() {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<number | null>(null);
 
-  useEffect(() => {
+  // Add exercises passed via the ?add=<exerciseId> param. The param can arrive
+  // after the first render (e.g. on web), so track the last applied value and
+  // adjust state during render — the React-recommended alternative to calling
+  // setState inside an effect. Start at undefined so a param present on the
+  // first render is applied too (matching the old mount effect).
+  const [appliedAdd, setAppliedAdd] = useState<string | undefined>(undefined);
+  if (add !== appliedAdd) {
+    setAppliedAdd(add);
     if (add && EXERCISE_MAP[add] && !drafts.some((d) => d.exerciseId === add)) {
       setDrafts((prev) => [...prev, { exerciseId: add, sets: 3, targetReps: '8-12' }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [add]);
+  }
 
   const addExercise = (exerciseId: string) => {
     if (!drafts.some((d) => d.exerciseId === exerciseId)) {
@@ -234,7 +240,7 @@ export default function BuilderScreen() {
             </T>
             <Row gap={8} wrap>
               {REP_PRESETS.map((r) => (
-                <Tag2 key={r} label={r} selected={edit.targetReps === r} onPress={() => setDrafts((prev) => prev.map((d, i) => (i === editing ? { ...d, targetReps: r } : d)))} />
+                <RepChip key={r} label={r} selected={edit.targetReps === r} onPress={() => setDrafts((prev) => prev.map((d, i) => (i === editing ? { ...d, targetReps: r } : d)))} />
               ))}
             </Row>
             <Button label="Done" full style={{ marginTop: spacing.xl }} onPress={() => setEditing(null)} />
@@ -245,7 +251,7 @@ export default function BuilderScreen() {
   );
 }
 
-function Tag2({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function RepChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={[styles.repChip, selected && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
       <T variant="smallSemi" style={{ color: selected ? colors.bg : colors.textDim }}>

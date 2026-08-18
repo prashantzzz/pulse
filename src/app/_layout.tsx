@@ -15,6 +15,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { ToastHost } from '../components/misc';
+import { usePulse } from '../store/useStore';
+import { applyAccent, colors } from '../theme';
+
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
 // happens in production — filter it so the Expo dev overlay stays quiet.
@@ -32,10 +36,6 @@ if (Platform.OS === 'web' && typeof console !== 'undefined' && __DEV__) {
     origError(...args);
   };
 }
-
-import { ToastHost } from '../components/misc';
-import { applyAccent, colors } from '../theme';
-import { usePulse } from '../store/useStore';
 
 // hide native browser scrollbars on web so the app scrolls like an Android app
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -77,7 +77,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
+      {/*
+        Keyed on the accent so a change in Settings remounts the whole
+        navigator with the fresh palette. This guarantees every screen —
+        mounted or not — picks up the new accent. (Subscription-based refresh
+        via useAccent() was unreliable on already-mounted screens, leaving
+        stale colors behind.)
+      */}
       <Stack
+        key={accentKey}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },

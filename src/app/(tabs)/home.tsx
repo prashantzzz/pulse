@@ -1,20 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
-import { ProgressRing } from '../../components/ring';
+import { useAnimatedValue } from '../../lib/useAnimatedValue';
+
 import { T } from '../../components/Text';
 import { Avatar } from '../../components/misc';
-import { Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
+import { Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { SEED_PLANS } from '../../data/seed';
-import { formatCompact } from '../../lib/stats';
-import { currentStreak, detectPRs, prRadar, totalVolume, workoutsInLastDays, workoutStats } from '../../lib/stats';
+import { greetingFor } from '../../lib/greeting';
+import { currentStreak, detectPRs, formatCompact, prRadar, workoutsInLastDays, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, radius, spacing } from '../../theme';
+import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 function todaysPlan(): WorkoutPlan {
@@ -23,12 +24,15 @@ function todaysPlan(): WorkoutPlan {
 }
 
 export default function HomeScreen() {
+  // subscribe so this screen re-renders (and recreates its children) live on accent change
+  useAccent();
   const router = useRouter();
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
   const startWorkout = usePulse((s) => s.startWorkout);
 
   const plan = todaysPlan();
+  const greeting = greetingFor();
   const week = workoutsInLastDays(workouts, 7);
   const weekStats = week.reduce((acc, w) => {
     const st = workoutStats(w);
@@ -44,7 +48,7 @@ export default function HomeScreen() {
   const radar = prRadar(workouts, 3);
 
   // celebrate the PR with a mount pulse
-  const pulse = useRef(new Animated.Value(0)).current;
+  const pulse = useAnimatedValue(0);
   useEffect(() => {
     Animated.sequence([
       Animated.timing(pulse, { toValue: 1, duration: 500, useNativeDriver: true }),
@@ -61,9 +65,11 @@ export default function HomeScreen() {
       {/* header */}
       <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
         <View>
-          <T variant="h2">Hello, {profile?.name ?? 'Athlete'}</T>
+          <T variant="h2">
+            {greeting.heading}, {profile?.name ?? 'Athlete'}
+          </T>
           <T variant="small" dim style={{ marginTop: 2 }}>
-            Let's crush your goals today!
+            {greeting.sub}
           </T>
         </View>
         <Row gap={10}>
@@ -79,7 +85,7 @@ export default function HomeScreen() {
 
       {/* streak banner */}
       <View style={styles.streakBanner}>
-        <LinearGradient colors={[accentTint(colors.accent, 0.17), '#111316']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
         <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
           <Ionicons name="flame" size={22} color={colors.accent} />
         </View>
@@ -225,7 +231,7 @@ export default function HomeScreen() {
         <Section title="PR Radar" action="Why?" onAction={() => undefined}>
           <Card style={{ padding: spacing.lg, gap: spacing.md }}>
             <T variant="small" dim style={{ fontSize: 12 }}>
-              You're getting close to new records. One more push.
+              You&apos;re getting close to new records. One more push.
             </T>
             {radar.map((r) => (
               <View key={r.exerciseId} style={{ gap: 6 }}>
@@ -248,7 +254,7 @@ export default function HomeScreen() {
       <Section title="Muscle Focus" style={{ marginBottom: 20 }}>
         <Row gap={8} wrap>
           {MUSCLE_GROUPS.slice(0, 8).map((m) => (
-            <Chip2 key={m} label={m} />
+            <MuscleChip key={m} label={m} />
           ))}
         </Row>
       </Section>
@@ -256,7 +262,7 @@ export default function HomeScreen() {
   );
 }
 
-function Chip2({ label }: { label: string }) {
+function MuscleChip({ label }: { label: string }) {
   return (
     <Pressable style={({ pressed }) => [styles.muscleChip, pressed && { opacity: 0.8 }]}>
       <T variant="smallMedium" dim style={{ fontSize: 12 }}>

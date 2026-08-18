@@ -1,18 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
-import { T } from '../components/Text';
 import { EmptyState } from '../components/misc';
-import { Chip, Row, Screen, ScreenHeader } from '../components/ui';
+import { Chip, Screen, ScreenHeader } from '../components/ui';
 import { HistoryCard } from '../components/workout-card';
-import { detectPRs, whatChanged, workoutStats } from '../lib/stats';
+import { detectPRs, whatChanged } from '../lib/stats';
 import { usePulse } from '../store/useStore';
-import { spacing } from '../theme';
+import { spacing, useAccent } from '../theme';
 
 const FILTERS = ['All', 'Push', 'Pull', 'Legs', 'Upper', 'Full'];
 
 export default function HistoryScreen() {
+  useAccent();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState('All');
@@ -24,7 +24,11 @@ export default function HistoryScreen() {
   return (
     <Screen>
       <ScreenHeader title="History" subtitle={`${workouts.length} workouts logged`} back />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={[styles.pillRow, { alignItems: 'center' }]}>
         {FILTERS.map((f) => (
           <Chip key={f} label={f} selected={filter === f} onPress={() => setFilter(f)} />
         ))}

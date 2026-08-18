@@ -9,9 +9,10 @@ import { T } from '../../../components/Text';
 import { Card, Row, Screen, ScreenHeader, Segmented } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { usePulse } from '../../../store/useStore';
-import { colors, radius, spacing } from '../../../theme';
+import { colors, radius, spacing, useAccent } from '../../../theme';
 
 export default function FormGuideScreen() {
+  useAccent();
   const { id } = useLocalSearchParams<{ id: string }>();
   const profile = usePulse((s) => s.profile);
   const [tab, setTab] = useState<'Form Guide' | 'Muscles'>('Form Guide');
@@ -28,7 +29,7 @@ export default function FormGuideScreen() {
   const intensity: Record<string, number> = {};
   intensity[exercise.muscleGroup] = 1;
   for (const m of exercise.secondaryMuscles) intensity[m] = 0.55;
-  for (const m of ['Chest', 'Back', 'Legs', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Calves', 'Glutes', 'Forearms']) {
+  for (const m of ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Core', 'Calves', 'Glutes', 'Forearms']) {
     if (intensity[m] == null) intensity[m] = 0;
   }
 
@@ -44,7 +45,7 @@ export default function FormGuideScreen() {
       {tab === 'Form Guide' ? (
         <View style={{ paddingHorizontal: spacing.lg }}>
           <View style={{ marginTop: spacing.md }}>
-            <ExerciseAnimation exercise={exercise} height={210} showBadge={false} />
+            <ExerciseAnimation exercise={exercise} height={210} gender={profile?.gender ?? 'male'} />
           </View>
 
           <T variant="h3" style={{ marginTop: spacing.xl }}>
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(47,216,208,0.12)',
+    backgroundColor: colors.tealSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

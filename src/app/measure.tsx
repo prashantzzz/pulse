@@ -5,9 +5,10 @@ import { T } from '../components/Text';
 import { Stepper, toast } from '../components/misc';
 import { Button, Card, Screen, ScreenHeader } from '../components/ui';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing } from '../theme';
+import { colors, spacing, useAccent } from '../theme';
 
 export default function MeasureScreen() {
+  useAccent();
   const addMeasurement = usePulse((s) => s.addMeasurement);
   const measurements = usePulse((s) => s.measurements);
   const last = measurements[measurements.length - 1];

@@ -6,8 +6,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ProgressRing } from '../../../components/ring';
 import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
-import { toast } from '../../../components/misc';
-import { Button, Icon, Row, Screen } from '../../../components/ui';
+import { BottomSheet, toast } from '../../../components/misc';
+import { Button, Row, Screen } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
 import { useNow, usePulse } from '../../../store/useStore';
@@ -23,7 +23,10 @@ export default function ActiveWorkoutScreen() {
   const patchSet = usePulse((s) => s.patchSet);
   const finishWorkout = usePulse((s) => s.finishWorkout);
   const cancelActiveWorkout = usePulse((s) => s.cancelActiveWorkout);
+  const pauseActiveWorkout = usePulse((s) => s.pauseActiveWorkout);
+  const resumeActiveWorkout = usePulse((s) => s.resumeActiveWorkout);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
 
   const workout = activeWorkout ?? workouts.find((w) => w.id === id);
@@ -41,7 +44,10 @@ export default function ActiveWorkoutScreen() {
     );
   }
 
-  const elapsedSec = Math.max(0, Math.floor((now - new Date(workout.startTime).getTime()) / 1000));
+  // while paused the elapsed timer is frozen at the pause moment
+  const elapsedSec = workout.paused
+    ? Math.max(0, Math.floor((new Date(workout.pausedAt ?? workout.startTime).getTime() - new Date(workout.startTime).getTime()) / 1000))
+    : Math.max(0, Math.floor((now - new Date(workout.startTime).getTime()) / 1000));
   const totalSets = workout.exercises.reduce((s, we) => s + we.sets.length, 0);
   const doneSets = workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
@@ -80,19 +86,28 @@ export default function ActiveWorkoutScreen() {
       {/* header */}
       <View style={styles.header}>
         <Pressable
-          onPress={() => {
-            cancelActiveWorkout();
-            router.replace('/(tabs)/home' as never);
-          }}
+          onPress={() => setMenuOpen(true)}
           style={styles.headerBtn}
-          hitSlop={8}>
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Workout options">
           <Ionicons name="close" size={20} color={colors.textDim} />
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <T variant="bodySemi">{workout.title}</T>
-          <T variant="numSm" accent style={{ fontVariant: ['tabular-nums'] }}>
-            {formatDuration(elapsedSec)}
-          </T>
+          <Row gap={6}>
+            <T variant="numSm" accent style={{ fontVariant: ['tabular-nums'] }}>
+              {formatDuration(elapsedSec)}
+            </T>
+            {workout.paused ? (
+              <View style={[styles.pausedBadge, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="pause" size={10} color={colors.accent} />
+                <T variant="micro" style={{ color: colors.accent, fontSize: 9 }}>
+                  PAUSED
+                </T>
+              </View>
+            ) : null}
+          </Row>
         </View>
         <Pressable onPress={() => router.push('/gym-mode' as never)} style={styles.headerBtn} hitSlop={8}>
           <Ionicons name="scan-outline" size={20} color={colors.textDim} />
@@ -228,12 +243,24 @@ export default function ActiveWorkoutScreen() {
             {pct}%
           </T>
         </ProgressRing>
+        <Pressable
+          onPress={() => (workout.paused ? resumeActiveWorkout() : pauseActiveWorkout())}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={workout.paused ? 'Resume workout timer' : 'Pause workout timer'}
+          style={({ pressed }) => [
+            styles.pauseBtn,
+            workout.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+            pressed && { opacity: 0.8 },
+          ]}>
+          <Ionicons name={workout.paused ? 'play' : 'pause'} size={20} color={workout.paused ? colors.accent : colors.text} />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <T variant="bodySemi" style={{ fontSize: 14 }}>
             {doneSets} of {totalSets} sets
           </T>
           <T variant="micro" muted>
-            {formatDuration(elapsedSec)} elapsed
+            {workout.paused ? 'Paused' : `${formatDuration(elapsedSec)} elapsed`}
           </T>
         </View>
         <Button
@@ -245,6 +272,45 @@ export default function ActiveWorkoutScreen() {
           }}
         />
       </View>
+
+      {/* back / menu sheet — pausing, saving, or discarding is always explicit */}
+      <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={workout.paused ? 'Workout paused' : 'Workout options'}>
+        <View style={{ gap: spacing.sm }}>
+          <Button
+            label={workout.paused ? 'Resume Workout' : 'Pause Workout'}
+            icon={workout.paused ? 'play' : 'pause'}
+            variant="outline"
+            full
+            onPress={() => {
+              setMenuOpen(false);
+              if (workout.paused) resumeActiveWorkout();
+              else pauseActiveWorkout();
+            }}
+          />
+          <Button
+            label="Save & Finish"
+            icon="checkmark"
+            full
+            onPress={() => {
+              setMenuOpen(false);
+              const finished = finishWorkout();
+              if (finished) router.replace(`/workout/${finished.id}/summary`);
+            }}
+          />
+          <Pressable
+            onPress={() => {
+              setMenuOpen(false);
+              cancelActiveWorkout();
+              router.replace('/(tabs)/home' as never);
+            }}
+            hitSlop={6}
+            style={{ paddingVertical: spacing.sm, alignItems: 'center' }}>
+            <T variant="smallMedium" center style={{ color: colors.red }}>
+              Discard workout
+            </T>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -263,6 +329,24 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pausedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  pauseBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

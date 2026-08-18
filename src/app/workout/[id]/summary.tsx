@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Animated, ScrollView, StyleSheet, View } from 'react-native';
+
+import { useAnimatedValue } from '../../../lib/useAnimatedValue';
 
 import { T } from '../../../components/Text';
 import { toast } from '../../../components/misc';
-import { Button, Card, Icon, Row } from '../../../components/ui';
-import { EXERCISE_MAP } from '../../../data/exercises';
+import { Button, Card, Row } from '../../../components/ui';
 import { formatDurationLabel } from '../../../lib/format';
 import { detectPRs, formatCompact, whatChanged, workoutStats } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../../theme';
+import { accentTint, colors, radius, spacing, useAccent } from '../../../theme';
 
 export default function SummaryScreen() {
   useAccent();
@@ -20,7 +21,7 @@ export default function SummaryScreen() {
   const workouts = usePulse((s) => s.workouts);
   const workout = workouts.find((w) => w.id === id);
 
-  const confetti = useRef(new Animated.Value(0)).current;
+  const confetti = useAnimatedValue(0);
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -70,7 +71,7 @@ export default function SummaryScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* celebration header */}
-      <LinearGradient colors={[accentTint(colors.accent, 0.17), '#0A0B0D']} style={styles.header}>
+      <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.bg]} style={styles.header}>
         <Animated.View style={{ opacity: confetti.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.9] }) }}>
           <View style={styles.celebrateIcon}>
             <Ionicons name="trophy" size={34} color={colors.bg} />
@@ -100,12 +101,15 @@ export default function SummaryScreen() {
         {changed ? (
           <Card style={{ marginTop: spacing.md, padding: spacing.md }}>
             <Row gap={10}>
-              <View style={[styles.upIcon, { backgroundColor: colors.accentSoft }]}>
-                <Ionicons name="trending-up" size={18} color={colors.accent} />
+              <View style={[styles.upIcon, { backgroundColor: changed.volumePct >= 0 ? colors.accentSoft : colors.dangerSoft }]}>
+                <Ionicons name={changed.volumePct >= 0 ? 'trending-up' : 'trending-down'} size={18} color={changed.volumePct >= 0 ? colors.accent : colors.danger} />
               </View>
               <T variant="bodySemi" style={{ flex: 1, fontSize: 14 }}>
-                You improved by {changed.volumePct >= 0 ? '+' : ''}
-                {changed.volumePct}% volume vs your previous {workout.title}.
+                {changed.volumePct > 0
+                  ? `You improved by +${changed.volumePct}% volume vs your last ${workout.title}.`
+                  : changed.volumePct < 0
+                    ? `You\u2019re down ${Math.abs(changed.volumePct)}% volume vs your last ${workout.title} — next session\u2019s comeback.`
+                    : `You matched your last ${workout.title} volume — consistency is strength.`}
               </T>
             </Row>
           </Card>
@@ -281,7 +285,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,197,61,0.12)',
+    backgroundColor: colors.goldSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -11,7 +11,7 @@ import { Button, Icon, Row, Screen, Tag } from '../../components/ui';
 import { SEED_PLANS } from '../../data/seed';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
-import { colors, gradients, radius, spacing } from '../../theme';
+import { colors, gradients, radius, spacing, useAccent } from '../../theme';
 import type { IonName } from '../../components/ui';
 import type { WorkoutPlan } from '../../types';
 
@@ -24,6 +24,7 @@ const ACTIONS: { icon: IonName; title: string; desc: string; route: string; grad
 ];
 
 export default function LogScreen() {
+  useAccent();
   const router = useRouter();
   const startWorkout = usePulse((s) => s.startWorkout);
   const [planSheet, setPlanSheet] = useState(false);
@@ -44,7 +45,7 @@ export default function LogScreen() {
           What are we doing?
         </T>
         <T variant="small" dim style={{ marginTop: 4 }}>
-          Logging a set should take a few seconds — that's the whole point.
+          Logging a set should take a few seconds — that&apos;s the whole point.
         </T>
       </View>
 

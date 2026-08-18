@@ -7,11 +7,12 @@ import { CountdownRing } from '../../../components/ring';
 import { T } from '../../../components/Text';
 import { BottomSheet, Stepper, toast } from '../../../components/misc';
 import { Button, Screen } from '../../../components/ui';
-import { colors, spacing } from '../../../theme';
+import { colors, spacing, useAccent } from '../../../theme';
 
 const PRESETS = [30, 60, 90, 120];
 
 export default function RestTimerScreen() {
+  useAccent();
   const { id, sec, next } = useLocalSearchParams<{ id: string; sec?: string; next?: string }>();
   const router = useRouter();
   const [total, setTotal] = useState(Number(sec) || 90);
@@ -80,7 +81,7 @@ export default function RestTimerScreen() {
         {done ? (
           <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
             <T variant="h3" accent>
-              Rest over — let's go!
+              Rest over — let&apos;s go!
             </T>
             <Button label="Next Set" icon="arrow-forward" full size="lg" style={{ marginTop: spacing.md, minWidth: 220 }} onPress={() => router.replace(`/workout/${id}` as never)} />
           </View>

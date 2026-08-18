@@ -84,7 +84,8 @@ export function SetRow({
           </View>
         ) : (
           <View style={styles.openCircle}>
-            <Ionicons name="add" size={16} color={colors.textDim} />
+            {/* hollow tick — signals an incomplete set waiting to be logged */}
+            <Ionicons name="checkmark-outline" size={16} color={colors.textDim} />
           </View>
         )}
       </Pressable>

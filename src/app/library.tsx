@@ -10,9 +10,10 @@ import { Chip, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
 import { EQUIPMENT_OPTIONS, MUSCLE_GROUPS, searchExercises } from '../data/exercises';
 import type { Exercise } from '../types';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, useAccent } from '../theme';
 
 export default function LibraryScreen() {
+  useAccent();
   const router = useRouter();
   const favorites = usePulse((s) => s.favorites);
   const toggleFavorite = usePulse((s) => s.toggleFavorite);
@@ -35,7 +36,7 @@ export default function LibraryScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="Exercise Library" subtitle={`${results.length} exercises`} back right="options-outline" onRight={() => setFilterOpen(true)} />
+      <ScreenHeader title="Exercise Library" subtitle={`${results.length} exercises`} back right="options-outline" rightLabel="Filter exercises" onRight={() => setFilterOpen(true)} />
 
       <View style={styles.searchWrap}>
         <Icon name="search" size={18} color={colors.textMuted} />
@@ -53,7 +54,11 @@ export default function LibraryScreen() {
         ) : null}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={[styles.pillRow, { alignItems: 'center' }]}>
         <Chip label="All" selected={muscles.length === 0} onPress={() => setMuscles([])} />
         {MUSCLE_GROUPS.map((m) => (
           <Chip

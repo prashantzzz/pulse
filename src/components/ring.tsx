@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
+
+import { useAnimatedValue } from '../lib/useAnimatedValue';
 import Svg, { Circle } from 'react-native-svg';
 
 import { colors } from '../theme';
@@ -80,10 +82,13 @@ export function CountdownRing({
   onComplete?: () => void;
   children?: React.ReactNode;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     doneRef.current = false;
@@ -146,4 +151,3 @@ export function CountdownRing({
   );
 }
 
-export const ringStyles = StyleSheet.create({});

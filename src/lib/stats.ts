@@ -136,32 +136,45 @@ export function detectPRs(workout: Workout, allWorkouts: Workout[]): PR[] {
 // Streaks & consistency
 // ---------------------------------------------------------------------------
 
-export function daysBetween(a: Date, b: Date): number {
-  const A = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const B = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  return Math.round((A - B) / 86400000);
+/**
+ * Zero-padded local day key, e.g. "2026-08-10". Padded month/day keeps string
+ * ordering chronological ("2026-10-01" sorts after "2026-09-30"), which the
+ * streak calculations rely on. Use this everywhere a day is used as a key.
+ */
+export function dayKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function workoutDayKeys(workouts: Workout[]): Set<string> {
   const keys = new Set<string>();
   for (const w of workouts) {
-    const d = new Date(w.startTime);
-    keys.add(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`);
+    keys.add(dayKey(new Date(w.startTime)));
   }
   return keys;
 }
 
-/** Consecutive-day streak ending today (or yesterday, so a workout today keeps it alive) */
+/**
+ * Streak ending today (or yesterday, so a workout today keeps it alive).
+ * One rest day between sessions is allowed — training every other day keeps
+ * the streak going. It only breaks after two or more consecutive missed days.
+ */
 export function currentStreak(workouts: Workout[]): number {
   const keys = workoutDayKeys(workouts);
   const today = new Date();
   let cursor = today;
   let streak = 0;
-  if (!keys.has(`${cursor.getFullYear()}-${cursor.getMonth() + 1}-${cursor.getDate()}`)) {
-    cursor = new Date(today.getTime() - 86400000);
-  }
-  while (keys.has(`${cursor.getFullYear()}-${cursor.getMonth() + 1}-${cursor.getDate()}`)) {
-    streak += 1;
+  let restDays = 0;
+  while (true) {
+    if (keys.has(dayKey(cursor))) {
+      streak += 1;
+      restDays = 0;
+    } else {
+      restDays += 1;
+      if (restDays >= 2) break; // 2+ missed days in a row → streak broken
+    }
     cursor = new Date(cursor.getTime() - 86400000);
   }
   return streak;
@@ -178,7 +191,9 @@ export function longestStreak(workouts: Workout[]): number {
       const [py, pm, pd] = prev.split('-').map(Number);
       const [cy, cm, cd] = key.split('-').map(Number);
       const gap = (new Date(cy, cm - 1, cd).getTime() - new Date(py, pm - 1, pd).getTime()) / 86400000;
-      run = gap === 1 ? run + 1 : 1;
+      // gap 1 = consecutive days, gap 2 = one rest day between sessions —
+      // both keep the run alive (same rule as the current streak)
+      run = gap <= 2 ? run + 1 : 1;
     } else {
       run = 1;
     }
@@ -195,8 +210,23 @@ export function workoutsInLastDays(workouts: Workout[], days: number): Workout[]
 
 export function consistencyPct(workouts: Workout[], days: number): number {
   if (days <= 0) return 0;
-  const trained = workoutDayKeys(workoutsInLastDays(workouts, days)).size;
-  return Math.round((trained / days) * 100);
+  const keys = workoutDayKeys(workouts);
+  const now = new Date();
+  let active = 0;
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const k = dayKey(d);
+    if (keys.has(k)) {
+      active += 1;
+      continue;
+    }
+    // a rest day counts when it's the single day off between two sessions
+    // (alternate-day training) — same tolerance as the streak rule
+    if (keys.has(dayKey(new Date(d.getTime() - 86400000))) && keys.has(dayKey(new Date(d.getTime() + 86400000)))) {
+      active += 1;
+    }
+  }
+  return Math.round((active / days) * 100);
 }
 
 export function sessionsPerWeek(workouts: Workout[], weeks = 4): number {
@@ -289,28 +319,77 @@ export function weeklyVolumes(workouts: Workout[], weeks = 8): { label: string; 
   return out;
 }
 
-/** Strength progression for an exercise: best e1rm per week */
-export function strengthProgression(workouts: Workout[], exerciseId: string, weeks = 12): { label: string; value: number }[] {
-  const out: { label: string; value: number }[] = [];
+/**
+ * Strength progression for an exercise: best e1rm per week.
+ *
+ * Every time slot is kept in the returned series (zero value = no data) so
+ * points plot at their true position on the x-axis — a rest week is "no data",
+ * not a strength drop, and the chart breaks the line there instead of dipping
+ * to zero or compressing the timeline.
+ *
+ * When a strength exercise has sets logged but never any weight (e.g. cable
+ * machines logged by pin/plate position, like lat pulldown or seated cable
+ * row), an e1rm can't be computed — so the series falls back to the best reps
+ * per period and marks every point `unit: 'reps'` so the UI can label it
+ * correctly instead of showing a blank chart.
+ */
+export function strengthProgression(
+  workouts: Workout[],
+  exerciseId: string,
+  weeks = 12,
+): { label: string; value: number; unit?: 'kg' | 'reps' }[] {
+  // A 7-day range is a single week, which would collapse to one lonely dot —
+  // bucket the last 7 days individually instead so the short range maps to a
+  // real daily trend.
+  const daily = weeks <= 1;
+  const slots = daily ? 7 : weeks;
+  const slotMs = daily ? 86400000 : 7 * 86400000;
   const now = new Date();
-  for (let i = weeks - 1; i >= 0; i -= 1) {
-    const end = new Date(now.getTime() - i * 7 * 86400000);
-    out.push({ label: end.toLocaleDateString('en-US', { month: 'short' }), value: 0 });
+  const buckets: { label: string; value: number; unit?: 'kg' | 'reps' }[] = [];
+  for (let i = slots - 1; i >= 0; i -= 1) {
+    const t = new Date(now.getTime() - i * slotMs);
+    buckets.push({
+      label: daily
+        ? t.toLocaleDateString('en-US', { weekday: 'short' })
+        : t.toLocaleDateString('en-US', { month: 'short' }),
+      value: 0,
+    });
   }
+  let anyWeight = false;
+  let anyReps = false;
   for (const w of workouts) {
-    const ageDays = Math.floor((Date.now() - new Date(w.endTime).getTime()) / 86400000);
-    const idx = Math.floor(ageDays / 7);
-    if (idx < 0 || idx >= weeks) continue;
+    const idx = Math.floor((Date.now() - new Date(w.endTime).getTime()) / slotMs);
+    if (idx < 0 || idx >= slots) continue;
     for (const we of w.exercises) {
       if (we.exerciseId !== exerciseId) continue;
       for (const s of we.sets) {
-        if (!s.completed || s.weightKg == null || s.reps == null) continue;
-        const rm = e1rm(s.weightKg, s.reps);
-        out[weeks - 1 - idx].value = Math.max(out[weeks - 1 - idx].value, Math.round(rm * 10) / 10);
+        if (!s.completed) continue;
+        if (s.weightKg != null && s.reps != null) anyWeight = true;
+        if (s.reps != null) anyReps = true;
+        if (anyWeight) break;
+      }
+      if (anyWeight) break;
+    }
+    if (anyWeight) break;
+  }
+  // No weighted sets at all → plot max reps per period instead of e1rm.
+  const repsMode = !anyWeight && anyReps;
+  for (const w of workouts) {
+    const idx = Math.floor((Date.now() - new Date(w.endTime).getTime()) / slotMs);
+    if (idx < 0 || idx >= slots) continue;
+    for (const we of w.exercises) {
+      if (we.exerciseId !== exerciseId) continue;
+      for (const s of we.sets) {
+        if (!s.completed || s.reps == null) continue;
+        if (!repsMode && (s.weightKg == null || s.reps == null)) continue;
+        const val = repsMode ? s.reps : e1rm(s.weightKg!, s.reps);
+        const bucket = buckets[slots - 1 - idx];
+        bucket.value = Math.max(bucket.value, Math.round(val * 10) / 10);
+        bucket.unit = repsMode ? 'reps' : 'kg';
       }
     }
   }
-  return out;
+  return buckets;
 }
 
 /** Average working-set volume per session, per week */
@@ -327,6 +406,8 @@ export function volumePerSessionByWeek(workouts: Workout[], weeks = 8): { label:
     entry.volume += workoutStats(w).volumeKg;
     entry.sessions += 1;
   }
+  // Keep every week in the series (zero = rest week) so points plot at their
+  // true position; the line chart treats zeros as gaps rather than dips.
   return labels.map((label, i) => {
     const e = byWeek.get(`${i}`)!;
     return { label, value: e.sessions ? Math.round(e.volume / e.sessions) : 0 };
@@ -444,8 +525,12 @@ export function generateInsights(workouts: Workout[]): Insight[] {
     }
   }
 
-  const legsNow = volumeByMuscle(recent).find((v) => v.muscle === 'Legs')?.volume ?? 0;
-  const legsPrev = volumeByMuscle(prev).find((v) => v.muscle === 'Legs')?.volume ?? 0;
+  const legVol = (list: Workout[]) =>
+    volumeByMuscle(list)
+      .filter((v) => v.muscle === 'Quads' || v.muscle === 'Hamstrings')
+      .reduce((s, v) => s + v.volume, 0);
+  const legsNow = legVol(recent);
+  const legsPrev = legVol(prev);
   if (legsPrev > 0 && legsNow < legsPrev * 0.82) {
     insights.push({
       icon: 'alert-circle',

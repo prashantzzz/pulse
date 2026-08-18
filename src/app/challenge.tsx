@@ -7,7 +7,7 @@ import { T } from '../components/Text';
 import { Avatar, toast } from '../components/misc';
 import { Button, Icon, Row, Screen, ScreenHeader, type IonName } from '../components/ui';
 import { usePulse } from '../store/useStore';
-import { accentTint, colors, gradients, radius, spacing } from '../theme';
+import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
 
 const CHALLENGES: { icon: IonName; title: string; desc: string; grad: keyof typeof gradients }[] = [
   { icon: 'barbell-outline', title: 'Most workouts this week', desc: 'Who trains more? Winner takes the streak crown.', grad: 'accent' },
@@ -17,6 +17,7 @@ const CHALLENGES: { icon: IonName; title: string; desc: string; grad: keyof type
 ];
 
 export default function ChallengeScreen() {
+  useAccent();
   const friends = usePulse((s) => s.friends);
   const [challenge, setChallenge] = useState(0);
   const [friendId, setFriendId] = useState<string | null>(null);
@@ -104,7 +105,7 @@ export default function ChallengeScreen() {
             </View>
           </Row>
           <T variant="small" dim center style={{ marginTop: spacing.md }}>
-            "{c.title}" — the loser buys protein. 🤝
+            &quot;{c.title}&quot; — the loser buys protein. 🤝
           </T>
         </View>
 

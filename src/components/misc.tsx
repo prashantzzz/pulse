@@ -13,7 +13,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, gradients, radius, shadows, spacing } from '../theme';
+import { useAnimatedValue } from '../lib/useAnimatedValue';
+import { colors, gradients, shadows, spacing } from '../theme';
 import type { IonName } from './ui';
 import { T } from './Text';
 
@@ -59,7 +60,7 @@ export function Avatar({
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <T variant="bodySemi" style={{ color: '#0A0B0D', fontSize: size * 0.34, fontWeight: '700' }}>
+        <T variant="bodySemi" style={{ color: colors.bg, fontSize: size * 0.34, fontWeight: '700' }}>
           {initials}
         </T>
       </LinearGradient>
@@ -84,7 +85,7 @@ export function BottomSheet({
   children: React.ReactNode;
   height?: number;
 }) {
-  const slide = useRef(new Animated.Value(0)).current;
+  const slide = useAnimatedValue(0);
 
   useEffect(() => {
     if (visible) {
@@ -231,7 +232,7 @@ export function toast(msg: string) {
 
 export function ToastHost() {
   const [msg, setMsg] = useState<string | null>(null);
-  const opacity = useRef(new Animated.Value(0)).current;
+  const opacity = useAnimatedValue(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -265,7 +266,7 @@ export function ToastHost() {
 // ---------------------------------------------------------------------------
 
 export function Skeleton({ width, height, radius = 10, style }: { width?: number | `${number}%`; height: number; radius?: number; style?: StyleProp<ViewStyle> }) {
-  const pulse = useRef(new Animated.Value(0.4)).current;
+  const pulse = useAnimatedValue(0.4);
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -362,7 +363,7 @@ export function AnimatedNumber({
   format?: (v: number) => string;
   variant?: 'num' | 'numLg' | 'numSm';
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useAnimatedValue(0);
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {

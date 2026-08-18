@@ -2,11 +2,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, useRouter } from 'expo-router';
 
+import { Animated, Dimensions, Easing, Pressable, StyleSheet, View } from 'react-native';
+
 import { T } from '../../components/Text';
-import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, gradients, radius, useAccent } from '../../theme';
+import { colors, gradients, useAccent } from '../../theme';
+
+// Tab switches pan left/right: each scene translates by its progress relative
+// to the active tab (-1 left … +1 right), so the incoming screen slides in from
+// the direction of the tapped tab and the outgoing one slides out the other way.
+const TAB_SLIDE = Dimensions.get('window').width;
+
+const tabSceneStyleInterpolator = ({ current: { progress } }: { current: { progress: Animated.Value } }) => ({
+  sceneStyle: {
+    transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, TAB_SLIDE] }) }],
+  },
+});
+
+const tabTransitionSpec = {
+  animation: 'timing' as const,
+  config: { duration: 280, easing: Easing.out(Easing.cubic) },
+};
 
 type RouteName = 'home' | 'workouts' | 'log' | 'progress' | 'profile';
 
@@ -40,6 +57,8 @@ function PulseTabBar({
             <View key={tab.name} style={styles.centerSlot}>
               <Pressable
                 onPress={() => router.push('/log' as never)}
+                accessibilityRole="button"
+                accessibilityLabel="Log"
                 style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] }]}>
                 <LinearGradient colors={[...gradients.accent]} style={[styles.fab, { boxShadow: `0 10px 30px ${colors.accent}59` }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                   <Ionicons name="add" size={30} color={colors.bg} />
@@ -55,6 +74,9 @@ function PulseTabBar({
           <Pressable
             key={tab.name}
             style={styles.tab}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={focused ? { selected: true } : undefined}
             onPress={() => {
               const target = state.routeNames[i];
               const evt = navigation.emit({ type: 'tabPress', target });
@@ -78,7 +100,12 @@ function PulseTabBar({
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        animation: 'shift',
+        transitionSpec: tabTransitionSpec,
+        sceneStyleInterpolator: tabSceneStyleInterpolator,
+      }}
       tabBar={(props) => (
         <PulseTabBar
           state={props.state as never}
@@ -122,8 +149,6 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: colors.bg,
   },
   tabLabel: { fontSize: 11, color: colors.textMuted, fontFamily: 'Inter_500Medium', marginTop: 2 },
   tabLabelActive: { color: colors.text, fontFamily: 'Inter_600SemiBold' },

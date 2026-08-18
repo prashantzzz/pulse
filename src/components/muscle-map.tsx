@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Body, { type BodyPartStyles, type ExtendedBodyPart, type Slug } from 'react-native-body-highlighter';
 
@@ -38,7 +38,7 @@ const SIDE_GROUPS: Record<Side, [MuscleGroup, Slug[]][]> = {
   front: [
     ['Chest', ['chest']],
     ['Core', ['abs', 'obliques']],
-    ['Legs', ['quadriceps', 'adductors']],
+    ['Quads', ['quadriceps', 'adductors']],
     ['Shoulders', ['deltoids']],
     ['Biceps', ['biceps']],
     ['Forearms', ['forearm']],
@@ -46,7 +46,7 @@ const SIDE_GROUPS: Record<Side, [MuscleGroup, Slug[]][]> = {
   ],
   back: [
     ['Back', ['trapezius', 'upper-back', 'lower-back']],
-    ['Legs', ['hamstring', 'adductors']],
+    ['Hamstrings', ['hamstring']],
     ['Shoulders', ['deltoids']],
     ['Triceps', ['triceps']],
     ['Forearms', ['forearm']],
@@ -66,9 +66,9 @@ const SLUG_TO_GROUP: Partial<Record<Slug, MuscleGroup>> = {
   abs: 'Core',
   obliques: 'Core',
   forearm: 'Forearms',
-  quadriceps: 'Legs',
-  adductors: 'Legs',
-  hamstring: 'Legs',
+  quadriceps: 'Quads',
+  adductors: 'Quads',
+  hamstring: 'Hamstrings',
   calves: 'Calves',
   gluteal: 'Glutes',
 };
@@ -76,7 +76,8 @@ const SLUG_TO_GROUP: Partial<Record<Slug, MuscleGroup>> = {
 const REGION_META: Record<MuscleGroup, { label: string }> = {
   Chest: { label: 'Chest' },
   Back: { label: 'Back' },
-  Legs: { label: 'Legs' },
+  Quads: { label: 'Quads' },
+  Hamstrings: { label: 'Hamstrings' },
   Shoulders: { label: 'Shoulders' },
   Biceps: { label: 'Biceps' },
   Triceps: { label: 'Triceps' },
@@ -93,7 +94,7 @@ function levelFor(inten: number): number | undefined {
   return Math.min(3, Math.max(1, Math.ceil(inten * 3)));
 }
 
-function buildData(side: Side, intensity: Record<string, number>, selected: MuscleGroup | null): ExtendedBodyPart[] {
+function buildData(side: Side, intensity: Record<string, number>, selected: MuscleGroup | null, strokeColor: string): ExtendedBodyPart[] {
   const data: ExtendedBodyPart[] = [];
   // base entry for every part so the whole figure uses the dark body fill
   for (const slug of SIDE_SLUGS[side]) data.push({ slug });
@@ -102,7 +103,7 @@ function buildData(side: Side, intensity: Record<string, number>, selected: Musc
     const isSel = group === selected;
     for (const slug of slugs) {
       if (isSel) {
-        const styles: BodyPartStyles = { stroke: colors.accent, strokeWidth: 1.6 };
+        const styles: BodyPartStyles = { stroke: strokeColor, strokeWidth: 1.6 };
         if (level == null) styles.fill = colors.accentSoft;
         data.push({ slug, ...(level != null ? { intensity: level } : {}), styles });
       } else if (level != null) {
@@ -121,6 +122,8 @@ function FigurePanel({
   onPress,
   height,
   gender,
+  palette = [colors.zoneLow, colors.zoneMod, colors.zoneWell] as [string, string, string],
+  strokeColor = colors.accent,
 }: {
   side: Side;
   label: string;
@@ -129,6 +132,10 @@ function FigurePanel({
   onPress: (part: ExtendedBodyPart) => void;
   height: number;
   gender: 'male' | 'female';
+  /** low → high intensity fill colors (library maps intensity 1..3 onto these) */
+  palette?: [string, string, string];
+  /** stroke used for the selected muscle */
+  strokeColor?: string;
 }) {
   const [panelW, setPanelW] = useState(0);
   // fit the figure inside the panel without overflowing either dimension
@@ -138,7 +145,7 @@ function FigurePanel({
     <View style={styles.figure} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
       <View style={styles.figureInner}>
         <Body
-          data={buildData(side, intensity, selected)}
+          data={buildData(side, intensity, selected, strokeColor)}
           side={side}
           scale={scale}
           gender={gender}
@@ -146,7 +153,7 @@ function FigurePanel({
           defaultFill={BODY_FILL}
           defaultStroke="rgba(255,255,255,0.10)"
           defaultStrokeWidth={1}
-          colors={[colors.zoneLow, colors.zoneMod, colors.zoneWell]}
+          colors={palette}
           onBodyPartPress={onPress}
         />
       </View>
@@ -189,6 +196,43 @@ export function MuscleMap({
   );
 }
 
+/** deep → mid → light orange: primary target pulses between deep/mid, secondary stays light */
+const TARGET_PALETTE: [string, string, string] = ['#FFC08A', '#FF9F43', '#F97316'];
+
+/**
+ * Exercise-target view: shows which muscles an exercise works on the front and
+ * back figures — primary target in deep orange (slow blinking), secondary
+ * muscles in a lighter orange shade.
+ */
+export function MuscleTargetMap({
+  primary,
+  secondary = [],
+  height = 240,
+  gender = 'male',
+}: {
+  primary: MuscleGroup;
+  secondary?: MuscleGroup[];
+  height?: number;
+  gender?: 'male' | 'female';
+}) {
+  // slow blink: the primary muscle alternates deep/mid orange every ~750 ms
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => setPulse((p) => !p), 750);
+    return () => clearInterval(t);
+  }, []);
+
+  const intensity: Record<string, number> = { [primary]: pulse ? 1 : 0.5 };
+  for (const m of secondary) intensity[m] = 0.25;
+
+  return (
+    <View style={{ flexDirection: 'row', height, gap: 8 }}>
+      <FigurePanel side="front" label="Front" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} />
+      <FigurePanel side="back" label="Back" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} />
+    </View>
+  );
+}
+
 export function MuscleLegend() {
   return (
     <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
@@ -211,7 +255,9 @@ export function MuscleLegend() {
 export { REGION_META };
 
 const styles = StyleSheet.create({
-  figure: { flex: 1, position: 'relative', borderWidth: 1, borderColor: colors.border, borderRadius: 18, overflow: 'hidden', backgroundColor: '#0D0F12' },
+  // no border/background here — the figure sits directly on the card so the
+  // front/back panels look like clean, frameless body models
+  figure: { flex: 1, position: 'relative' },
   figureInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  label: { position: 'absolute', bottom: 8, alignSelf: 'center', left: 0, right: 0, textAlign: 'center' },
+  label: { position: 'absolute', bottom: 4, alignSelf: 'center', left: 0, right: 0, textAlign: 'center' },
 });

@@ -11,9 +11,10 @@ import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, radius, spacing } from '../../theme';
+import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
 
 export default function ProfileScreen() {
+  useAccent();
   const router = useRouter();
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
@@ -129,7 +130,7 @@ export default function ProfileScreen() {
           {weakest && weakest.muscle !== strongest?.muscle ? (
             <Row align="space-between">
               <Row gap={12}>
-                <View style={[styles.balanceIcon, { backgroundColor: 'rgba(255,91,102,0.12)' }]}>
+                <View style={[styles.balanceIcon, { backgroundColor: colors.dangerSoft2 }]}>
                   <Icon name="alert-circle-outline" size={16} color={colors.orange} />
                 </View>
                 <View>
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(43,210,126,0.12)',
+    backgroundColor: colors.emeraldSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

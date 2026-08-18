@@ -1,10 +1,10 @@
-import { Text as RNText, type TextProps } from 'react-native';
+import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { colors, type } from '../theme';
 
 export type TextVariant = keyof typeof type;
 
-export interface TextProps2 extends TextProps {
+export interface TextProps extends RNTextProps {
   variant?: TextVariant;
   color?: string;
   /** dim secondary color */
@@ -33,7 +33,7 @@ export function T({
   style,
   children,
   ...rest
-}: TextProps2) {
+}: TextProps) {
   return (
     <RNText
       style={[

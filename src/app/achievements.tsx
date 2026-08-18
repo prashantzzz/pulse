@@ -1,13 +1,14 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { AchievementBadge } from '../components/misc';
 import { Card, Screen, ScreenHeader } from '../components/ui';
 import { computeAchievements } from '../lib/achievements';
 import { usePulse } from '../store/useStore';
-import { spacing } from '../theme';
+import { spacing, useAccent } from '../theme';
 
 export default function AchievementsScreen() {
+  useAccent();
   const workouts = usePulse((s) => s.workouts);
 
   const all = computeAchievements(workouts);

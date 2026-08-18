@@ -10,14 +10,13 @@ import { T } from '../components/Text';
 import { BottomSheet, toast } from '../components/misc';
 import { Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
 import { parseWorkoutsCsv, workoutsToCsv, type CsvImportResult } from '../lib/csv';
-import { workoutStats } from '../lib/stats';
 import { usePulse } from '../store/useStore';
-import { ACCENTS, colors, radius, spacing, type AccentKey } from '../theme';
-import type { Workout } from '../types';
+import { ACCENTS, colors, radius, spacing, useAccent, type AccentKey } from '../theme';
 
 const ACCENT_ORDER = Object.keys(ACCENTS) as AccentKey[];
 
 export default function SettingsScreen() {
+  useAccent();
   const profile = usePulse((s) => s.profile);
   const setProfile = usePulse((s) => s.setProfile);
   const accentKey = usePulse((s) => s.accentKey);
@@ -228,7 +227,7 @@ export default function SettingsScreen() {
           </Pressable>
           <Pressable onPress={() => setConfirmClear(true)} style={styles.settingRow}>
             <Row gap={12} style={{ flex: 1 }}>
-              <View style={[styles.settingIcon, { backgroundColor: 'rgba(255,91,102,0.12)' }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.dangerSoft2 }]}>
                 <Icon name="trash-outline" size={18} color={colors.red} />
               </View>
               <View>
@@ -295,7 +294,14 @@ export default function SettingsScreen() {
             return (
               <Pressable
                 key={k}
-                onPress={() => setAccent(k)}
+                onPress={() => {
+                  // applyAccent mutates the shared palette in place and every
+                  // screen re-renders via useAccent — no remount, so the sheet
+                  // keeps its slide/fade close animation for a seamless pick
+                  setAccent(k);
+                  setEditAccent(false);
+                  toast(`App color: ${ACCENTS[k].label}`);
+                }}
                 accessibilityLabel={`${ACCENTS[k].label} accent`}
                 style={[styles.accentSwatchWrap, sel && styles.accentSwatchWrapSel]}>
                 <View style={[styles.accentSwatch, { backgroundColor: ACCENTS[k].accent }]}>
@@ -400,7 +406,7 @@ export default function SettingsScreen() {
       {/* confirm clear */}
       <BottomSheet visible={confirmClear} onClose={() => setConfirmClear(false)} title="Clear all data?">
         <T variant="body" dim>
-          This removes every workout, measurement and achievement from this device. This can't be undone.
+          This removes every workout, measurement and achievement from this device. This can&apos;t be undone.
         </T>
         <Pressable
           onPress={() => {

@@ -1,7 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
+
+import { useAnimatedValue } from '../lib/useAnimatedValue';
 
 import { T } from '../components/Text';
 import { accentTint, colors, gradients, type, useAccent } from '../theme';
@@ -11,8 +13,8 @@ export default function SplashScreen() {
   useAccent();
   const router = useRouter();
   const onboarded = usePulse((s) => s.onboarded);
-  const fade = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(24)).current;
+  const fade = useAnimatedValue(0);
+  const rise = useAnimatedValue(24);
 
   useEffect(() => {
     Animated.parallel([
@@ -30,7 +32,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.1), '#0A0B0D', '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.1), colors.bg, colors.bg]} style={StyleSheet.absoluteFill} />
       <View style={[styles.glowTop, { backgroundColor: `${colors.accent}12` }]} />
       <View style={[styles.glowBottom, { backgroundColor: `${colors.accent}12` }]} />
       <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>

@@ -17,14 +17,15 @@
 export type MuscleGroup =
   | 'Chest'
   | 'Back'
-  | 'Legs'
   | 'Shoulders'
   | 'Biceps'
   | 'Triceps'
+  | 'Quads'
+  | 'Hamstrings'
+  | 'Glutes'
+  | 'Calves'
   | 'Core'
   | 'Forearms'
-  | 'Calves'
-  | 'Glutes'
   | 'Cardio';
 
 export type Equipment =
@@ -134,6 +135,9 @@ export interface Workout {
   endTime: string;
   exercises: WorkoutExercise[];
   source?: 'seed' | 'user';
+  /** pause/resume state for an in-progress workout (never persisted to history) */
+  paused?: boolean;
+  pausedAt?: string | null;
 }
 
 export interface BodyMeasurement {
@@ -144,6 +148,16 @@ export interface BodyMeasurement {
   chestCm: number | null;
   waistCm: number | null;
   bicepsCm: number | null;
+}
+
+/** A personal record logged manually (outside a workout session). */
+export interface ManualPR {
+  id: string;
+  exerciseId: string;
+  weightKg: number;
+  reps: number;
+  /** ISO date the record was set */
+  date: string;
 }
 
 export interface UserProfile {

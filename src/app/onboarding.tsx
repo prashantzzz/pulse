@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
-import { Button, Chip, Icon, Row } from '../components/ui';
+import { Button, Chip, Icon } from '../components/ui';
 import { ACCENTS, accentTint, colors, gradients, radius, spacing, useAccent, type AccentKey } from '../theme';
 import { usePulse } from '../store/useStore';
 import type { UserProfile } from '../types';
@@ -103,7 +103,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.12), '#0A0B0D']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
       {step > 0 ? (
         <Pressable onPress={() => setStep(step - 1)} style={styles.backBtn} hitSlop={10}>
           <Icon name="chevron-back" size={20} />

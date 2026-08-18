@@ -3,14 +3,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
-import { Card, Icon, Row, Screen, ScreenHeader, Tag } from '../../components/ui';
+import { Card, Row, Screen, ScreenHeader, Tag } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { formatClock, formatDate, formatDurationLabel } from '../../lib/format';
 import { detectPRs, whatChanged, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { colors, radius, spacing } from '../../theme';
+import { colors, spacing, useAccent } from '../../theme';
 
 export default function ReplayScreen() {
+  useAccent();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
@@ -89,7 +90,7 @@ export default function ReplayScreen() {
         {prs.length > 0 ? (
           <View style={{ marginTop: spacing.md }}>
             <Row gap={6} wrap>
-              <Tag label={`🏆 ${prs.length} new PR${prs.length > 1 ? 's' : ''}`} color={colors.gold} bg="rgba(255,197,61,0.12)" />
+              <Tag label={`🏆 ${prs.length} new PR${prs.length > 1 ? 's' : ''}`} color={colors.gold} bg={colors.goldSoft} />
             </Row>
           </View>
         ) : null}
