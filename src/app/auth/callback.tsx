@@ -6,13 +6,12 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { handleAuthUrl } from '../../lib/auth';
-import { useAuth } from '../../store/useAuth';
+import { syncUserDataFromCloud } from '../../lib/sync';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
-  const syncProfileFromCloud = useAuth((s) => s.syncProfileFromCloud);
   const onboarded = usePulse((s) => s.onboarded);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -21,13 +20,17 @@ export default function AuthCallbackScreen() {
 
     async function processCallback() {
       try {
-        const url = await Linking.getInitialURL();
-        if (url) {
-          const session = await handleAuthUrl(url);
+        const webUrl = typeof window !== 'undefined' && window.location?.href ? window.location.href : null;
+        const nativeUrl = await Linking.getInitialURL();
+        const targetUrl = webUrl || nativeUrl;
+
+        if (targetUrl) {
+          const session = await handleAuthUrl(targetUrl);
           if (session?.user && mounted) {
             toast('Signed in successfully');
-            const profile = await syncProfileFromCloud(session.user.id);
-            if (profile?.onboarded || onboarded) {
+            await syncUserDataFromCloud(session.user.id);
+            const isUserOnboarded = usePulse.getState().onboarded;
+            if (isUserOnboarded || onboarded) {
               router.replace('/(tabs)/home');
             } else {
               router.replace('/onboarding');
@@ -56,7 +59,7 @@ export default function AuthCallbackScreen() {
     return () => {
       mounted = false;
     };
-  }, [onboarded, router, syncProfileFromCloud]);
+  }, [onboarded, router]);
 
   return (
     <View style={styles.root}>
