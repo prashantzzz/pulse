@@ -59,7 +59,7 @@ export default function SummaryScreen() {
     duration: formatDurationLabel(stats.durationMin),
   };
 
-  const shareText = `💪 ${workout.title} on PULSE\n${stats.exercises} exercises · ${stats.sets} sets · ${stats.volumeKg.toLocaleString()} kg volume · ~${stats.calories} kcal est.\n${prs.length > 0 ? `🏆 PRs: ${prs.map((p) => `${p.exerciseName} ${p.weightKg}×${p.reps}`).join(', ')}\n` : ''}${changed ? `📈 ${changed.volumePct >= 0 ? '+' : ''}${changed.volumePct}% vs last session` : ''}\n— sent with PULSE`;
+  const shareText = `💪 ${workout.title} on NextRep\n${stats.exercises} exercises · ${stats.sets} sets · ${stats.volumeKg.toLocaleString()} kg volume · ~${stats.calories} kcal est.\n${prs.length > 0 ? `🏆 PRs: ${prs.map((p) => `${p.exerciseName} ${p.weightKg}×${p.reps}`).join(', ')}\n` : ''}${changed ? `📈 ${changed.volumePct >= 0 ? '+' : ''}${changed.volumePct}% vs last session` : ''}\n— sent with NextRep`;
 
   const copyShare = async () => {
     try {

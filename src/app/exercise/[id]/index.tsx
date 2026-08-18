@@ -9,6 +9,7 @@ import { BottomSheet } from '../../../components/misc';
 import { MuscleTargetMap } from '../../../components/muscle-map';
 import { T } from '../../../components/Text';
 import { Button, Card, Icon, Row, Screen, ScreenHeader, Section, Tag } from '../../../components/ui';
+import { getExerciseAnimation } from '../../../data/exercise-animations';
 import { EXERCISE_MAP, swapOptions } from '../../../data/exercises';
 import { plateauForExercise } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
@@ -59,15 +60,21 @@ export default function ExerciseDetailScreen() {
         <ScreenHeader title={exercise.name} back right={fav ? 'bookmark' : 'bookmark-outline'} rightLabel="Toggle favorite" onRight={() => toggleFavorite(exercise.id)} />
 
         <View style={{ paddingHorizontal: spacing.lg }}>
-          <MediaCarousel
-            labels={['Animation', 'Muscles']}
-            pages={[
-              <ExerciseAnimation key="anim" exercise={exercise} height={240} gender={profile?.gender ?? 'male'} />,
-              <View key="muscles" style={styles.muscleCard}>
-                <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
-              </View>,
-            ]}
-          />
+          {getExerciseAnimation(exercise.id) ? (
+            <MediaCarousel
+              labels={['Animation', 'Muscles']}
+              pages={[
+                <ExerciseAnimation key="anim" exercise={exercise} height={240} gender={profile?.gender ?? 'male'} />,
+                <View key="muscles" style={styles.muscleCard}>
+                  <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
+                </View>,
+              ]}
+            />
+          ) : (
+            <View style={styles.muscleCard}>
+              <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
+            </View>
+          )}
 
           <View style={{ marginTop: spacing.md, gap: 4 }}>
             <T variant="h2">{exercise.name}</T>

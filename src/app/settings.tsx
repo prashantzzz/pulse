@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
@@ -9,7 +10,10 @@ import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
 import { BottomSheet, toast } from '../components/misc';
 import { Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
+import { upsertProfile } from '../lib/auth';
 import { parseWorkoutsCsv, workoutsToCsv, type CsvImportResult } from '../lib/csv';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { ACCENTS, colors, radius, spacing, useAccent, type AccentKey } from '../theme';
 
@@ -17,6 +21,10 @@ const ACCENT_ORDER = Object.keys(ACCENTS) as AccentKey[];
 
 export default function SettingsScreen() {
   useAccent();
+  const router = useRouter();
+  const user = useAuth((s) => s.user);
+  const signOut = useAuth((s) => s.signOut);
+  const isAuthenticated = useAuth((s) => s.isAuthenticated);
   const profile = usePulse((s) => s.profile);
   const setProfile = usePulse((s) => s.setProfile);
   const accentKey = usePulse((s) => s.accentKey);
@@ -25,11 +33,13 @@ export default function SettingsScreen() {
   const importWorkouts = usePulse((s) => s.importWorkouts);
   const resetDemo = usePulse((s) => s.resetDemo);
   const clearAllData = usePulse((s) => s.clearAllData);
+
   const [editName, setEditName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile?.name ?? '');
   const [editGender, setEditGender] = useState(false);
   const [editAccent, setEditAccent] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [unitsLb, setUnitsLb] = useState(false);
   const [haptics, setHaptics] = useState(true);
   const [autoRest, setAutoRest] = useState(true);
@@ -48,7 +58,7 @@ export default function SettingsScreen() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'pulse-workouts.csv';
+        a.download = 'nextrep-workouts.csv';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -60,12 +70,12 @@ export default function SettingsScreen() {
           toast(`Exported ${workouts.length} workouts · file downloaded`);
         }
       } else {
-        const uri = `${FileSystem.cacheDirectory}pulse-workouts.csv`;
+        const uri = `${FileSystem.cacheDirectory}nextrep-workouts.csv`;
         await FileSystem.writeAsStringAsync(uri, csv);
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Export workouts' });
         } else {
-          await FileSystem.copyAsync({ from: uri, to: `${FileSystem.documentDirectory}pulse-workouts.csv` });
+          await FileSystem.copyAsync({ from: uri, to: `${FileSystem.documentDirectory}nextrep-workouts.csv` });
           toast(`Saved ${workouts.length} workouts`);
         }
       }
@@ -109,6 +119,13 @@ export default function SettingsScreen() {
     toast(`${n} workout${n === 1 ? '' : 's'} imported`);
   };
 
+  const handleSignOut = async () => {
+    setConfirmSignOut(false);
+    await signOut();
+    toast('Signed out');
+    router.replace('/auth/login' as never);
+  };
+
   const previewSets = importPreview?.workouts.reduce((acc, w) => acc + w.exercises.reduce((a, e) => a + e.sets.length, 0), 0) ?? 0;
 
   return (
@@ -116,6 +133,69 @@ export default function SettingsScreen() {
       <ScreenHeader title="Settings" back />
 
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+        {/* Account / Cloud Section */}
+        <Card style={{ padding: spacing.md }}>
+          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
+            Account & Identity
+          </T>
+          <Row align="space-between" style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="shield-checkmark-outline" size={18} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T variant="bodySemi">
+                  {isAuthenticated ? (user?.email ?? 'Authenticated Athlete') : 'Guest Account'}
+                </T>
+                <T variant="micro" muted>
+                  {isAuthenticated
+                    ? isSupabaseConfigured
+                      ? 'Supabase Cloud Connected'
+                      : 'Logged in (Local Session)'
+                    : 'Not signed in'}
+                </T>
+              </View>
+            </Row>
+          </Row>
+
+          {isAuthenticated ? (
+            <Pressable onPress={() => setConfirmSignOut(true)} style={[styles.settingRow, { marginTop: 4 }]}>
+              <Row gap={12} style={{ flex: 1 }}>
+                <View style={[styles.settingIcon, { backgroundColor: colors.dangerSoft2 }]}>
+                  <Icon name="log-out-outline" size={18} color={colors.red} />
+                </View>
+                <View>
+                  <T variant="bodySemi" style={{ color: colors.red }}>
+                    Sign Out
+                  </T>
+                  <T variant="micro" muted>
+                    Sign out of this device
+                  </T>
+                </View>
+              </Row>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => router.push('/auth/login' as never)} style={[styles.settingRow, { marginTop: 4 }]}>
+              <Row gap={12} style={{ flex: 1 }}>
+                <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                  <Icon name="log-in-outline" size={18} color={colors.accent} />
+                </View>
+                <View>
+                  <T variant="bodySemi" style={{ color: colors.accent }}>
+                    Sign In / Create Account
+                  </T>
+                  <T variant="micro" muted>
+                    Link and sync your workouts
+                  </T>
+                </View>
+              </Row>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </Card>
+
+        {/* Profile Details */}
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>
             Profile
@@ -128,7 +208,7 @@ export default function SettingsScreen() {
               <View>
                 <T variant="bodySemi">{profile?.name ?? 'Athlete'}</T>
                 <T variant="micro" muted>
-                  {profile?.experience} · {profile?.goal.join(', ')}
+                  {profile?.experience} · {profile?.goal?.join(', ') ?? 'Get Stronger'}
                 </T>
               </View>
             </Row>
@@ -150,6 +230,7 @@ export default function SettingsScreen() {
           </Pressable>
         </Card>
 
+        {/* Appearance */}
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>
             Appearance
@@ -170,6 +251,7 @@ export default function SettingsScreen() {
           </Pressable>
         </Card>
 
+        {/* Preferences */}
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>
             Training Preferences
@@ -179,6 +261,7 @@ export default function SettingsScreen() {
           <PrefRow label="Haptic feedback" desc="Vibration on set completion" onToggle={() => setHaptics((v) => !v)} switchValue={haptics} />
         </Card>
 
+        {/* Data Management */}
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>
             Your Data
@@ -253,9 +336,9 @@ export default function SettingsScreen() {
                 <Icon name="pulse" size={18} color={colors.accent} />
               </View>
               <View>
-                <T variant="bodySemi">PULSE</T>
+                <T variant="bodySemi">NextRep</T>
                 <T variant="micro" muted>
-                  v1.1.0 · Train smart. Get strong.
+                  v1.2.0 · Train smart. Get strong.
                 </T>
               </View>
             </Row>
@@ -295,9 +378,6 @@ export default function SettingsScreen() {
               <Pressable
                 key={k}
                 onPress={() => {
-                  // applyAccent mutates the shared palette in place and every
-                  // screen re-renders via useAccent — no remount, so the sheet
-                  // keeps its slide/fade close animation for a seamless pick
                   setAccent(k);
                   setEditAccent(false);
                   toast(`App color: ${ACCENTS[k].label}`);
@@ -329,6 +409,9 @@ export default function SettingsScreen() {
             key={g}
             onPress={() => {
               setProfile({ gender: g });
+              if (user?.id) {
+                upsertProfile(user.id, { gender: g });
+              }
               setEditGender(false);
               toast(`Body model set to ${g}`);
             }}
@@ -353,7 +436,11 @@ export default function SettingsScreen() {
         />
         <Pressable
           onPress={() => {
-            setProfile({ name: nameDraft.trim() || 'Athlete' });
+            const updatedName = nameDraft.trim() || 'Athlete';
+            setProfile({ name: updatedName });
+            if (user?.id) {
+              upsertProfile(user.id, { name: updatedName, display_name: updatedName });
+            }
             setEditName(false);
             toast('Profile updated');
           }}
@@ -417,6 +504,20 @@ export default function SettingsScreen() {
           style={[styles.saveBtn, { backgroundColor: colors.red, marginTop: spacing.lg }]}>
           <T variant="bodySemi" style={{ color: colors.bg }}>
             Yes, clear everything
+          </T>
+        </Pressable>
+      </BottomSheet>
+
+      {/* confirm sign out */}
+      <BottomSheet visible={confirmSignOut} onClose={() => setConfirmSignOut(false)} title="Sign out?">
+        <T variant="body" dim>
+          You will be signed out of your cloud account. Your local workout history on this device will remain safely stored.
+        </T>
+        <Pressable
+          onPress={handleSignOut}
+          style={[styles.saveBtn, { backgroundColor: colors.red, marginTop: spacing.lg }]}>
+          <T variant="bodySemi" style={{ color: colors.bg }}>
+            Sign Out
           </T>
         </Pressable>
       </BottomSheet>

@@ -12,10 +12,12 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '../components/misc';
+import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { applyAccent, colors } from '../theme';
 
@@ -40,7 +42,7 @@ if (Platform.OS === 'web' && typeof console !== 'undefined' && __DEV__) {
 // hide native browser scrollbars on web so the app scrolls like an Android app
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
-  style.id = 'pulse-no-scrollbars';
+  style.id = 'nextrep-no-scrollbars';
   style.textContent = `
     * { scrollbar-width: none; -ms-overflow-style: none; }
     *::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -60,6 +62,15 @@ export default function RootLayout() {
   });
   const hydrated = usePulse((s) => s.hydrated);
   const accentKey = usePulse((s) => s.accentKey);
+  const initializeAuth = useAuth((s) => s.initialize);
+
+  // Initialize Supabase auth session check and subscription
+  useEffect(() => {
+    const unsubscribe = initializeAuth();
+    return () => {
+      unsubscribe();
+    };
+  }, [initializeAuth]);
 
   // apply the user's accent palette before rendering so every component (and
   // re-render) reads the current colors; subscribed above so switching the
@@ -80,9 +91,7 @@ export default function RootLayout() {
       {/*
         Keyed on the accent so a change in Settings remounts the whole
         navigator with the fresh palette. This guarantees every screen —
-        mounted or not — picks up the new accent. (Subscription-based refresh
-        via useAccent() was unreliable on already-mounted screens, leaving
-        stale colors behind.)
+        mounted or not — picks up the new accent.
       */}
       <Stack
         key={accentKey}
@@ -92,6 +101,11 @@ export default function RootLayout() {
           animation: 'slide_from_right',
         }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="auth/login" options={{ animation: 'fade' }} />
+        <Stack.Screen name="auth/signup" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="auth/forgot-password" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="auth/reset-password" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="auth/callback" options={{ animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_bottom' }} />

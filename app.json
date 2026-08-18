@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "PULSE",
-    "slug": "pulse",
+    "name": "NextRep",
+    "slug": "nextrep",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pulse",
+    "scheme": "nextrep",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0B0D",
     "ios": {
       "icon": "./assets/expo.icon",
       "supportsTablet": true,
-      "bundleIdentifier": "com.pulse.fitness"
+      "bundleIdentifier": "com.nextrep.fitness"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +20,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.pulse.fitness",
+      "package": "com.nextrep.fitness",
       "predictiveBackGestureEnabled": true
     },
     "web": {

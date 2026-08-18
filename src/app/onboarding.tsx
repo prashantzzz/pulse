@@ -7,7 +7,9 @@ import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
 import { Button, Chip, Icon } from '../components/ui';
 import { ACCENTS, accentTint, colors, gradients, radius, spacing, useAccent, type AccentKey } from '../theme';
+import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
+import { upsertProfile } from '../lib/auth';
 import type { UserProfile } from '../types';
 
 const GENDERS = [
@@ -39,6 +41,7 @@ const ACCENT_ORDER = Object.keys(ACCENTS) as AccentKey[];
 export default function OnboardingScreen() {
   useAccent();
   const router = useRouter();
+  const user = useAuth((s) => s.user);
   const completeOnboarding = usePulse((s) => s.completeOnboarding);
   const accentKey = usePulse((s) => s.accentKey);
   const setAccent = usePulse((s) => s.setAccent);
@@ -49,12 +52,13 @@ export default function OnboardingScreen() {
   const [frequency, setFrequency] = useState<string | null>(null);
   const [equipment, setEquipment] = useState<string[]>([]);
   const [styles2, setStyles2] = useState<string[]>([]);
-  const [name, setName] = useState('');
+  const initialName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.user_metadata?.display_name ?? '';
+  const [name, setName] = useState(initialName);
 
   const steps = [
-    { title: 'Welcome to PULSE', subtitle: 'Your personal training companion.', body: "Let's build a stronger you.", cta: 'Get Started' },
+    { title: 'Welcome to NextRep', subtitle: 'Your personal training companion.', body: "Let's build a stronger you.", cta: 'Get Started' },
     { title: "What's your gender?", subtitle: 'We match your muscle map to a body like yours', body: '', cta: 'Next' },
-    { title: 'Pick your accent', subtitle: 'The color that powers PULSE', body: '', cta: 'Next' },
+    { title: 'Pick your accent', subtitle: 'The color that powers NextRep', body: '', cta: 'Next' },
     { title: "What's your goal?", subtitle: 'Choose up to 2', body: '', cta: 'Next' },
     { title: 'How experienced are you?', subtitle: 'We tailor your training plan', body: '', cta: 'Next' },
     { title: 'How often do you train?', subtitle: 'A typical week for you', body: '', cta: 'Next' },
@@ -78,6 +82,9 @@ export default function OnboardingScreen() {
 
   const finish = (profile: UserProfile) => {
     completeOnboarding(profile);
+    if (user?.id) {
+      upsertProfile(user.id, profile);
+    }
     router.replace('/(tabs)/home');
   };
 
@@ -119,7 +126,7 @@ export default function OnboardingScreen() {
 
       <View style={styles.content}>
         <T variant="label" accent style={{ marginBottom: 10 }}>
-          {step === 0 ? 'PULSE' : `Step ${step} of ${steps.length - 1}`}
+          {step === 0 ? 'NextRep' : `Step ${step} of ${steps.length - 1}`}
         </T>
         <T variant="h1">{s.title}</T>
         {s.subtitle ? (
@@ -155,7 +162,7 @@ export default function OnboardingScreen() {
           <View style={styles.welcome}>
             <LinearGradient colors={[...gradients.charcoal]} style={styles.welcomeArt} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
               <T variant="hero" accent style={{ fontSize: 52 }}>
-                P
+                N
               </T>
             </LinearGradient>
             <T variant="h3" center style={{ marginTop: spacing.lg }}>

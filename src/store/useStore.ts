@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { pushMeasurementToCloud, pushWorkoutToCloud } from '../lib/sync';
+import { supabase } from '../lib/supabase';
 import {
   SEED_FAVORITES,
   SEED_FRIENDS,
@@ -107,15 +109,14 @@ export const usePulse = create<PulseState>()(
       },
 
       completeOnboarding: (profile) => {
-        const { seeded } = get();
         set({
           onboarded: true,
           profile,
           seeded: true,
-          workouts: seeded ? get().workouts : SEED_WORKOUTS,
-          measurements: seeded ? get().measurements : SEED_MEASUREMENTS,
-          favorites: seeded ? get().favorites : SEED_FAVORITES,
-          friends: seeded ? get().friends : SEED_FRIENDS,
+          workouts: get().workouts,
+          measurements: get().measurements,
+          favorites: get().favorites,
+          friends: get().friends,
         });
       },
 
@@ -253,24 +254,32 @@ export const usePulse = create<PulseState>()(
           workouts: [...s.workouts, finished],
           activeWorkout: null,
         }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushWorkoutToCloud(user.id, finished).catch(() => {});
+        }).catch(() => {});
         return finished;
       },
 
-      saveBuiltWorkout: (title, exercises, startTime, endTime) =>
+      saveBuiltWorkout: (title, exercises, startTime, endTime) => {
+        const built: Workout = {
+          id: genId('w'),
+          title,
+          description: '',
+          startTime,
+          endTime,
+          source: 'user',
+          exercises,
+        };
         set((s) => ({
           workouts: [
             ...s.workouts,
-            {
-              id: genId('w'),
-              title,
-              description: '',
-              startTime,
-              endTime,
-              source: 'user',
-              exercises,
-            },
+            built,
           ],
-        })),
+        }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushWorkoutToCloud(user.id, built).catch(() => {});
+        }).catch(() => {});
+      },
 
       updatePlan: (id, plan) =>
         set((s) => ({
@@ -282,7 +291,12 @@ export const usePulse = create<PulseState>()(
           plans: s.plans.filter((p) => p.id !== id),
         })),
 
-      addMeasurement: (m) => set((s) => ({ measurements: [...s.measurements, m] })),
+      addMeasurement: (m) => {
+        set((s) => ({ measurements: [...s.measurements, m] }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushMeasurementToCloud(user.id, m).catch(() => {});
+        }).catch(() => {});
+      },
 
       addManualPR: (pr) =>
         set((s) => ({
@@ -307,6 +321,13 @@ export const usePulse = create<PulseState>()(
                 sets: we.sets.map((st) => ({ ...st, id: genId('s') })),
               })),
             }));
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              for (const fw of fresh) {
+                pushWorkoutToCloud(user.id, fw).catch(() => {});
+              }
+            }
+          }).catch(() => {});
           return { workouts: [...fresh, ...s.workouts] };
         }),
 
@@ -339,7 +360,7 @@ export const usePulse = create<PulseState>()(
         }),
     }),
     {
-      name: 'pulse-store-v1',
+      name: 'nextrep-store-v1',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         onboarded: s.onboarded,
@@ -360,6 +381,8 @@ export const usePulse = create<PulseState>()(
     },
   ),
 );
+
+export const useNextRep = usePulse;
 
 // --- ticking clock for elapsed timers --------------------------------------
 // Cached snapshot + interval so useSyncExternalStore never sees a changing

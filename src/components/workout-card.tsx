@@ -56,8 +56,8 @@ export function PlanCard({
         // inside this pressable, and two HTML <button> roles would be invalid
         style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
         <View style={styles.planCardInner}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Row gap={8}>
+          <View style={{ flex: 1, gap: 6, paddingRight: 8 }}>
+            <Row gap={8} align="center">
               <MaterialCommunityIcons name={planIcon(plan.emoji)} size={18} color={colors.text} />
               <T variant="h3" style={{ flex: 1 }} numberOfLines={1}>
                 {plan.title}
@@ -69,37 +69,39 @@ export function PlanCard({
                 <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
               ))}
             </Row>
-            <T variant="small" dim style={{ marginTop: 4 }}>
+            <T variant="small" dim style={{ marginTop: 2 }}>
               {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
             </T>
           </View>
-          {onStart || onEdit ? (
-            <Row gap={8} align="center">
-              {onEdit ? (
-                <Pressable
-                  onPress={onEdit}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${plan.title} plan`}
-                  style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.8 }]}>
-                  <Ionicons name="pencil" size={15} color={colors.textDim} />
-                </Pressable>
-              ) : null}
-              {onStart ? (
-                <Pressable
-                  onPress={onStart}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Start ${plan.title} workout`}
-                  style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
-                  <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
-                    Start
-                  </T>
-                  <Ionicons name="play" size={12} color={colors.bg} />
-                </Pressable>
-              ) : null}
-            </Row>
-          ) : null}
+          <View style={styles.planCardActions}>
+            {onEdit ? (
+              <Pressable
+                onPress={(e) => {
+                  // @ts-ignore - prevent accordion toggle on edit click
+                  e?.stopPropagation?.();
+                  onEdit();
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${plan.title} plan`}
+                style={({ pressed }) => [styles.editBtnTop, pressed && { opacity: 0.75 }]}>
+                <Ionicons name="pencil" size={13} color={colors.textDim} />
+              </Pressable>
+            ) : <View style={{ height: 28 }} />}
+            {onStart ? (
+              <Pressable
+                onPress={onStart}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`Start ${plan.title} workout`}
+                style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent, marginTop: 10 }, pressed && { opacity: 0.85 }]}>
+                <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
+                  Start
+                </T>
+                <Ionicons name="play" size={12} color={colors.bg} />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </Pressable>
 
@@ -286,18 +288,33 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
+  planCardActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+  },
   startBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 999,
   },
   editBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
+    backgroundColor: colors.surface3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  editBtnTop: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.surface3,
     alignItems: 'center',
     justifyContent: 'center',
