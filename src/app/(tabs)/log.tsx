@@ -8,7 +8,6 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { T } from '../../components/Text';
 import { BottomSheet } from '../../components/misc';
 import { Button, Icon, Row, Screen, Tag } from '../../components/ui';
-import { SEED_PLANS } from '../../data/seed';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
 import { colors, gradients, radius, spacing, useAccent } from '../../theme';
@@ -27,6 +26,7 @@ export default function LogScreen() {
   useAccent();
   const router = useRouter();
   const startWorkout = usePulse((s) => s.startWorkout);
+  const plans = usePulse((s) => s.plans);
   const [planSheet, setPlanSheet] = useState(false);
 
   const begin = (plan: WorkoutPlan) => {
@@ -93,7 +93,7 @@ export default function LogScreen() {
       <BottomSheet visible={planSheet} onClose={() => setPlanSheet(false)} title="Start a workout">
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={{ gap: spacing.sm }}>
-            {SEED_PLANS.map((p) => (
+            {plans.map((p) => (
               <Pressable
                 key={p.id}
                 onPress={() => begin(p)}

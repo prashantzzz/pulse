@@ -3,10 +3,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { ExerciseThumb } from '../components/muscle-icon';
 import { T } from '../components/Text';
 import { BottomSheet, Stepper, toast } from '../components/misc';
 import { Button, Icon, Row, Screen, ScreenHeader } from '../components/ui';
-import { EXERCISE_MAP, searchExercises } from '../data/exercises';
+import { EXERCISE_MAP, searchExercises, swapOptions } from '../data/exercises';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
 
@@ -21,13 +22,22 @@ const REP_PRESETS = ['4-6', '6-10', '8-12', '10-15', '12-20'];
 export default function BuilderScreen() {
   useAccent();
   const router = useRouter();
-  const { add } = useLocalSearchParams<{ add?: string }>();
+  // ?plan=<planId> opens the builder as a plan editor instead of a workout
+  // creator — same exercise picker, sets and target-rep controls, but saving
+  // updates the plan instead of logging a workout
+  const { add, plan: planParam } = useLocalSearchParams<{ add?: string; plan?: string }>();
+  const plans = usePulse((s) => s.plans);
+  const updatePlan = usePulse((s) => s.updatePlan);
+  const removePlan = usePulse((s) => s.removePlan);
   const saveBuiltWorkout = usePulse((s) => s.saveBuiltWorkout);
+  const plan = planParam ? plans.find((p) => p.id === planParam) : undefined;
   const [title, setTitle] = useState('');
   const [drafts, setDrafts] = useState<DraftExercise[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<number | null>(null);
+  const [swapIndex, setSwapIndex] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Add exercises passed via the ?add=<exerciseId> param. The param can arrive
   // after the first render (e.g. on web), so track the last applied value and
@@ -40,6 +50,14 @@ export default function BuilderScreen() {
     if (add && EXERCISE_MAP[add] && !drafts.some((d) => d.exerciseId === add)) {
       setDrafts((prev) => [...prev, { exerciseId: add, sets: 3, targetReps: '8-12' }]);
     }
+  }
+  // Seed the drafts from the plan being edited (render-time adjustment, same
+  // pattern as the ?add param above).
+  const [appliedEdit, setAppliedEdit] = useState<string | undefined>(undefined);
+  if (planParam && plan && appliedEdit !== planParam) {
+    setAppliedEdit(planParam);
+    setTitle(plan.title);
+    setDrafts(plan.exercises.map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, targetReps: e.targetReps })));
   }
 
   const addExercise = (exerciseId: string) => {
@@ -61,6 +79,12 @@ export default function BuilderScreen() {
   const save = () => {
     if (drafts.length === 0) {
       toast('Add at least one exercise');
+      return;
+    }
+    if (plan) {
+      updatePlan(plan.id, { ...plan, title: title.trim() || plan.title, exercises: drafts });
+      toast('Plan updated');
+      router.back();
       return;
     }
     const now = new Date();
@@ -96,17 +120,30 @@ export default function BuilderScreen() {
   };
 
   const edit = editing != null ? drafts[editing] : undefined;
+  const swapEx = swapIndex != null ? EXERCISE_MAP[drafts[swapIndex]?.exerciseId] : undefined;
 
   return (
     <View style={{ flex: 1 }}>
       <Screen scroll contentStyle={{ paddingBottom: 120 }}>
-        <ScreenHeader title="New Workout" back right="checkmark" onRight={save} />
+        <ScreenHeader title={plan ? 'Edit Plan' : 'New Workout'} back right="checkmark" onRight={save} />
 
         <View style={{ paddingHorizontal: spacing.lg }}>
           <View style={styles.nameWrap}>
-            <T variant="label" dim style={{ marginBottom: 6 }}>
-              Workout Name
-            </T>
+            <Row align="space-between" style={{ marginBottom: 6 }}>
+              <T variant="label" dim>
+                Workout Name
+              </T>
+              {plan ? (
+                <Pressable onPress={() => setConfirmDelete(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${plan.title} plan`}>
+                  <Row gap={5}>
+                    <Ionicons name="trash-outline" size={14} color={colors.red} />
+                    <T variant="smallMedium" style={{ color: colors.red, fontSize: 12 }}>
+                      Delete Plan
+                    </T>
+                  </Row>
+                </Pressable>
+              ) : null}
+            </Row>
             <TextInput
               value={title}
               onChangeText={setTitle}
@@ -152,6 +189,9 @@ export default function BuilderScreen() {
                         </T>
                       </Pressable>
                     </View>
+                    <Pressable onPress={() => setSwapIndex(i)} hitSlop={8} style={styles.swapBtn} accessibilityLabel={`Swap ${e.name}`}>
+                      <Ionicons name="swap-horizontal" size={18} color={colors.textDim} />
+                    </Pressable>
                     <Pressable onPress={() => removeExercise(i)} hitSlop={8}>
                       <Ionicons name="close" size={20} color={colors.textMuted} />
                     </Pressable>
@@ -223,6 +263,66 @@ export default function BuilderScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </BottomSheet>
+
+      {/* swap exercise sheet — curated alternatives keep sets & target reps */}
+      <BottomSheet visible={swapIndex != null} onClose={() => setSwapIndex(null)} title={swapEx ? `Swap ${swapEx.name}` : 'Swap Exercise'}>
+        <T variant="small" dim style={{ marginBottom: spacing.md }}>
+          Replace with a similar exercise — sets and target reps stay the same.
+        </T>
+        <View style={{ gap: spacing.xs }}>
+          {swapEx
+            ? swapOptions(swapEx, 4).map((alt) => (
+                <Pressable
+                  key={alt.id}
+                  onPress={() => {
+                    if (swapIndex != null) {
+                      setDrafts((prev) => prev.map((d, i) => (i === swapIndex ? { ...d, exerciseId: alt.id } : d)));
+                    }
+                    setSwapIndex(null);
+                    toast(`Swapped to ${alt.name}`);
+                  }}
+                  style={styles.swapRow}>
+                  <ExerciseThumb muscle={alt.muscleGroup} size={34} />
+                  <View style={{ flex: 1 }}>
+                    <T variant="bodySemi" style={{ fontSize: 14 }}>
+                      {alt.name}
+                    </T>
+                    <T variant="micro" muted>
+                      {alt.equipment} · {alt.muscleGroup}
+                    </T>
+                  </View>
+                  <Ionicons name="swap-horizontal" size={16} color={colors.accent} />
+                </Pressable>
+              ))
+            : null}
+          {swapEx && swapOptions(swapEx, 4).length === 0 ? (
+            <T variant="small" dim center style={{ paddingVertical: spacing.md }}>
+              No similar exercise found.
+            </T>
+          ) : null}
+        </View>
+      </BottomSheet>
+
+      {/* delete plan confirm — only the template is removed, history stays */}
+      <BottomSheet visible={confirmDelete} onClose={() => setConfirmDelete(false)} title={plan ? `Delete ${plan.title}?` : 'Delete plan?'}>
+        <T variant="small" dim style={{ fontSize: 13, marginBottom: spacing.lg }}>
+          This only removes the plan from My Workouts — your logged workout history is untouched.
+        </T>
+        <Row gap={spacing.sm}>
+          <Button label="Cancel" variant="outline" style={{ flex: 1 }} onPress={() => setConfirmDelete(false)} />
+          <Button
+            label="Delete"
+            variant="danger"
+            style={{ flex: 1 }}
+            onPress={() => {
+              if (plan) removePlan(plan.id);
+              setConfirmDelete(false);
+              toast('Plan deleted');
+              router.back();
+            }}
+          />
+        </Row>
       </BottomSheet>
 
       {/* edit sets sheet */}
@@ -300,6 +400,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  swapBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.sm,

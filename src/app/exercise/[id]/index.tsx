@@ -9,7 +9,8 @@ import { BottomSheet } from '../../../components/misc';
 import { MuscleTargetMap } from '../../../components/muscle-map';
 import { T } from '../../../components/Text';
 import { Button, Card, Icon, Row, Screen, ScreenHeader, Section, Tag } from '../../../components/ui';
-import { EXERCISE_MAP } from '../../../data/exercises';
+import { EXERCISE_MAP, swapOptions } from '../../../data/exercises';
+import { plateauForExercise } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
 import { colors, radius, spacing, useAccent } from '../../../theme';
 
@@ -21,6 +22,7 @@ export default function ExerciseDetailScreen() {
   const toggleFavorite = usePulse((s) => s.toggleFavorite);
   const startWorkout = usePulse((s) => s.startWorkout);
   const profile = usePulse((s) => s.profile);
+  const workouts = usePulse((s) => s.workouts);
   const [addSheet, setAddSheet] = useState(false);
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
@@ -81,6 +83,25 @@ export default function ExerciseDetailScreen() {
             ))}
             <Tag label={exercise.movement} color={colors.teal} bg={colors.tealSoft} />
           </Row>
+
+          {/* lightweight plateau signal from the user's own history */}
+          {plateauForExercise(workouts, exercise.id) ? (
+            <Card style={{ marginTop: spacing.md, padding: spacing.md, borderColor: `${colors.orange}55` }}>
+              <Row gap={10} align="flex-start">
+                <View style={[styles.plateauIcon, { backgroundColor: colors.dangerSoft }]}>
+                  <Ionicons name="pause-circle-outline" size={18} color={colors.orange} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <T variant="bodySemi" style={{ fontSize: 14 }}>
+                    {exercise.name} may be plateauing.
+                  </T>
+                  <T variant="small" dim style={{ fontSize: 12, marginTop: 1 }}>
+                    Same load across your recent sessions. Try increasing reps before increasing weight.
+                  </T>
+                </View>
+              </Row>
+            </Card>
+          ) : null}
 
           <Card style={{ marginTop: spacing.md, padding: spacing.md }}>
             <Row align="space-between">
@@ -161,19 +182,43 @@ export default function ExerciseDetailScreen() {
             </Card>
           </Section>
 
-          <Section title="Can't use this equipment?">
-            <Row gap={8} wrap>
-              {exercise.alternatives.map((altId) => {
-                const alt = EXERCISE_MAP[altId];
-                if (!alt) return null;
-                return (
-                  <Pressable key={altId} onPress={() => router.push(`/exercise/${altId}` as never)}>
-                    <Tag label={alt.name} color={colors.cyan} bg={colors.cyanSoft} />
-                  </Pressable>
-                );
-              })}
-            </Row>
-          </Section>
+          {(() => {
+            const options = swapOptions(exercise, 4);
+            if (options.length === 0) return null;
+            const [top, ...rest] = options;
+            return (
+              <Section title="Swap Exercise">
+                <T variant="small" dim style={{ fontSize: 12, marginBottom: spacing.sm }}>
+                  Same movement, different setup — one is clearly recommended.
+                </T>
+                <Card onPress={() => router.push(`/exercise/${top.id}` as never)} style={{ padding: spacing.md, marginBottom: spacing.sm }}>
+                  <Row align="space-between">
+                    <Row gap={12}>
+                      <View style={[styles.swapRec, { backgroundColor: colors.accent }]}>
+                        <Ionicons name="swap-horizontal" size={18} color={colors.bg} />
+                      </View>
+                      <View>
+                        <T variant="bodySemi">{top.name}</T>
+                        <T variant="small" dim style={{ fontSize: 12 }}>
+                          {top.equipment} · {top.muscleGroup}
+                        </T>
+                      </View>
+                    </Row>
+                    <Tag label="Recommended" color={colors.accent} />
+                  </Row>
+                </Card>
+                {rest.length > 0 ? (
+                  <Row gap={8} wrap>
+                    {rest.map((alt) => (
+                      <Pressable key={alt.id} onPress={() => router.push(`/exercise/${alt.id}` as never)}>
+                        <Tag label={alt.name} color={colors.cyan} bg={colors.cyanSoft} />
+                      </Pressable>
+                    ))}
+                  </Row>
+                ) : null}
+              </Section>
+            );
+          })()}
         </View>
       </Screen>
 
@@ -253,6 +298,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   warnDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.red, marginTop: 6 },
+  plateauIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swapRec: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   noteIcon: {
     width: 34,
     height: 34,
@@ -260,12 +319,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Full-bleed dark panel: the carousel viewport clips + rounds the edges, so
+  // this card must cover its whole page — its own rounded corners or border
+  // would leave transparent/light pixels at the seam where the white video
+  // card behind it could show through.
   muscleCard: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     backgroundColor: '#0D0F12',
-    overflow: 'hidden',
     padding: spacing.sm,
     height: 240,
   },

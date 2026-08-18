@@ -3,15 +3,14 @@ import { Pressable, View } from 'react-native';
 
 import { LineChart } from '../charts';
 import { T } from '../Text';
-import { Card, Chip, Icon, Row, Section } from '../ui';
+import { Card, Icon, Row, Section } from '../ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { bestForExercise, consistencyPct, e1rm, strengthProgression } from '../../lib/stats';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
-import { progressStyles, SummaryCard } from './shared';
+import { progressStyles, SummaryCard, TimeframeChips, type ProgressTimeframe } from './shared';
 
-const TIMEFRAMES = ['7D', '1M', '3M', '6M', '1Y'] as const;
-export type ProgressTimeframe = (typeof TIMEFRAMES)[number];
+export type { ProgressTimeframe } from './shared';
 
 /**
  * Strength tab: estimated 1RM trend for a chosen exercise, quick summary stats
@@ -97,11 +96,7 @@ export function StrengthView({
         <Ionicons name="chevron-down" size={18} color={colors.textDim} />
       </Pressable>
 
-      <Row gap={8}>
-        {TIMEFRAMES.map((t) => (
-          <Chip key={t} label={t} selected={tf === t} onPress={() => onTimeframeChange(t)} />
-        ))}
-      </Row>
+      <TimeframeChips tf={tf} onChange={onTimeframeChange} />
 
       <Card style={{ padding: spacing.lg }}>
         <Row align="space-between">

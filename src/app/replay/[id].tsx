@@ -3,10 +3,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
-import { Card, Row, Screen, ScreenHeader, Tag } from '../../components/ui';
+import { Button, Card, Row, Screen, ScreenHeader, Tag } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { formatClock, formatDate, formatDurationLabel } from '../../lib/format';
-import { detectPRs, whatChanged, workoutStats } from '../../lib/stats';
+import { detectPRs, whatChanged, workoutRepeatSpecs, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing, useAccent } from '../../theme';
 
@@ -15,6 +15,7 @@ export default function ReplayScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
+  const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
 
   if (!workout) {
@@ -167,6 +168,19 @@ export default function ReplayScreen() {
             );
           })}
         </Card>
+
+        {/* one clear action — run it back with the same structure and targets */}
+        <Button
+          label="Repeat Workout"
+          icon="refresh"
+          full
+          size="lg"
+          style={{ marginTop: spacing.lg }}
+          onPress={() => {
+            const w = startWorkout(workout.title, workoutRepeatSpecs(workout));
+            router.push(`/workout/${w.id}`);
+          }}
+        />
       </View>
     </Screen>
   );

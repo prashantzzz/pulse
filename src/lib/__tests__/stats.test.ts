@@ -1,15 +1,21 @@
-import type { ExerciseSet, Workout, WorkoutExercise } from '../../types';
+import type { ExerciseSet, Workout, WorkoutExercise, WorkoutPlan } from '../../types';
 import {
   bestForExercise,
+  classifyWorkout,
   consistencyPct,
   currentStreak,
+  detectPlateaus,
   detectPRs,
   e1rm,
   longestStreak,
+  nextMove,
+  plateauForExercise,
   previousSet,
   progressScore,
   setVolume,
   strengthProgression,
+  warmupSets,
+  workoutRepeatSpecs,
   workoutStats,
 } from '../stats';
 
@@ -260,6 +266,12 @@ describe('previousSet', () => {
   it('returns null when the exercise has never been done', () => {
     expect(previousSet([benchWorkout(100, 5)], 'squat', 1)).toBeNull();
   });
+
+  it('can exclude the current workout id (for replaying a finished workout)', () => {
+    const w = benchWorkout(90, 8, 3, '2026-08-20T09:00:00.000Z');
+    expect(previousSet([w], 'bench-press', 1, w.id)).toBeNull();
+    expect(previousSet([w], 'bench-press', 1)).toEqual({ weightKg: 90, reps: 8, date: '2026-08-20T09:00:00.000Z' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -351,8 +363,257 @@ describe('progressScore', () => {
   });
 
   it('scores balanced activity proportionally', () => {
+    // 40 (3 workouts) + 16 (2 PRs) + 12 (streak) + 8 (volume capped) + 12 (consistency) + 4 (goals) = 92
     expect(
       progressScore({ workoutsThisWeek: 3, prsThisMonth: 2, streak: 3, volumeKg: 48000, consistency: 12, goalCompletion: 1 }),
-    ).toBe(96);
+    ).toBe(92);
+  });
+
+  it('caps raw volume so it can never dominate the score', () => {
+    const base = { workoutsThisWeek: 1, prsThisMonth: 0, streak: 1, consistency: 10, goalCompletion: 0 };
+    expect(progressScore({ ...base, volumeKg: 40000 })).toBe(progressScore({ ...base, volumeKg: 1e9 }));
+    expect(progressScore({ ...base, volumeKg: 1e9 })).toBeLessThan(50); // volume alone can't carry anyone
+  });
+
+  it('rewards consistency more than volume at the margin', () => {
+    const a = progressScore({ workoutsThisWeek: 2, prsThisMonth: 0, streak: 4, volumeKg: 80000, consistency: 5, goalCompletion: 0.5 });
+    const b = progressScore({ workoutsThisWeek: 2, prsThisMonth: 0, streak: 4, volumeKg: 0, consistency: 15, goalCompletion: 0.5 });
+    // raising consistency 5% → 15% (10 pts) outpoints 80,000 kg of extra volume (capped 8 pts)
+    expect(b).toBeGreaterThan(a);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Warm-up suggestions
+// ---------------------------------------------------------------------------
+
+describe('warmupSets', () => {
+  it('ramps 25/50/75/~87% of the working weight with standard rep counts', () => {
+    expect(warmupSets(80)).toEqual([
+      { kg: 20, reps: 10 },
+      { kg: 40, reps: 8 },
+      { kg: 60, reps: 5 },
+      { kg: 70, reps: 3 },
+    ]);
+  });
+
+  it('rounds to the nearest plate step and drops bar-only steps', () => {
+    expect(warmupSets(62.5)).toEqual([
+      { kg: 30, reps: 8 },
+      { kg: 45, reps: 5 },
+      { kg: 52.5, reps: 3 },
+    ]);
+  });
+
+  it('returns nothing below a meaningful working weight', () => {
+    expect(warmupSets(39)).toEqual([]);
+    expect(warmupSets(20)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plateau detection
+// ---------------------------------------------------------------------------
+
+describe('detectPlateaus', () => {
+  const recent = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString();
+
+  it('flags an exercise stuck at the same load across four sessions', () => {
+    const workouts = [5, 10, 15, 20].map((d) => benchWorkout(60, 5, 3, recent(d)));
+    const plateaus = detectPlateaus(workouts);
+    expect(plateaus).toHaveLength(1);
+    expect(plateaus[0]).toMatchObject({ exerciseId: 'bench-press', sessions: 4, spreadKg: 0 });
+  });
+
+  it('does not flag an exercise that is progressing', () => {
+    const workouts = [5, 10, 15, 20].map((d, i) => benchWorkout(60 + i * 5, 5, 3, recent(d)));
+    expect(detectPlateaus(workouts)).toHaveLength(0);
+  });
+
+  it('skips regressions — the all-time best is clearly above the recent window', () => {
+    const workouts = [
+      benchWorkout(100, 5, 1, recent(30)), // old all-time best
+      benchWorkout(60, 5, 1, recent(5)),
+      benchWorkout(60, 5, 1, recent(10)),
+      benchWorkout(60, 5, 1, recent(15)),
+      benchWorkout(60, 5, 1, recent(20)),
+    ];
+    expect(detectPlateaus(workouts)).toHaveLength(0);
+  });
+
+  it('needs at least the minimum number of sessions', () => {
+    const workouts = [5, 10, 15].map((d) => benchWorkout(60, 5, 1, recent(d)));
+    expect(detectPlateaus(workouts, { minSessions: 4 })).toHaveLength(0);
+    expect(detectPlateaus(workouts, { minSessions: 3 })).toHaveLength(1);
+  });
+
+  it('ignores exercises logged without weight (no load to stall on)', () => {
+    const workouts = [5, 10, 15, 20].map((d) =>
+      makeWorkout({
+        endTime: recent(d),
+        exercises: [makeWorkoutExercise('lat-pulldown', [makeSet({ weightKg: null, reps: 10 })])],
+      }),
+    );
+    expect(detectPlateaus(workouts)).toHaveLength(0);
+  });
+
+  it('plateauForExercise finds a single exercise or returns null', () => {
+    const workouts = [5, 10, 15, 20].map((d) => benchWorkout(60, 5, 1, recent(d)));
+    expect(plateauForExercise(workouts, 'bench-press')?.exerciseId).toBe('bench-press');
+    expect(plateauForExercise(workouts, 'squat')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Repeat workout
+// ---------------------------------------------------------------------------
+
+describe('workoutRepeatSpecs', () => {
+  it('recreates exercise structure from completed sets', () => {
+    const w = makeWorkout({
+      title: 'Push Day',
+      exercises: [
+        makeWorkoutExercise('bench-press', [makeSet({ completed: true }), makeSet({ completed: true }), makeSet({ completed: false })], { targetReps: '6-8', plannedSets: 3 }),
+        makeWorkoutExercise('lateral-raise', [makeSet({ completed: false })], { targetReps: '', plannedSets: 4 }),
+      ],
+    });
+    expect(workoutRepeatSpecs(w)).toEqual([
+      { exerciseId: 'bench-press', sets: 2, targetReps: '6-8' },
+      { exerciseId: 'lateral-raise', sets: 4, targetReps: '8-12' },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Next move (one deterministic recommendation)
+// ---------------------------------------------------------------------------
+
+const PLANS: WorkoutPlan[] = [
+  { id: 'plan-push', title: 'Push Day', muscles: ['Chest', 'Shoulders', 'Triceps'], emoji: '🔥', exercises: [{ exerciseId: 'bench-press', sets: 3, targetReps: '6-8' }] },
+  { id: 'plan-legs', title: 'Leg Day', muscles: ['Quads', 'Hamstrings', 'Calves'], emoji: '🦵', exercises: [{ exerciseId: 'squat', sets: 3, targetReps: '6-8' }] },
+];
+
+// ---------------------------------------------------------------------------
+// Workout categorization (history filters)
+// ---------------------------------------------------------------------------
+
+describe('classifyWorkout', () => {
+  it('maps plan-style titles to their chip', () => {
+    expect(classifyWorkout(makeWorkout({ title: 'Push Day' }))).toBe('Push');
+    expect(classifyWorkout(makeWorkout({ title: 'Pull Day' }))).toBe('Pull');
+    expect(classifyWorkout(makeWorkout({ title: 'Leg Day' }))).toBe('Legs');
+    expect(classifyWorkout(makeWorkout({ title: 'Legs' }))).toBe('Legs');
+    expect(classifyWorkout(makeWorkout({ title: 'Upper Body' }))).toBe('Upper');
+    expect(classifyWorkout(makeWorkout({ title: 'Full Body' }))).toBe('Full');
+  });
+
+  it('maps short CSV-style titles too', () => {
+    expect(classifyWorkout(makeWorkout({ title: 'Push' }))).toBe('Push');
+    expect(classifyWorkout(makeWorkout({ title: 'Pull' }))).toBe('Pull');
+    expect(classifyWorkout(makeWorkout({ title: 'Legs' }))).toBe('Legs');
+  });
+
+  it('falls back to content for arbitrary titles (no hints)', () => {
+    const pushy = makeWorkout({
+      title: 'Chest & Triceps',
+      exercises: [
+        makeWorkoutExercise('bench-press', [makeSet()]),
+        makeWorkoutExercise('lateral-raise', [makeSet()]),
+      ],
+    });
+    expect(classifyWorkout(pushy)).toBe('Push');
+
+    const legy = makeWorkout({
+      title: 'My Workout',
+      exercises: [makeWorkoutExercise('squat', [makeSet()]), makeWorkoutExercise('leg-press', [makeSet()])],
+    });
+    expect(classifyWorkout(legy)).toBe('Legs');
+  });
+
+  it('classifies a 50/50 push+pull session as Upper (region majority)', () => {
+    const w = makeWorkout({
+      title: 'Mixed Day',
+      exercises: [
+        makeWorkoutExercise('bench-press', [makeSet()]),
+        makeWorkoutExercise('lat-pulldown', [makeSet()]),
+      ],
+    });
+    expect(classifyWorkout(w)).toBe('Upper');
+  });
+
+  it('lands mixed full-body sessions on Full', () => {
+    const w = makeWorkout({
+      title: 'Conditioning',
+      exercises: [
+        makeWorkoutExercise('squat', [makeSet()]),
+        makeWorkoutExercise('lat-pulldown', [makeSet()]),
+        makeWorkoutExercise('treadmill-run', [makeSet()]),
+      ],
+    });
+    expect(classifyWorkout(w)).toBe('Full');
+  });
+
+  it('returns Other for workouts with no recognizable exercises', () => {
+    // default makeWorkout title is 'Push Day' — use a hint-free title so only
+    // the content matters
+    expect(classifyWorkout(makeWorkout({ title: 'My Workout', exercises: [] }))).toBe('Other');
+    expect(classifyWorkout(makeWorkout({ title: 'My Workout', exercises: [makeWorkoutExercise('not-an-exercise', [makeSet()])] }))).toBe('Other');
+  });
+});
+
+describe('nextMove', () => {
+  it('recommends a plan whose muscles have not been trained recently', () => {
+    const workouts = [
+      makeWorkout({ title: 'Push Day', startTime: daysAgo(10), endTime: daysAgo(10), exercises: [makeWorkoutExercise('bench-press', [makeSet({ completed: true })])] }),
+      makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ completed: true })])] }),
+    ];
+    const move = nextMove(workouts, PLANS);
+    expect(move?.kind).toBe('untrained');
+    expect(move?.action).toEqual({ type: 'start-plan', planId: 'plan-push', planTitle: 'Push Day' });
+    expect(move?.headline).toContain('trained recently');
+  });
+
+  it('skips the plan the home hero is already offering', () => {
+    const workouts = [
+      makeWorkout({ title: 'Push Day', startTime: daysAgo(10), endTime: daysAgo(10), exercises: [makeWorkoutExercise('bench-press', [makeSet({ completed: true })])] }),
+      makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ completed: true })])] }),
+    ];
+    expect(nextMove(workouts, PLANS, 'plan-push')?.kind).not.toBe('untrained');
+  });
+
+  it('surfaces an exercise close to its all-time PR', () => {
+    const workouts = [
+      benchWorkout(90, 5, 3, daysAgo(3)), // recent best e1rm = 105
+      benchWorkout(100, 5, 3, daysAgo(80)), // all-time best e1rm = 116.7 (outside radar window)
+    ];
+    const move = nextMove(workouts, PLANS);
+    expect(move?.kind).toBe('pr-close');
+    expect(move?.action).toEqual({ type: 'view-exercise', exerciseId: 'bench-press', exerciseName: 'Bench Press' });
+    expect(move?.pct).toBeGreaterThanOrEqual(90);
+  });
+
+  it('flags a stalled exercise when nothing else applies', () => {
+    const workouts = [
+      // every plan muscle trained within the week; bench stuck at 60 across four sessions
+      makeWorkout({ title: 'Leg Day', startTime: daysAgo(1), endTime: daysAgo(1), exercises: [makeWorkoutExercise('squat', [makeSet({ completed: true })])] }),
+      makeWorkout({ title: 'Push Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 60, reps: 5, completed: true })])] }),
+      benchWorkout(60, 5, 1, daysAgo(3)),
+      benchWorkout(60, 5, 1, daysAgo(4)),
+      benchWorkout(60, 5, 1, daysAgo(5)),
+    ];
+    const move = nextMove(workouts, PLANS);
+    expect(move?.kind).toBe('plateau');
+    expect(move?.action).toEqual({ type: 'view-exercise', exerciseId: 'bench-press', exerciseName: 'Bench Press' });
+  });
+
+  it('returns null when there is nothing worth saying', () => {
+    const workouts = [
+      makeWorkout({ title: 'Push Day', startTime: daysAgo(1), endTime: daysAgo(1), exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 70, reps: 5, completed: true })])] }),
+      makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ weightKg: 80, reps: 5, completed: true })])] }),
+      benchWorkout(60, 5, 1, daysAgo(5)),
+      benchWorkout(65, 5, 1, daysAgo(4)),
+      benchWorkout(70, 5, 1, daysAgo(3)),
+    ];
+    expect(nextMove(workouts, PLANS)).toBeNull();
   });
 });

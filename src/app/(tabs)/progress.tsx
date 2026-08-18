@@ -5,14 +5,13 @@ import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { BottomSheet } from '../../components/misc';
 import { BodyView } from '../../components/progress/body-view';
 import { ConsistencyView } from '../../components/progress/consistency-view';
-import { progressStyles } from '../../components/progress/shared';
+import { progressStyles, TF_LABELS } from '../../components/progress/shared';
 import { StrengthView, type ProgressTimeframe } from '../../components/progress/strength-view';
 import { RecordsView } from '../../components/progress/records-view';
 import { VolumeView } from '../../components/progress/volume-view';
 import { T } from '../../components/Text';
 import { Icon, Row, Screen, Segmented } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
-import { SEED_PLANS } from '../../data/seed';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing, useAccent } from '../../theme';
 
@@ -20,18 +19,12 @@ type ProgressView = 'Strength' | 'Volume' | 'Consistency' | 'Body' | 'Records';
 const VIEWS = ['Strength', 'Volume', 'Consistency', 'Body', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
-const TF_LABELS: Record<ProgressTimeframe, string> = {
-  '7D': 'This Week',
-  '1M': 'This Month',
-  '3M': 'Last 3 Months',
-  '6M': 'Last 6 Months',
-  '1Y': 'This Year',
-};
 
 export default function ProgressScreen() {
   useAccent();
   const { width } = useWindowDimensions();
   const workouts = usePulse((s) => s.workouts);
+  const plans = usePulse((s) => s.plans);
   const measurements = usePulse((s) => s.measurements);
   const profile = usePulse((s) => s.profile);
   const [view, setView] = useState<ProgressView>('Strength');
@@ -43,7 +36,7 @@ export default function ProgressScreen() {
 
   // exercises for the picker sheet — exactly the ones the user's plans include
   // (deduped, in plan order), so the dropdown never offers extras
-  const planExercises = [...new Set(SEED_PLANS.flatMap((p) => p.exercises.map((e) => e.exerciseId)))];
+  const planExercises = [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))];
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
@@ -76,7 +69,7 @@ export default function ProgressScreen() {
             onOpenPicker={() => setPickerOpen(true)}
           />
         ) : null}
-        {view === 'Volume' ? <VolumeView workouts={workouts} chartW={chartW} /> : null}
+        {view === 'Volume' ? <VolumeView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} /> : null}
         {view === 'Consistency' ? <ConsistencyView workouts={workouts} /> : null}
         {view === 'Body' ? <BodyView workouts={workouts} measurements={measurements} profile={profile} /> : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}

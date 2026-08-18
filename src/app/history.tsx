@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { EmptyState } from '../components/misc';
 import { Chip, Screen, ScreenHeader } from '../components/ui';
 import { HistoryCard } from '../components/workout-card';
-import { detectPRs, whatChanged } from '../lib/stats';
+import { classifyWorkout, detectPRs, whatChanged } from '../lib/stats';
 import { usePulse } from '../store/useStore';
 import { spacing, useAccent } from '../theme';
 
@@ -17,9 +17,12 @@ export default function HistoryScreen() {
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState('All');
 
-  const filtered = [...workouts]
-    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-    .filter((w) => filter === 'All' || w.title.includes(filter));
+  // sort once for the list and reuse the order for per-card "previous workout"
+  // lookups — sorting inside the render loop was O(n² log n) per render
+  const sorted = [...workouts].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  // content-aware categorization: title hints ("Leg Day" → Legs, "Upper Body"
+  // → Upper) with a movement/region fallback for arbitrary titles
+  const filtered = sorted.filter((w) => filter === 'All' || classifyWorkout(w) === filter);
 
   return (
     <Screen>
@@ -44,7 +47,7 @@ export default function HistoryScreen() {
           />
         ) : (
           filtered.map((w) => {
-            const prev = [...workouts].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).find((x) => x.title === w.title && x.id !== w.id && new Date(x.startTime).getTime() < new Date(w.startTime).getTime());
+            const prev = sorted.find((x) => x.title === w.title && x.id !== w.id && new Date(x.startTime).getTime() < new Date(w.startTime).getTime());
             const volUp = prev ? whatChanged(w, prev).volumePct > 0 : false;
             const hasPR = detectPRs(w, workouts).length > 0;
             return (

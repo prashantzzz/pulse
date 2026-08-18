@@ -192,35 +192,62 @@ function inferFromName(name: string): {
 
 let customCounter = 0;
 
+function byShortestName(a: Exercise, b: Exercise): number {
+  return normalizeName(a.name).length - normalizeName(b.name).length;
+}
+
+/**
+ * Find the canonical knowledge-base exercise for a cleaned base name.
+ *
+ * Identity rules (all on normalized text, display names are never ids):
+ *   1. exact name or alias match → the canonical exercise;
+ *   2. when an equipment suffix was given and the exact match uses different
+ *      equipment, prefer an equipment-qualified variant ("Bench Press (Dumbbell)"
+ *      → Dumbbell Bench Press) before falling back to the base exercise;
+ *   3. fuzzy containment on names and aliases, shortest name wins ties so
+ *      "Flat Bench Press" lands on Bench Press rather than a longer variant.
+ */
+function matchCanonicalExercise(base: string, equipment: Equipment | null): Exercise | null {
+  const norm = normalizeName(base);
+  if (!norm) return null;
+
+  const exact = EXERCISES.filter((e) => normalizeName(e.name) === norm || (e.aliases ?? []).some((a) => normalizeName(a) === norm));
+  if (exact.length > 0) {
+    if (equipment) {
+      const sameEquip = exact.find((e) => e.equipment === equipment);
+      if (sameEquip) return sameEquip;
+      const variant = EXERCISES.filter(
+        (e) => e.equipment === equipment && (normalizeName(e.name).includes(norm) || norm.includes(normalizeName(e.name))),
+      ).sort(byShortestName);
+      if (variant.length > 0) return variant[0];
+    }
+    return exact[0];
+  }
+
+  const fuzzy = EXERCISES.filter((e) => {
+    const n = normalizeName(e.name);
+    if (norm.includes(n) || n.includes(norm)) return true;
+    return (e.aliases ?? []).some((a) => {
+      const an = normalizeName(a);
+      return norm.includes(an) || an.includes(norm);
+    });
+  }).sort(byShortestName);
+  if (fuzzy.length > 0) {
+    if (equipment) {
+      const sameEquip = fuzzy.filter((e) => e.equipment === equipment);
+      if (sameEquip.length > 0) return sameEquip[0];
+    }
+    return fuzzy[0];
+  }
+  return null;
+}
+
 /** Resolve a CSV exercise title to a knowledge-base exercise, creating a custom one if unknown. */
 export function resolveExercise(title: string): Exercise {
   const clean = (title ?? '').trim();
   const { base, equipment } = stripEquipmentSuffix(clean);
-  const baseNorm = normalizeName(base);
-
-  const direct = EXERCISES.find((e) => normalizeName(e.name) === baseNorm);
-  if (direct) {
-    if (equipment && direct.equipment !== equipment) {
-      const sameEquip = EXERCISES.find(
-        (e) => normalizeName(e.name) === baseNorm && e.equipment === equipment,
-      );
-      if (sameEquip) return sameEquip;
-    }
-    return direct;
-  }
-  const fuzzy = EXERCISES.find((e) => {
-    const n = normalizeName(e.name);
-    return baseNorm.includes(n) || n.includes(baseNorm);
-  });
-  if (fuzzy) {
-    if (equipment && fuzzy.equipment !== equipment) {
-      const sameEquip = EXERCISES.find(
-        (e) => (normalizeName(e.name).includes(baseNorm) || baseNorm.includes(normalizeName(e.name))) && e.equipment === equipment,
-      );
-      if (sameEquip) return sameEquip;
-    }
-    return fuzzy;
-  }
+  const matched = matchCanonicalExercise(base, equipment);
+  if (matched) return matched;
 
   // Unknown exercise — register a lightweight custom entry so all screens work.
   const { muscleGroup, movement, animation, type, region, equipment: eq } = inferFromName(clean);

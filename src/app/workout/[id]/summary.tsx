@@ -10,7 +10,7 @@ import { T } from '../../../components/Text';
 import { toast } from '../../../components/misc';
 import { Button, Card, Row } from '../../../components/ui';
 import { formatDurationLabel } from '../../../lib/format';
-import { detectPRs, formatCompact, whatChanged, workoutStats } from '../../../lib/stats';
+import { detectPRs, formatCompact, whatChanged, workoutRepeatSpecs, workoutStats } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
 import { accentTint, colors, radius, spacing, useAccent } from '../../../theme';
 
@@ -19,6 +19,7 @@ export default function SummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
+  const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
 
   const confetti = useAnimatedValue(0);
@@ -46,6 +47,9 @@ export default function SummaryScreen() {
   const prs = detectPRs(workout, workouts);
   const prevEquivalent = [...workouts].reverse().find((w) => w.title === workout.title && w.id !== workout.id);
   const changed = prevEquivalent ? whatChanged(workout, prevEquivalent) : null;
+  // a previous session with no completed sets is not a meaningful baseline
+  const prevStats = prevEquivalent ? workoutStats(prevEquivalent) : null;
+  const hasBaseline = prevStats != null && prevStats.sets > 0;
   const volumePerMin = stats.durationMin > 0 ? stats.volumeKg / stats.durationMin : 0;
 
   // workout fingerprint
@@ -55,7 +59,7 @@ export default function SummaryScreen() {
     duration: formatDurationLabel(stats.durationMin),
   };
 
-  const shareText = `💪 ${workout.title} on PULSE\n${stats.exercises} exercises · ${stats.sets} sets · ${stats.volumeKg.toLocaleString()} kg volume · ${stats.calories} kcal\n${prs.length > 0 ? `🏆 PRs: ${prs.map((p) => `${p.exerciseName} ${p.weightKg}×${p.reps}`).join(', ')}\n` : ''}${changed ? `📈 ${changed.volumePct >= 0 ? '+' : ''}${changed.volumePct}% vs last session` : ''}\n— sent with PULSE`;
+  const shareText = `💪 ${workout.title} on PULSE\n${stats.exercises} exercises · ${stats.sets} sets · ${stats.volumeKg.toLocaleString()} kg volume · ~${stats.calories} kcal est.\n${prs.length > 0 ? `🏆 PRs: ${prs.map((p) => `${p.exerciseName} ${p.weightKg}×${p.reps}`).join(', ')}\n` : ''}${changed ? `📈 ${changed.volumePct >= 0 ? '+' : ''}${changed.volumePct}% vs last session` : ''}\n— sent with PULSE`;
 
   const copyShare = async () => {
     try {
@@ -93,24 +97,31 @@ export default function SummaryScreen() {
             <Metric value={`${stats.exercises}`} label="Exercises" />
             <Metric value={`${stats.sets}`} label="Sets" />
             <Metric value={formatCompact(stats.volumeKg)} label="Volume kg" accent />
-            <Metric value={`${stats.calories}`} label="kcal" />
+            <Metric value={`~${stats.calories}`} label="est. kcal" />
           </Row>
         </Card>
 
-        {/* improvement */}
-        {changed ? (
-          <Card style={{ marginTop: spacing.md, padding: spacing.md }}>
-            <Row gap={10}>
-              <View style={[styles.upIcon, { backgroundColor: changed.volumePct >= 0 ? colors.accentSoft : colors.dangerSoft }]}>
-                <Ionicons name={changed.volumePct >= 0 ? 'trending-up' : 'trending-down'} size={18} color={changed.volumePct >= 0 ? colors.accent : colors.danger} />
-              </View>
-              <T variant="bodySemi" style={{ flex: 1, fontSize: 14 }}>
-                {changed.volumePct > 0
-                  ? `You improved by +${changed.volumePct}% volume vs your last ${workout.title}.`
-                  : changed.volumePct < 0
-                    ? `You\u2019re down ${Math.abs(changed.volumePct)}% volume vs your last ${workout.title} — next session\u2019s comeback.`
-                    : `You matched your last ${workout.title} volume — consistency is strength.`}
+        {/* what changed? — compact comparison vs the previous equivalent workout */}
+        {changed && prevEquivalent && hasBaseline ? (
+          <Card style={{ marginTop: spacing.md, padding: spacing.lg }}>
+            <Row align="space-between" style={{ marginBottom: spacing.sm }}>
+              <T variant="h3" style={{ fontSize: 16 }}>
+                What changed?
               </T>
+              <T variant="micro" muted>
+                vs last {workout.title}
+              </T>
+            </Row>
+            <Row align="space-between">
+              <DeltaMetric
+                label="Volume"
+                value={`${changed.volumePct > 0 ? '+' : ''}${changed.volumePct}%`}
+                good={changed.volumePct >= 0}
+                neutral={changed.volumePct === 0}
+              />
+              <DeltaMetric label="Reps" value={`${changed.repsDelta > 0 ? '+' : ''}${changed.repsDelta}`} good={changed.repsDelta >= 0} neutral={changed.repsDelta === 0} />
+              <DeltaMetric label="Avg weight" value={`${changed.avgWeightDelta > 0 ? '+' : ''}${changed.avgWeightDelta} kg`} good={changed.avgWeightDelta >= 0} neutral={changed.avgWeightDelta === 0} />
+              <DeltaMetric label="Duration" value={`${changed.durationDeltaMin <= 0 ? '' : '+'}${changed.durationDeltaMin} min`} good={changed.durationDeltaMin <= 0} neutral={changed.durationDeltaMin === 0} />
             </Row>
           </Card>
         ) : null}
@@ -197,9 +208,33 @@ export default function SummaryScreen() {
           ) : null}
         </View>
         <Button label="Share Workout Card" icon="share-outline" full size="lg" style={{ marginTop: spacing.md }} onPress={copyShare} />
+        <Button
+          label="Repeat Workout"
+          icon="refresh"
+          full
+          size="lg"
+          style={{ marginTop: spacing.sm }}
+          onPress={() => {
+            const w = startWorkout(workout.title, workoutRepeatSpecs(workout));
+            router.replace(`/workout/${w.id}`);
+          }}
+        />
         <Button label="Done" variant="ghost" full size="lg" style={{ marginTop: spacing.sm }} onPress={() => router.replace('/(tabs)/home' as never)} />
       </View>
     </ScrollView>
+  );
+}
+
+function DeltaMetric({ label, value, good, neutral }: { label: string; value: string; good: boolean; neutral: boolean }) {
+  return (
+    <View style={{ alignItems: 'center', gap: 3, flex: 1 }}>
+      <T variant="numSm" style={{ color: neutral ? colors.textDim : good ? colors.accent : colors.red, fontSize: 16 }}>
+        {value}
+      </T>
+      <T variant="micro" muted>
+        {label}
+      </T>
+    </View>
   );
 }
 

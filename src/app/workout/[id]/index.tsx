@@ -10,6 +10,7 @@ import { BottomSheet, toast } from '../../../components/misc';
 import { Button, Row, Screen } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
+import { previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { colors, radius, spacing, useAccent } from '../../../theme';
 
@@ -55,15 +56,15 @@ export default function ActiveWorkoutScreen() {
   // expand first incomplete exercise by default
   const expandedId = expanded ?? workout.exercises.find((we) => we.sets.some((s) => !s.completed))?.id ?? workout.exercises[0]?.id;
 
-  // historical values per exercise+set
-  const prevFor = (exerciseId: string, setIndex: number) => {
-    const prevWorkout = [...workouts].reverse().find((w) => w.id !== workout.id && w.exercises.some((we) => we.exerciseId === exerciseId && we.sets.length >= setIndex));
-    if (!prevWorkout) return undefined;
-    const we = prevWorkout.exercises.find((x) => x.exerciseId === exerciseId);
-    const s = we?.sets[setIndex - 1];
-    if (!s || !s.completed) return undefined;
-    return { weightKg: s.weightKg, reps: s.reps };
-  };
+  // historical values per exercise+set — same lookup as the set logger, so the
+  // "LAST TIME" previews never disagree with what the logger pre-fills
+  const prevValues = new Map<string, { weightKg: number | null; reps: number | null }>();
+  for (const we of workout.exercises) {
+    for (const s of we.sets) {
+      const p = previousSet(workouts, we.exerciseId, s.setIndex, workout.id);
+      if (p) prevValues.set(`${we.exerciseId}:${s.setIndex}`, { weightKg: p.weightKg, reps: p.reps });
+    }
+  }
 
   const lastDoneSet = [...workout.exercises].reverse().find((we) => we.sets.some((s) => s.completed));
   const nextExercise = workout.exercises.find((we) => we.sets.some((s) => !s.completed));
@@ -185,7 +186,7 @@ export default function ActiveWorkoutScreen() {
                       setType={s.setType}
                       weight={s.weightKg}
                       reps={s.reps}
-                      prev={prevFor(we.exerciseId, s.setIndex)}
+                      prev={prevValues.get(`${we.exerciseId}:${s.setIndex}`)}
                       completed={s.completed}
                       isNext={!s.completed && we.id === nextExercise?.id && we.sets.find((x) => !x.completed)?.id === s.id}
                       onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}

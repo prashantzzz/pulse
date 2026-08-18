@@ -74,25 +74,38 @@ export function LineChart({
 
   // Every data index maps to a fixed slot across the full time range, so a
   // point is drawn at its real position on the x-axis. Zero values mean "no
-  // data that period" — they're gaps, not dips: the line breaks there, no dot
-  // is drawn, and the neighboring weeks don't get connected across the gap.
+  // data that period" — they're skipped entirely: the line is ONE continuous
+  // path through the logged points (bridging rest periods), so it never breaks
+  // into disconnected fragments and never dips to zero.
   const pts = data.map((v, i) => ({
     x: padX + (i / Math.max(1, data.length - 1)) * (width - padX * 2),
     y: padTop + (1 - (v - min) / range) * (height - padTop - padBottom),
   }));
 
-  // contiguous runs of non-zero indices → one line segment each
-  const segments: number[][] = [];
-  let run: number[] = [];
-  data.forEach((v, i) => {
-    if (v > 0) run.push(i);
-    else if (run.length) {
-      segments.push(run);
-      run = [];
-    }
-  });
-  if (run.length) segments.push(run);
-  const lineSegs = segments.filter((s) => s.length > 1);
+  const dataPts = pts.filter((_, i) => data[i] > 0);
+  const line = smoothPath(dataPts);
+  const area =
+    dataPts.length > 1
+      ? `${line} L ${dataPts[dataPts.length - 1].x} ${height - padBottom} L ${dataPts[0].x} ${height - padBottom} Z`
+      : null;
+
+  // Nothing logged in this time range — show a clear message instead of an
+  // empty grid so the chart never looks like it failed to render.
+  if (dataPts.length === 0) {
+    return (
+      <Svg width={width} height={height}>
+        <SvgText
+          x={width / 2}
+          y={height / 2}
+          fontSize={12}
+          fill={colors.textMuted}
+          textAnchor="middle"
+          fontFamily="Inter_500Medium">
+          No workouts logged in this period
+        </SvgText>
+      </Svg>
+    );
+  }
 
   const gridLines = [0.25, 0.5, 0.75].map((f) => padTop + f * (height - padTop - padBottom));
 
@@ -115,17 +128,8 @@ export function LineChart({
             />
           ))
         : null}
-      {lineSegs.map((seg, si) => {
-        const segPts = seg.map((i) => pts[i]);
-        const line = smoothPath(segPts);
-        const area = `${line} L ${segPts[segPts.length - 1].x} ${height - padBottom} L ${segPts[0].x} ${height - padBottom} Z`;
-        return (
-          <g key={si}>
-            <Path d={area} fill="url(#linefill)" />
-            <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" />
-          </g>
-        );
-      })}
+      {area ? <Path d={area} fill="url(#linefill)" /> : null}
+      {line ? <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" /> : null}
       {showDots
         ? pts.map((p, i) =>
             data[i] > 0 ? (

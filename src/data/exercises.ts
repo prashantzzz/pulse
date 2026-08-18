@@ -1616,6 +1616,93 @@ export const EXERCISE_MAP: Record<string, Exercise> = Object.fromEntries(
   EXERCISES.map((e) => [e.id, e]),
 );
 
+/**
+ * Common alternative names that should resolve to a canonical exercise id.
+ * This is the single local source of truth for identity — display names are
+ * never used as identifiers. CSV import and search consult these aliases so
+ * "Flat Bench Press", "BB Bench Press" and "Bent-Over Row" all land on the
+ * right canonical exercise instead of becoming custom entries or mismatches.
+ */
+export const EXERCISE_ALIASES: Record<string, string[]> = {
+  'bench-press': ['flat bench press', 'barbell bench press', 'bb bench press', 'bench press barbell', 'bench'],
+  'dumbbell-bench-press': ['db bench press', 'dumbbell press flat'],
+  'incline-bench-press': ['incline press', 'incline barbell press'],
+  'decline-bench-press': ['decline press', 'declined bench press'],
+  'chest-fly': ['dumbbell fly', 'db fly', 'pec fly'],
+  'machine-press': ['machine chest press', 'machine bench press', 'chest press machine'],
+  'cable-fly': ['cable crossover', 'cable cross over'],
+  'pec-deck': ['machine fly', 'pec deck fly', 'butterfly machine'],
+  'push-up': ['press-up', 'press up', 'pushup'],
+  'dips': ['chest dip', 'tricep dip', 'parallel bar dip'],
+  'lat-pulldown': ['lat pull down', 'pulldown', 'lat pulldown cable'],
+  'pull-up': ['pullup', 'pull up'],
+  'assisted-pullup': ['assisted pull up', 'assisted pull-up machine'],
+  'band-pulldown': ['band pulldown', 'resistance band pulldown'],
+  'seated-cable-row': ['cable row', 'seated row', 'seated cable row cable'],
+  'barbell-row': ['bent-over row', 'bent over row', 'bb row', 'barbell bent over row'],
+  't-bar-row': ['t bar row', 'landmine row'],
+  'face-pull': ['facepull', 'face pull'],
+  'shoulder-press': ['overhead press', 'ohp', 'military press', 'barbell shoulder press'],
+  'machine-shoulder-press': ['shoulder press machine', 'machine overhead press'],
+  'lateral-raise': ['side raise', 'dumbbell lateral raise'],
+  'rear-delt-fly': ['reverse fly', 'rear delt raise'],
+  'front-raise': ['dumbbell front raise'],
+  'bicep-curl': ['barbell curl', 'bb curl', 'curl'],
+  'incline-curl': ['incline dumbbell curl', 'incline curl'],
+  'cable-curl': ['cable bicep curl'],
+  'preacher-curl': ['preacher curl machine'],
+  'triceps-pushdown': ['pushdown', 'cable pushdown', 'tricep pushdown'],
+  'overhead-extension': ['overhead triceps extension', 'skull crusher overhead'],
+  'skull-crusher': ['lying triceps extension', 'french press', 'ez bar extension'],
+  'close-grip-bench-press': ['close grip bench', 'close grip bench press'],
+  'triceps-kickback': ['kickback', 'dumbbell kickback'],
+  squat: ['barbell squat', 'back squat', 'bb squat'],
+  'front-squat': ['front squat barbell'],
+  'goblet-squat': ['goblet squat dumbbell'],
+  'hack-squat': ['hack squat machine'],
+  deadlift: ['conventional deadlift', 'barbell deadlift'],
+  'romanian-deadlift': ['rdl', 'romanian dead lift'],
+  'leg-press': ['horizontal leg press', 'leg press machine', 'sled press', 'leg press horizontal'],
+  'leg-curl': ['hamstring curl', 'seated leg curl', 'leg curl machine'],
+  'lying-leg-curl': ['lying leg curl', 'prone leg curl'],
+  'nordic-curl': ['nordic hamstring curl'],
+  'good-morning': ['goodmorning', 'barbell good morning'],
+  lunge: ['walking lunge', 'dumbbell lunge'],
+  'calf-raise': ['standing calf raise', 'calf raise standing'],
+  'single-leg-calf-raise': ['single leg calf raise'],
+  'leg-press-calf-raise': ['calf press', 'leg press calf raise'],
+  'seated-calf-raise': ['seated calf raise machine'],
+  cycling: ['stationary bike', 'exercise bike', 'bike'],
+  rower: ['rowing machine', 'erg', 'rowing'],
+  'treadmill-run': ['treadmill', 'treadmill running'],
+  'stair-climber': ['stairmaster', 'stair machine'],
+  'mountain-climber': ['mountain climber'],
+  'jump-rope': ['skipping', 'skipping rope'],
+  burpees: ['burpee'],
+  'battle-ropes': ['battle rope'],
+};
+
+// Derive the per-exercise `aliases` field from the canonical map so every
+// entry is self-describing while EXERCISE_ALIASES stays the single source.
+for (const [id, aliases] of Object.entries(EXERCISE_ALIASES)) {
+  const e = EXERCISE_MAP[id];
+  if (e) e.aliases = aliases;
+}
+
+/**
+ * Up to `limit` sensible swap candidates for an exercise: its curated
+ * alternatives first; falls back to same-muscle, same-movement entries so a
+ * swap is always available for custom/imported exercises too.
+ */
+export function swapOptions(exercise: Exercise, limit = 4): Exercise[] {
+  const curated = exercise.alternatives.map((id) => EXERCISE_MAP[id]).filter((e): e is Exercise => Boolean(e));
+  if (curated.length >= limit) return curated.slice(0, limit);
+  const fallback = EXERCISES.filter(
+    (e) => e.id !== exercise.id && e.muscleGroup === exercise.muscleGroup && e.movement === exercise.movement && !curated.includes(e),
+  );
+  return [...curated, ...fallback].slice(0, limit);
+}
+
 export const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core', 'Cardio',
 ] as const;
@@ -1639,7 +1726,7 @@ export function searchExercises(opts: {
 }): Exercise[] {
   const q = (opts.query ?? '').trim().toLowerCase();
   return EXERCISES.filter((e) => {
-    if (q && !(e.name.toLowerCase().includes(q) || e.muscleGroup.toLowerCase().includes(q))) return false;
+    if (q && !(e.name.toLowerCase().includes(q) || e.muscleGroup.toLowerCase().includes(q) || (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)))) return false;
     if (opts.muscles?.length && !opts.muscles.includes(e.muscleGroup)) return false;
     if (opts.equipment?.length && !opts.equipment.includes(e.equipment)) return false;
     if (opts.difficulty?.length && !opts.difficulty.includes(e.difficulty)) return false;

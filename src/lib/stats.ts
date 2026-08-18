@@ -1,5 +1,6 @@
 import { EXERCISE_MAP } from '../data/exercises';
-import type { ExerciseSet, MuscleGroup, PR, Workout, WorkoutStats } from '../types';
+import { roundToPlateStep } from './plates';
+import type { ExerciseSet, MuscleGroup, PR, Workout, WorkoutPlan, WorkoutStats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Basic set / workout metrics
@@ -446,6 +447,301 @@ export function whatChanged(current: Workout, prev: Workout): WhatChanged {
 }
 
 // ---------------------------------------------------------------------------
+// Workout categorization (history filters)
+// ---------------------------------------------------------------------------
+
+export type WorkoutCategory = 'Push' | 'Pull' | 'Legs' | 'Upper' | 'Full' | 'Other';
+
+/**
+ * Reliable category for the History filters, replacing naive title matching
+ * ("Leg Day" never matched "Legs", nothing ever matched "Full").
+ *
+ * A title that clearly names the session type wins ("Push Day" → Push,
+ * "Upper Body" → Upper, "Full Body" → Full) — the user's own label is the
+ * strongest signal of intent. Otherwise the workout is classified from its
+ * actual content using the knowledge base's movement + region fields, so
+ * arbitrary titles like "Chest & Triceps" still land in the right chip and
+ * CSV titles like "Legs" work even when the content is mixed.
+ */
+export function classifyWorkout(workout: Pick<Workout, 'title' | 'exercises'>): WorkoutCategory {
+  const title = (workout.title ?? '').toLowerCase();
+  if (/(full\s*bod(y|ies)|^full$)/.test(title)) return 'Full';
+  if (title.includes('upper')) return 'Upper';
+  if (title.includes('leg') || title.includes('lower')) return 'Legs';
+  if (title.includes('push')) return 'Push';
+  if (title.includes('pull')) return 'Pull';
+
+  const movement = { Push: 0, Pull: 0, Legs: 0, Core: 0, Cardio: 0 };
+  const region = { Upper: 0, Lower: 0, Core: 0, 'Full Body': 0 };
+  let total = 0;
+  for (const we of workout.exercises) {
+    const ex = EXERCISE_MAP[we.exerciseId];
+    if (!ex) continue;
+    movement[ex.movement] += 1;
+    region[ex.region] += 1;
+    total += 1;
+  }
+  if (total === 0) return 'Other';
+
+  // strict majority (> half) on a movement or region — ties fall through so a
+  // 50/50 push/pull session isn't mislabeled; any full-body movement then wins
+  const majority = (count: number) => count * 2 > total;
+  if (majority(movement.Push)) return 'Push';
+  if (majority(movement.Pull)) return 'Pull';
+  if (majority(movement.Legs)) return 'Legs';
+  if (majority(region.Upper)) return 'Upper';
+  if (majority(region.Lower)) return 'Legs';
+  if (region['Full Body'] > 0) return 'Full';
+  return 'Other';
+}
+
+// ---------------------------------------------------------------------------
+// Stalled-exercise detection (plateaus)
+// ---------------------------------------------------------------------------
+
+export interface Plateau {
+  exerciseId: string;
+  exerciseName: string;
+  /** number of recent sessions compared */
+  sessions: number;
+  /** spread of the best set (e1rm) across those sessions, kg */
+  spreadKg: number;
+  /** best e1rm within the window */
+  bestKg: number;
+  /** all-time best e1rm */
+  allTimeBestKg: number;
+}
+
+export interface PlateauOptions {
+  /** minimum recent sessions required to call it a plateau */
+  minSessions?: number;
+  /** max spread (kg) between sessions' best sets to count as "unchanged" */
+  toleranceKg?: number;
+  /** ignore sessions older than this */
+  maxAgeDays?: number;
+  limit?: number;
+}
+
+/**
+ * Exercises whose recent best set (estimated 1RM) has stayed within a small
+ * tolerance across several sessions. Deliberately simple and explainable:
+ * e.g. bench 60 kg, 60, 60, 60 across four sessions = plateau.
+ *
+ * Only strength sets with a logged weight are considered (a cable stack with
+ * no kg value has no load to stall on). A regression is not a plateau — if the
+ * all-time best is clearly above the recent window, the exercise is left alone.
+ */
+export function detectPlateaus(workouts: Workout[], opts: PlateauOptions = {}): Plateau[] {
+  const { minSessions = 4, toleranceKg = 2.5, maxAgeDays = 56, limit = 3 } = opts;
+  const cutoff = Date.now() - maxAgeDays * 86400000;
+  const byExercise = new Map<string, { ts: number; best: number }[]>();
+  for (const w of workouts) {
+    const ts = new Date(w.endTime).getTime();
+    if (ts < cutoff) continue;
+    for (const we of w.exercises) {
+      let best = 0;
+      for (const s of we.sets) {
+        if (!s.completed || s.weightKg == null) continue;
+        const val = s.reps != null ? e1rm(s.weightKg, s.reps) : s.weightKg;
+        if (val > best) best = val;
+      }
+      if (best <= 0) continue;
+      const list = byExercise.get(we.exerciseId) ?? [];
+      list.push({ ts, best });
+      byExercise.set(we.exerciseId, list);
+    }
+  }
+  const out: Plateau[] = [];
+  for (const [exerciseId, sessions] of byExercise) {
+    if (sessions.length < minSessions) continue;
+    sessions.sort((a, b) => b.ts - a.ts);
+    const recent = sessions.slice(0, minSessions);
+    const best = Math.max(...recent.map((s) => s.best));
+    const spread = best - Math.min(...recent.map((s) => s.best));
+    if (spread > toleranceKg) continue;
+    const allTimeBest = Math.max(...sessions.map((s) => s.best));
+    if (allTimeBest > best + toleranceKg) continue; // regression, not a plateau
+    out.push({
+      exerciseId,
+      exerciseName: EXERCISE_MAP[exerciseId]?.name ?? exerciseId,
+      sessions: recent.length,
+      spreadKg: Math.round(spread * 10) / 10,
+      bestKg: Math.round(best * 10) / 10,
+      allTimeBestKg: Math.round(allTimeBest * 10) / 10,
+    });
+  }
+  return out
+    .sort((a, b) => b.sessions - a.sessions || a.spreadKg - b.spreadKg)
+    .slice(0, limit);
+}
+
+/** Is this single exercise currently plateauing? (used on the exercise page) */
+export function plateauForExercise(workouts: Workout[], exerciseId: string): Plateau | null {
+  return detectPlateaus(workouts, { limit: 1 }).find((p) => p.exerciseId === exerciseId) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Warm-up suggestion (simple deterministic ramp)
+// ---------------------------------------------------------------------------
+
+export interface WarmupSet {
+  kg: number;
+  reps: number;
+}
+
+/**
+ * A quick warm-up ramp for a strength working weight:
+ *   25% × 10 · 50% × 8 · 75% × 5 · ~87% × 3 → then work sets.
+ * Weights round down to the nearest 2.5 kg plate and bar-only steps are
+ * dropped, so an 80 kg bench suggests 20×10 · 40×8 · 60×5 · 70×3.
+ */
+export function warmupSets(weightKg: number): WarmupSet[] {
+  if (!(weightKg >= 40)) return [];
+  const steps: { pct: number; reps: number }[] = [
+    { pct: 0.25, reps: 10 },
+    { pct: 0.5, reps: 8 },
+    { pct: 0.75, reps: 5 },
+    { pct: 0.875, reps: 3 },
+  ];
+  return steps
+    .map((s) => ({ kg: roundToPlateStep(weightKg * s.pct), reps: s.reps }))
+    .filter((s) => s.kg >= 20);
+}
+
+// ---------------------------------------------------------------------------
+// Repeat workout
+// ---------------------------------------------------------------------------
+
+export interface WorkoutRepeatSpec {
+  exerciseId: string;
+  sets: number;
+  targetReps: string;
+}
+
+/**
+ * Turn a finished workout back into plan specs (exercise structure + set
+ * targets) so it can be started again via the normal startWorkout flow.
+ * Uses the number of completed sets (falling back to the planned count).
+ */
+export function workoutRepeatSpecs(workout: Workout): WorkoutRepeatSpec[] {
+  return workout.exercises.map((we) => {
+    const done = we.sets.filter((s) => s.completed).length;
+    const sets = done > 0 ? done : we.plannedSets > 0 ? we.plannedSets : 3;
+    return { exerciseId: we.exerciseId, sets, targetReps: we.targetReps || '8-12' };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// "Your next move" — one deterministic recommendation
+// ---------------------------------------------------------------------------
+
+export type NextMoveAction =
+  | { type: 'start-plan'; planId: string; planTitle: string }
+  | { type: 'view-exercise'; exerciseId: string; exerciseName: string };
+
+export interface NextMove {
+  kind: 'untrained' | 'pr-close' | 'plateau';
+  headline: string;
+  detail: string;
+  cta: string;
+  action: NextMoveAction;
+  /** 0-100 closeness to an all-time best (pr-close only) */
+  pct?: number;
+}
+
+const MUSCLE_LABEL: Partial<Record<MuscleGroup, string>> = {
+  Quads: 'Legs',
+  Hamstrings: 'Legs',
+  Glutes: 'Legs',
+  Calves: 'Legs',
+  Chest: 'Chest',
+  Back: 'Back',
+  Shoulders: 'Shoulders',
+  Biceps: 'Arms',
+  Triceps: 'Arms',
+  Core: 'Core',
+};
+
+/**
+ * Pick ONE primary recommendation, in priority order:
+ *   1. a planned muscle group that hasn't been trained in a while (start it),
+ *   2. an exercise close to an all-time PR (view it / chase it),
+ *   3. a stalled exercise (view it, add reps before weight).
+ * `todayPlanId` is the plan already offered by the home hero, so the two
+ * surfaces never compete. Returns null when there is nothing worth saying.
+ */
+export function nextMove(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove | null {
+  if (workouts.length === 0) return null;
+  const now = Date.now();
+
+  // 1. Untrained muscle group (plan that hasn't been hit recently).
+  let bestPlan: WorkoutPlan | null = null;
+  let bestDays = 0;
+  for (const plan of plans) {
+    if (todayPlanId && plan.id === todayPlanId) continue;
+    const muscleSet = new Set(plan.muscles);
+    let lastTs = 0;
+    for (const w of workouts) {
+      if (w.title === plan.title) {
+        lastTs = Math.max(lastTs, new Date(w.endTime).getTime());
+        continue;
+      }
+      for (const we of w.exercises) {
+        const ex = EXERCISE_MAP[we.exerciseId];
+        if (ex && muscleSet.has(ex.muscleGroup)) {
+          lastTs = Math.max(lastTs, new Date(w.endTime).getTime());
+          break;
+        }
+      }
+    }
+    if (!lastTs) continue; // never trained — not enough signal to advise
+    const days = Math.floor((now - lastTs) / 86400000);
+    if (days >= 7 && days > bestDays) {
+      bestDays = days;
+      bestPlan = plan;
+    }
+  }
+  if (bestPlan) {
+    const label = MUSCLE_LABEL[bestPlan.muscles[0] as MuscleGroup] ?? bestPlan.muscles[0];
+    const plural = label.endsWith('s');
+    return {
+      kind: 'untrained',
+      headline: `${label} ${plural ? "haven't" : "hasn't"} been trained recently.`,
+      detail: `${bestDays} days since your last ${bestPlan.title} — consistency is the fastest way to progress.`,
+      cta: `Start ${bestPlan.title}`,
+      action: { type: 'start-plan', planId: bestPlan.id, planTitle: bestPlan.title },
+    };
+  }
+
+  // 2. Close to an all-time personal record.
+  const radar = prRadar(workouts, 1)[0];
+  if (radar && radar.pct >= 90) {
+    return {
+      kind: 'pr-close',
+      headline: `You're close to a ${radar.exerciseName} PR.`,
+      detail: `${radar.pct}% of your all-time best — one strong session could take it.`,
+      cta: `View ${radar.exerciseName}`,
+      action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
+      pct: radar.pct,
+    };
+  }
+
+  // 3. A stalled strength exercise.
+  const plateau = detectPlateaus(workouts, { limit: 1 })[0];
+  if (plateau) {
+    return {
+      kind: 'plateau',
+      headline: `${plateau.exerciseName} may be plateauing.`,
+      detail: `Same load across your last ${plateau.sessions} sessions. Try increasing reps before increasing weight.`,
+      cta: `View ${plateau.exerciseName}`,
+      action: { type: 'view-exercise', exerciseId: plateau.exerciseId, exerciseName: plateau.exerciseName },
+    };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // PR Radar
 // ---------------------------------------------------------------------------
 
@@ -597,21 +893,45 @@ export interface LeaderboardInput {
   goalCompletion: number;
 }
 
+/**
+ * Balanced 0-100 score. Point budget (max 100):
+ *   workouts this week  40 (showing up)
+ *   PRs this month      16 (improvement)
+ *   streak               12 (consistency)
+ *   consistency %        16 (consistency)
+ *   volume               8  (a real but capped contribution — raw load must
+ *                            never dominate the score)
+ *   goal adherence       8
+ *
+ * Deliberately rewards consistency and improvement over absolute strength or
+ * body weight: volume is capped at 8 points, and it only counts when the rest
+ * of the training behaviour is already there.
+ */
 export function progressScore(i: LeaderboardInput): number {
   const s =
     Math.min(i.workoutsThisWeek * 14, 40) +
     Math.min(i.prsThisMonth * 8, 16) +
     Math.min(i.streak * 4, 12) +
-    Math.min(i.volumeKg / 4000, 12) +
-    Math.min(i.consistency, 12) +
+    Math.min(i.volumeKg / 4000, 8) +
+    Math.min(i.consistency, 16) +
     Math.min(i.goalCompletion * 4, 8);
   return Math.min(100, Math.round(s));
 }
 
-/** The most recent completed set at the same index for an exercise (for 'last time' hints) */
-export function previousSet(workouts: Workout[], exerciseId: string, setIndex: number): { weightKg: number | null; reps: number | null; date: string } | null {
+/**
+ * The most recent completed set at the same index for an exercise (for
+ * 'last time' hints). Sorts by start time explicitly so the answer does not
+ * depend on the store's workout ordering.
+ */
+export function previousSet(
+  workouts: Workout[],
+  exerciseId: string,
+  setIndex: number,
+  excludeWorkoutId?: string,
+): { weightKg: number | null; reps: number | null; date: string } | null {
   const sorted = [...workouts].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   for (const w of sorted) {
+    if (excludeWorkoutId && w.id === excludeWorkoutId) continue;
     const we = w.exercises.find((x) => x.exerciseId === exerciseId);
     const s = we?.sets[setIndex - 1];
     if (s && s.completed) return { weightKg: s.weightKg, reps: s.reps, date: w.startTime };

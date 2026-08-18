@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../../../components/Text';
-import { Stepper, toast } from '../../../components/misc';
+import { BottomSheet, Stepper, toast } from '../../../components/misc';
 import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
-import { previousSet } from '../../../lib/stats';
+import { platesForTarget } from '../../../lib/plates';
+import { previousSet, warmupSets } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
 import { colors, radius, spacing, useAccent } from '../../../theme';
 
@@ -31,6 +32,9 @@ export default function LogSetScreen() {
   const [reps, setReps] = useState<number>(current?.reps ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.reps ?? 10);
   const [rpe, setRpe] = useState<number | null>(current?.rpe ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
+  const [platesOpen, setPlatesOpen] = useState(false);
+  const [barWeight, setBarWeight] = useState(20);
+  const [platesTarget, setPlatesTarget] = useState(weight);
 
   if (!workout || !we || !current || !ex) {
     return (
@@ -98,19 +102,22 @@ export default function LogSetScreen() {
             </Row>
           </Card>
 
-          {/* smart hint */}
+          {/* last time — compact, same canonical exercise */}
           {prev ? (
             <Card style={{ marginTop: spacing.md, padding: spacing.md }}>
               <Row gap={10} align="flex-start">
                 <View style={styles.bulb}>
-                  <Ionicons name="bulb-outline" size={18} color={colors.gold} />
+                  <Ionicons name="time-outline" size={18} color={colors.gold} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <T variant="small" dim style={{ fontSize: 12 }}>
-                    Last time: {prev.weightKg} kg × {prev.reps}
+                  <T variant="micro" muted style={{ fontSize: 9.5 }}>
+                    LAST TIME
+                  </T>
+                  <T variant="bodySemi" style={{ marginTop: 2 }}>
+                    {prev.weightKg} kg × {prev.reps}
                   </T>
                   {suggestion ? (
-                    <T variant="bodySemi" accent style={{ marginTop: 4 }}>
+                    <T variant="smallMedium" accent style={{ marginTop: 4 }}>
                       Try {suggestion} kg × {suggestedRepLow}–{suggestedRepHigh} today
                     </T>
                   ) : null}
@@ -120,10 +127,33 @@ export default function LogSetScreen() {
           ) : null}
 
           <Card style={{ marginTop: spacing.md, padding: spacing.lg }}>
-            <T variant="label" dim center style={{ marginBottom: spacing.md }}>
-              Weight (kg)
-            </T>
+            <Row align="space-between" style={{ marginBottom: spacing.md }}>
+              <T variant="label" dim center style={{ flex: 1 }}>
+                Weight (kg)
+              </T>
+              <Pressable onPress={() => { setPlatesTarget(weight); setPlatesOpen(true); }} hitSlop={8} style={styles.platesBtn}>
+                <Ionicons name="calculator-outline" size={14} color={colors.accent} />
+                <T variant="smallSemi" accent style={{ fontSize: 12 }}>
+                  Plates
+                </T>
+              </Pressable>
+            </Row>
             <Stepper value={weight} onChange={setWeight} step={2.5} decimals={1} min={0} />
+
+            {/* warm-up suggestion — only on the first working set of a strength lift */}
+            {we.sets.find((s) => s.setType !== 'warmup')?.id === current.id && ex.movement !== 'Cardio' ? (() => {
+              const wu = warmupSets(weight);
+              if (wu.length === 0) return null;
+              return (
+                <View style={styles.warmupWrap}>
+                  <Ionicons name="flame-outline" size={13} color={colors.textMuted} />
+                  <T variant="micro" muted style={{ fontSize: 10.5, flex: 1 }}>
+                    Warm-up: {wu.map((s) => `${s.kg} × ${s.reps}`).join(' · ')} → work sets
+                  </T>
+                </View>
+              );
+            })() : null}
+
             <View style={styles.divider} />
             <T variant="label" dim center style={{ marginBottom: spacing.md }}>
               Reps
@@ -170,6 +200,27 @@ export default function LogSetScreen() {
         </View>
       </Screen>
 
+      {/* plate calculator — compact utility inside the logging flow */}
+      <BottomSheet visible={platesOpen} onClose={() => setPlatesOpen(false)} title="Plate Calculator">
+        <View style={{ gap: spacing.lg }}>
+          <Row align="space-between" style={{ gap: spacing.md }}>
+            <View style={{ flex: 1 }}>
+              <T variant="label" dim style={{ marginBottom: 10 }}>
+                Target weight
+              </T>
+              <Stepper value={platesTarget} onChange={setPlatesTarget} step={2.5} decimals={1} min={0} size="md" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T variant="label" dim style={{ marginBottom: 10 }}>
+                Bar weight
+              </T>
+              <Stepper value={barWeight} onChange={setBarWeight} step={2.5} decimals={1} min={0} size="md" />
+            </View>
+          </Row>
+          <PlateResultView targetKg={platesTarget} barKg={barWeight} />
+        </View>
+      </BottomSheet>
+
       <View style={styles.bottomBar}>
         <Button label="Complete Set" icon="checkmark" full size="lg" onPress={finish} />
         <Pressable onPress={() => save(true, true)} style={{ marginTop: spacing.sm }}>
@@ -182,16 +233,73 @@ export default function LogSetScreen() {
   );
 }
 
+function PlateResultView({ targetKg, barKg }: { targetKg: number; barKg: number }) {
+  const r = platesForTarget(targetKg, barKg);
+  return (
+    <View style={styles.plateResult}>
+      <Row align="space-between" style={{ marginBottom: spacing.sm }}>
+        <T variant="label" dim>
+          Per side
+        </T>
+        <T variant="micro" muted>
+          Bar {barKg} kg · Total {targetKg} kg
+        </T>
+      </Row>
+      {r.barOnly ? (
+        <T variant="small" dim>
+          Bar only — no plates needed.
+        </T>
+      ) : r.plates.length === 0 ? null : (
+        <Row gap={6} wrap>
+          {r.plates.map((p, i) => (
+            <View key={i} style={styles.plateChip}>
+              <T variant="smallSemi" style={{ fontSize: 12.5 }}>
+                {p} kg
+              </T>
+            </View>
+          ))}
+          {r.remainderKg > 0 ? (
+            <T variant="micro" muted style={{ alignSelf: 'center' }}>
+              + {r.remainderKg} kg per side (fractional plates)
+            </T>
+          ) : null}
+        </Row>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  bulb: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: colors.goldSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
+    bulb: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: colors.goldSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    platesBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: colors.accentSoft,
+    },
+    warmupWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: spacing.md,
+      backgroundColor: colors.surface2,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 8,
+    },
+    divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
   rpeBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -202,6 +310,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  plateResult: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  plateChip: {
+    backgroundColor: colors.surface3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderBright,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   notesInput: {
     backgroundColor: colors.surface2,
     borderRadius: radius.md,

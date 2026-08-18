@@ -22,7 +22,15 @@ import { workoutStats } from '../lib/stats';
  * smooth height animation; the Start button is independent and launches the
  * workout (and its timer) directly.
  */
-export function PlanCard({ plan, onStart }: { plan: WorkoutPlan; onStart?: () => void }) {
+export function PlanCard({
+  plan,
+  onStart,
+  onEdit,
+}: {
+  plan: WorkoutPlan;
+  onStart?: () => void;
+  onEdit?: () => void;
+}) {
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(plan.exercises.reduce((s, e) => s + e.sets * 3, 0) * 1.15 + 8);
   const [open, setOpen] = useState(false);
@@ -65,18 +73,32 @@ export function PlanCard({ plan, onStart }: { plan: WorkoutPlan; onStart?: () =>
               {plan.exercises.length} exercises · {totalSets} sets · ~{duration} min
             </T>
           </View>
-          {onStart ? (
-            <Pressable
-              onPress={onStart}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel={`Start ${plan.title} workout`}
-              style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
-              <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
-                Start
-              </T>
-              <Ionicons name="play" size={12} color={colors.bg} />
-            </Pressable>
+          {onStart || onEdit ? (
+            <Row gap={8} align="center">
+              {onEdit ? (
+                <Pressable
+                  onPress={onEdit}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${plan.title} plan`}
+                  style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.8 }]}>
+                  <Ionicons name="pencil" size={15} color={colors.textDim} />
+                </Pressable>
+              ) : null}
+              {onStart ? (
+                <Pressable
+                  onPress={onStart}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Start ${plan.title} workout`}
+                  style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
+                  <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12 }}>
+                    Start
+                  </T>
+                  <Ionicons name="play" size={12} color={colors.bg} />
+                </Pressable>
+              ) : null}
+            </Row>
           ) : null}
         </View>
       </Pressable>
@@ -271,6 +293,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
+  },
+  editBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   expandWrap: {
     paddingHorizontal: spacing.md,

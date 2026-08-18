@@ -7,7 +7,6 @@ import { T } from '../../components/Text';
 import { EmptyState } from '../../components/misc';
 import { Button, Row, Screen, Segmented } from '../../components/ui';
 import { PlanCard } from '../../components/workout-card';
-import { SEED_PLANS } from '../../data/seed';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
@@ -16,6 +15,7 @@ export default function WorkoutsScreen() {
   useAccent();
   const router = useRouter();
   const startWorkout = usePulse((s) => s.startWorkout);
+  const plans = usePulse((s) => s.plans);
   const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
 
   const begin = (plan: WorkoutPlan) => {
@@ -29,7 +29,7 @@ export default function WorkoutsScreen() {
         <View>
           <T variant="h2">My Workouts</T>
           <T variant="small" dim style={{ marginTop: 2 }}>
-            {SEED_PLANS.length} plans · ready when you are
+            {plans.length} plans · ready when you are
           </T>
         </View>
         <Row gap={8}>
@@ -46,10 +46,15 @@ export default function WorkoutsScreen() {
 
       <View style={{ marginTop: spacing.lg, gap: spacing.md, paddingHorizontal: spacing.md }}>
         {tab === 'My Plans'
-          ? SEED_PLANS.map((p) => (
+          ? plans.map((p) => (
               // Tapping the card expands its exercise list (see PlanCard); the
               // timer starts exclusively via the Start button inside the card.
-              <PlanCard key={p.id} plan={p} onStart={() => begin(p)} />
+              <PlanCard
+                key={p.id}
+                plan={p}
+                onStart={() => begin(p)}
+                onEdit={() => router.push(`/builder?plan=${p.id}` as never)}
+              />
             ))
           : (
             <View style={{ marginTop: 20 }}>

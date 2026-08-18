@@ -80,6 +80,8 @@ export interface Exercise {
   beginnerFriendly: boolean;
   /** animation key */
   animation: AnimationKey;
+  /** common alternative names that resolve to this canonical id (e.g. "Flat Bench Press" → bench-press) */
+  aliases?: string[];
   about: string;
   steps: ExerciseStep[];
   commonMistakes: string[];

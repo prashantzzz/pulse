@@ -26,6 +26,11 @@ describe('SEED_WORKOUTS (parsed from the user CSV)', () => {
     }
   });
 
+  it('resolves every seed exercise title to the canonical knowledge base (no custom fallbacks)', () => {
+    const custom = SEED_WORKOUTS.flatMap((w) => w.exercises.map((e) => e.exerciseId)).filter((id) => id.startsWith('custom-'));
+    expect(custom).toEqual([]);
+  });
+
   it('sessions are stamped as seed data with real dates', () => {
     for (const w of SEED_WORKOUTS) {
       expect(w.source).toBe('seed');

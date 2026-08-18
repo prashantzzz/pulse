@@ -11,16 +11,17 @@ import { Avatar } from '../../components/misc';
 import { Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
-import { SEED_PLANS } from '../../data/seed';
 import { greetingFor } from '../../lib/greeting';
-import { currentStreak, detectPRs, formatCompact, prRadar, workoutsInLastDays, workoutStats } from '../../lib/stats';
+import { currentStreak, detectPRs, formatCompact, nextMove, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
-function todaysPlan(): WorkoutPlan {
-  const day = Math.floor(Date.now() / 86400000);
-  return SEED_PLANS[day % SEED_PLANS.length];
+// rotate through the user's plans (editable in My Workouts) — module-level so
+// the purity lint rule doesn't flag Date.now() inside the component
+function todaysPlan(plans: WorkoutPlan[]): WorkoutPlan | undefined {
+  if (plans.length === 0) return undefined;
+  return plans[Math.floor(Date.now() / 86400000) % plans.length];
 }
 
 export default function HomeScreen() {
@@ -29,9 +30,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
+  const plans = usePulse((s) => s.plans);
   const startWorkout = usePulse((s) => s.startWorkout);
 
-  const plan = todaysPlan();
+  const plan = todaysPlan(plans);
   const greeting = greetingFor();
   const week = workoutsInLastDays(workouts, 7);
   const weekStats = week.reduce((acc, w) => {
@@ -42,10 +44,13 @@ export default function HomeScreen() {
   }, { volume: 0, sets: 0 });
   const streak = currentStreak(workouts);
   const last = workouts.reduce<typeof workouts[number] | null>((best, w) => (!best || new Date(w.startTime) > new Date(best.startTime) ? w : best), null) ?? workouts[workouts.length - 1];
-  const prevEquivalent = [...workouts].filter((w) => w.id !== last?.id).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).find((w) => w.title === plan.title);
+  const prevEquivalent = plan
+    ? [...workouts].filter((w) => w.id !== last?.id).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).find((w) => w.title === plan.title)
+    : undefined;
   const recentPrs = last ? [...detectPRs(last, workouts)].sort((a, b) => b.deltaPct - a.deltaPct) : [];
 
-  const radar = prRadar(workouts, 3);
+  // one primary recommendation — never a list; the hero's own plan is excluded
+  const move = plan ? nextMove(workouts, plans, plan.id) : null;
 
   // celebrate the PR with a mount pulse
   const pulse = useAnimatedValue(0);
@@ -101,16 +106,18 @@ export default function HomeScreen() {
       </View>
 
       {/* today's workout hero */}
-      <View style={{ marginTop: spacing.lg }}>
-        <TodayWorkoutCard
-          plan={plan}
-          prevWorkout={prevEquivalent}
-          onStart={() => {
-            const w = startWorkout(plan.title, plan.exercises);
-            router.push(`/workout/${w.id}`);
-          }}
-        />
-      </View>
+      {plan ? (
+        <View style={{ marginTop: spacing.lg }}>
+          <TodayWorkoutCard
+            plan={plan}
+            prevWorkout={prevEquivalent}
+            onStart={() => {
+              const w = startWorkout(plan.title, plan.exercises);
+              router.push(`/workout/${w.id}`);
+            }}
+          />
+        </View>
+      ) : null}
 
       {/* quick summary */}
       <Section title="Quick Summary">
@@ -226,27 +233,15 @@ export default function HomeScreen() {
         </Section>
       ) : null}
 
-      {/* PR radar */}
-      {radar.length > 0 ? (
-        <Section title="PR Radar" action="Why?" onAction={() => undefined}>
-          <Card style={{ padding: spacing.lg, gap: spacing.md }}>
-            <T variant="small" dim style={{ fontSize: 12 }}>
-              You&apos;re getting close to new records. One more push.
-            </T>
-            {radar.map((r) => (
-              <View key={r.exerciseId} style={{ gap: 6 }}>
-                <Row align="space-between">
-                  <T variant="smallMedium" style={{ fontSize: 13 }}>
-                    {r.exerciseName}
-                  </T>
-                  <T variant="smallMedium" accent style={{ fontSize: 13 }}>
-                    {r.pct}% of PR
-                  </T>
-                </Row>
-                <ProgressBar value={r.pct} color={r.pct > 92 ? colors.accent : colors.orange} height={8} />
-              </View>
-            ))}
-          </Card>
+      {/* your next move — one deterministic recommendation */}
+      {move ? (
+        <Section title="Your Next Move">
+          <NextMoveCard move={move} onStartPlan={(planId) => {
+            const p = plans.find((x) => x.id === planId);
+            if (!p) return;
+            const w = startWorkout(p.title, p.exercises);
+            router.push(`/workout/${w.id}`);
+          }} onViewExercise={(id) => router.push(`/exercise/${id}` as never)} />
         </Section>
       ) : null}
 
@@ -269,6 +264,60 @@ function MuscleChip({ label }: { label: string }) {
         {label}
       </T>
     </Pressable>
+  );
+}
+
+function NextMoveCard({
+  move,
+  onStartPlan,
+  onViewExercise,
+}: {
+  move: NextMove;
+  onStartPlan: (planId: string) => void;
+  onViewExercise: (exerciseId: string) => void;
+}) {
+  const meta = {
+    untrained: { icon: 'barbell-outline' as const, tint: colors.accentSoft, color: colors.accent },
+    'pr-close': { icon: 'flash-outline' as const, tint: colors.goldSoft, color: colors.gold },
+    plateau: { icon: 'pause-circle-outline' as const, tint: colors.dangerSoft, color: colors.orange },
+  }[move.kind];
+  return (
+    <Card style={{ padding: spacing.lg }}>
+      <Row gap={12} align="flex-start">
+        <View style={[styles.nextIcon, { backgroundColor: meta.tint }]}>
+          <Ionicons name={meta.icon} size={20} color={meta.color} />
+        </View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <T variant="bodySemi" style={{ fontSize: 15 }}>
+            {move.headline}
+          </T>
+          <T variant="small" dim style={{ fontSize: 12.5 }}>
+            {move.detail}
+          </T>
+          {move.pct != null ? (
+            <View style={{ marginTop: 6 }}>
+              <Row align="space-between" style={{ marginBottom: 4 }}>
+                <T variant="micro" muted>
+                  vs all-time best
+                </T>
+                <T variant="micro" accent>
+                  {move.pct}%
+                </T>
+              </Row>
+              <ProgressBar value={move.pct} color={move.pct > 92 ? colors.accent : colors.orange} height={7} />
+            </View>
+          ) : null}
+          <Pressable
+            onPress={() => (move.action.type === 'start-plan' ? onStartPlan(move.action.planId) : onViewExercise(move.action.exerciseId))}
+            style={({ pressed }) => [styles.nextCta, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
+            <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12.5 }}>
+              {move.cta}
+            </T>
+            <Ionicons name="arrow-forward" size={14} color={colors.bg} />
+          </Pressable>
+        </View>
+      </Row>
+    </Card>
   );
 }
 
@@ -324,5 +373,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  nextIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextCta: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
   },
 });

@@ -6,6 +6,7 @@ import {
   SEED_FAVORITES,
   SEED_FRIENDS,
   SEED_MEASUREMENTS,
+  SEED_PLANS,
   SEED_PROFILE,
   SEED_WORKOUTS,
 } from '../data/seed';
@@ -19,6 +20,7 @@ import type {
   UserProfile,
   Workout,
   WorkoutExercise,
+  WorkoutPlan,
 } from '../types';
 
 let uid = 1;
@@ -35,6 +37,8 @@ interface PulseState {
   accentKey: AccentKey;
   profile: UserProfile | null;
   workouts: Workout[];
+  /** user-editable workout plans (seeded from SEED_PLANS) */
+  plans: WorkoutPlan[];
   measurements: BodyMeasurement[];
   favorites: string[];
   friends: Friend[];
@@ -66,6 +70,10 @@ interface PulseState {
   finishWorkout: () => Workout | null;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
+  /** Replace an existing plan (edit via the builder) */
+  updatePlan: (id: string, plan: WorkoutPlan) => void;
+  /** Remove a plan (only the template — workout history is untouched) */
+  removePlan: (id: string) => void;
   addMeasurement: (m: BodyMeasurement) => void;
   addManualPR: (pr: Omit<ManualPR, 'id'>) => void;
   removeManualPR: (id: string) => void;
@@ -84,6 +92,7 @@ export const usePulse = create<PulseState>()(
       accentKey: 'lime',
       profile: null,
       workouts: [],
+      plans: SEED_PLANS,
       measurements: [],
       favorites: [],
       friends: [],
@@ -263,6 +272,16 @@ export const usePulse = create<PulseState>()(
           ],
         })),
 
+      updatePlan: (id, plan) =>
+        set((s) => ({
+          plans: s.plans.map((p) => (p.id === id ? plan : p)),
+        })),
+
+      removePlan: (id) =>
+        set((s) => ({
+          plans: s.plans.filter((p) => p.id !== id),
+        })),
+
       addMeasurement: (m) => set((s) => ({ measurements: [...s.measurements, m] })),
 
       addManualPR: (pr) =>
@@ -295,6 +314,7 @@ export const usePulse = create<PulseState>()(
         set({
           profile: SEED_PROFILE,
           workouts: SEED_WORKOUTS,
+          plans: SEED_PLANS,
           measurements: SEED_MEASUREMENTS,
           favorites: SEED_FAVORITES,
           friends: SEED_FRIENDS,
@@ -307,6 +327,7 @@ export const usePulse = create<PulseState>()(
       clearAllData: () =>
         set({
           workouts: [],
+          plans: SEED_PLANS,
           measurements: [],
           favorites: [],
           friends: [],
@@ -326,6 +347,7 @@ export const usePulse = create<PulseState>()(
         accentKey: s.accentKey,
         profile: s.profile,
         workouts: s.workouts,
+        plans: s.plans,
         measurements: s.measurements,
         favorites: s.favorites,
         friends: s.friends,

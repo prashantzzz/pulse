@@ -2,7 +2,41 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { T } from '../Text';
+import { Chip, Row } from '../ui';
 import { colors, radius, spacing } from '../../theme';
+
+// ---------------------------------------------------------------------------
+// Timeframe (shared by the Strength and Volume tabs so both offer the same
+// 7D / 1M / 3M / 6M / 1Y range control and the header badge stays in sync)
+// ---------------------------------------------------------------------------
+
+export const TIMEFRAMES = ['7D', '1M', '3M', '6M', '1Y'] as const;
+export type ProgressTimeframe = (typeof TIMEFRAMES)[number];
+
+export const TF_LABELS: Record<ProgressTimeframe, string> = {
+  '7D': 'This Week',
+  '1M': 'This Month',
+  '3M': 'Last 3 Months',
+  '6M': 'Last 6 Months',
+  '1Y': 'This Year',
+};
+
+/** Chip row used by every Progress tab with a date range. */
+export function TimeframeChips({
+  tf,
+  onChange,
+}: {
+  tf: ProgressTimeframe;
+  onChange: (t: ProgressTimeframe) => void;
+}) {
+  return (
+    <Row gap={8}>
+      {TIMEFRAMES.map((t) => (
+        <Chip key={t} label={t} selected={tf === t} onPress={() => onChange(t)} />
+      ))}
+    </Row>
+  );
+}
 
 /**
  * Chart series colors — the first slice follows the live accent, the rest stay
