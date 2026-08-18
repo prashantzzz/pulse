@@ -15,8 +15,8 @@ import { EXERCISE_MAP } from '../../data/exercises';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing, useAccent } from '../../theme';
 
-type ProgressView = 'Strength' | 'Volume' | 'Consistency' | 'Body' | 'Records';
-const VIEWS = ['Strength', 'Volume', 'Consistency', 'Body', 'Records'] as const;
+type ProgressView = 'Strength' | 'Volume' | 'Regularity' | 'Body' | 'Records';
+const VIEWS = ['Strength', 'Volume', 'Regularity', 'Body', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
 
@@ -44,7 +44,7 @@ export default function ProgressScreen() {
         <View>
           <T variant="h2">Progress</T>
           <T variant="small" dim style={{ marginTop: 2 }}>
-            Am I getting stronger? Here&apos;s the answer.
+            Insight on your gains
           </T>
         </View>
         <View style={[progressStyles.periodBadge, { backgroundColor: colors.accentSoft }]}>
@@ -70,7 +70,7 @@ export default function ProgressScreen() {
           />
         ) : null}
         {view === 'Volume' ? <VolumeView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} /> : null}
-        {view === 'Consistency' ? <ConsistencyView workouts={workouts} /> : null}
+        {view === 'Regularity' ? <ConsistencyView workouts={workouts} /> : null}
         {view === 'Body' ? <BodyView workouts={workouts} measurements={measurements} profile={profile} /> : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}
       </View>

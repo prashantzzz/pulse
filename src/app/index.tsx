@@ -7,12 +7,16 @@ import { useAnimatedValue } from '../lib/useAnimatedValue';
 
 import { T } from '../components/Text';
 import { accentTint, colors, gradients, type, useAccent } from '../theme';
+import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 
 export default function SplashScreen() {
   useAccent();
   const router = useRouter();
   const onboarded = usePulse((s) => s.onboarded);
+  const hydrated = usePulse((s) => s.hydrated);
+  const isInitialized = useAuth((s) => s.isInitialized);
+  const isAuthenticated = useAuth((s) => s.isAuthenticated);
   const fade = useAnimatedValue(0);
   const rise = useAnimatedValue(24);
 
@@ -24,11 +28,21 @@ export default function SplashScreen() {
   }, [fade, rise]);
 
   useEffect(() => {
+    if (!hydrated || !isInitialized) return;
+
     const t = setTimeout(() => {
-      router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
+      if (!isAuthenticated) {
+        // User must create account or sign in first
+        router.replace('/auth/login' as never);
+      } else if (onboarded) {
+        router.replace('/(tabs)/home');
+      } else {
+        router.replace('/onboarding');
+      }
     }, 1800);
+
     return () => clearTimeout(t);
-  }, [onboarded, router]);
+  }, [hydrated, isInitialized, isAuthenticated, onboarded, router]);
 
   return (
     <View style={styles.root}>
@@ -36,15 +50,15 @@ export default function SplashScreen() {
       <View style={[styles.glowTop, { backgroundColor: `${colors.accent}12` }]} />
       <View style={[styles.glowBottom, { backgroundColor: `${colors.accent}12` }]} />
       <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>
-        {/* pulse mark */}
+        {/* NextRep mark */}
         <View style={styles.logoWrap}>
           <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 30 }]} />
           <T variant="hero" style={{ color: colors.bg, fontSize: 34, lineHeight: 40 }}>
-            P
+            N
           </T>
         </View>
-        <T variant="hero" style={{ marginTop: 24, letterSpacing: 6, fontSize: 40 }}>
-          PULSE
+        <T variant="hero" style={{ marginTop: 24, letterSpacing: 4, fontSize: 36 }}>
+          NextRep
         </T>
         <T variant="body" dim style={{ marginTop: 10, letterSpacing: 0.4 }}>
           Train smart. Get strong. Stay consistent.

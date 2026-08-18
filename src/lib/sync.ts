@@ -1,0 +1,318 @@
+/**
+ * Cloud Data Synchronization Layer
+ *
+ * Synchronizes user data (Profiles, Body Measurements, Workouts, Sets, Plans)
+ * bidirectionally between Supabase and the local Zustand `usePulse` store.
+ */
+
+import { supabase, isSupabaseConfigured } from './supabase';
+import { usePulse } from '../store/useStore';
+import type { BodyMeasurement, ExerciseSet, SetType, UserProfile, Workout, WorkoutExercise } from '../types';
+
+interface RawSet {
+  id: string;
+  set_index: number;
+  set_type: string | null;
+  weight_kg: number | null;
+  reps: number | null;
+  distance_km: number | null;
+  duration_seconds: number | null;
+  rpe: number | null;
+  notes?: string | null;
+  completed?: boolean | null;
+  completed_at?: string | null;
+}
+
+interface RawExercise {
+  id: string;
+  exercise_id: string;
+  order_index: number;
+  notes?: string | null;
+  workout_sets?: RawSet[];
+}
+
+interface RawWorkout {
+  id: string;
+  title: string;
+  description: string | null;
+  started_at: string;
+  completed_at: string | null;
+  workout_exercises?: RawExercise[];
+}
+
+interface RawMeasurement {
+  id: string;
+  measured_at: string;
+  weight_kg: number | null;
+  body_fat_pct?: number | null;
+  chest_cm?: number | null;
+  waist_cm?: number | null;
+  biceps_cm?: number | null;
+}
+
+/**
+ * Maps Supabase nested workout rows to the app's `Workout` model.
+ */
+function mapCloudWorkout(raw: RawWorkout): Workout {
+  const exercises: WorkoutExercise[] = (raw.workout_exercises || [])
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((we) => {
+      const sets: ExerciseSet[] = (we.workout_sets || [])
+        .sort((a, b) => a.set_index - b.set_index)
+        .map((st) => ({
+          id: st.id,
+          setIndex: st.set_index,
+          setType: (st.set_type as SetType) || 'working',
+          weightKg: st.weight_kg !== null && st.weight_kg !== undefined ? Number(st.weight_kg) : null,
+          reps: st.reps !== null && st.reps !== undefined ? Number(st.reps) : null,
+          distanceKm: st.distance_km !== null && st.distance_km !== undefined ? Number(st.distance_km) : null,
+          durationSec: st.duration_seconds !== null && st.duration_seconds !== undefined ? Number(st.duration_seconds) : null,
+          rpe: st.rpe !== null && st.rpe !== undefined ? Number(st.rpe) : null,
+          notes: st.notes || null,
+          supersetId: null,
+          completed: st.completed ?? true,
+          completedAt: st.completed_at || null,
+        }));
+
+      return {
+        id: we.id,
+        exerciseId: we.exercise_id,
+        order: we.order_index + 1,
+        notes: we.notes || null,
+        plannedSets: sets.length || 3,
+        targetReps: '8-12',
+        sets,
+      };
+    });
+
+  return {
+    id: raw.id,
+    title: raw.title,
+    description: raw.description || '',
+    startTime: raw.started_at,
+    endTime: raw.completed_at || raw.started_at,
+    exercises,
+    source: 'user',
+  };
+}
+
+/**
+ * Maps Supabase body measurement row to `BodyMeasurement`.
+ */
+function mapCloudMeasurement(raw: RawMeasurement): BodyMeasurement {
+  return {
+    id: raw.id,
+    date: raw.measured_at,
+    weightKg: raw.weight_kg !== null && raw.weight_kg !== undefined ? Number(raw.weight_kg) : 0,
+    bodyFatPct: raw.body_fat_pct !== null && raw.body_fat_pct !== undefined ? Number(raw.body_fat_pct) : null,
+    chestCm: raw.chest_cm !== null && raw.chest_cm !== undefined ? Number(raw.chest_cm) : null,
+    waistCm: raw.waist_cm !== null && raw.waist_cm !== undefined ? Number(raw.waist_cm) : null,
+    bicepsCm: raw.biceps_cm !== null && raw.biceps_cm !== undefined ? Number(raw.biceps_cm) : null,
+  };
+}
+
+/**
+ * Full sync: Pulls user's workouts, measurements, plans, and profile from Supabase into Zustand store.
+ */
+export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+
+  try {
+    // 1. Fetch Profile
+    const { data: profileRow } = await (supabase.from('profiles') as any)
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    // 2. Fetch Measurements
+    const { data: measurementsData } = await (supabase.from('body_measurements') as any)
+      .select('*')
+      .eq('user_id', userId)
+      .order('measured_at', { ascending: true });
+
+    // 3. Fetch Workouts with nested Exercises and Sets
+    const { data: workoutsData, error: workoutsErr } = await (supabase.from('workouts') as any)
+      .select(`
+        id,
+        title,
+        description,
+        started_at,
+        completed_at,
+        workout_exercises (
+          id,
+          exercise_id,
+          order_index,
+          notes,
+          workout_sets (
+            id,
+            set_index,
+            set_type,
+            weight_kg,
+            reps,
+            distance_km,
+            duration_seconds,
+            rpe,
+            notes,
+            completed,
+            completed_at
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false });
+
+    if (workoutsErr) {
+      console.warn('Error fetching workouts from cloud:', workoutsErr);
+    }
+
+    // 4. Transform data
+    const cloudWorkouts: Workout[] = (workoutsData || []).map((w: unknown) => mapCloudWorkout(w as RawWorkout));
+    const cloudMeasurements: BodyMeasurement[] = (measurementsData || []).map((m: unknown) =>
+      mapCloudMeasurement(m as RawMeasurement),
+    );
+
+    const userProfile: UserProfile | null = profileRow
+      ? {
+          name: profileRow.display_name ?? 'Athlete',
+          gender: (profileRow.gender as 'male' | 'female') ?? 'male',
+          goal: profileRow.goal ?? ['Build Muscle'],
+          experience: (profileRow.experience_level as 'Beginner' | 'Intermediate' | 'Advanced') ?? 'Intermediate',
+          frequencyPerWeek: profileRow.training_frequency ?? 4,
+          equipment: profileRow.equipment ?? [],
+          style: profileRow.preferred_training_style ?? [],
+          trainingAgeMonths: profileRow.training_age_months ?? 0,
+          onboarded: profileRow.onboarded ?? true,
+        }
+      : null;
+
+    // 5. Update local store state
+    usePulse.setState((state) => {
+      // Merge workouts: cloud workouts are authoritative, preserve any purely local pending ones if necessary
+      const existingWorkoutsMap = new Map(state.workouts.map((w) => [`${w.title}|${w.startTime}`, w]));
+      for (const cw of cloudWorkouts) {
+        existingWorkoutsMap.set(`${cw.title}|${cw.startTime}`, cw);
+      }
+      const mergedWorkouts = Array.from(existingWorkoutsMap.values()).sort(
+        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+      );
+
+      // Merge measurements
+      const existingMeasMap = new Map(state.measurements.map((m) => [m.date, m]));
+      for (const cm of cloudMeasurements) {
+        existingMeasMap.set(cm.date, cm);
+      }
+      const mergedMeasurements = Array.from(existingMeasMap.values()).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
+
+      return {
+        workouts: cloudWorkouts.length > 0 ? cloudWorkouts : mergedWorkouts,
+        measurements: cloudMeasurements.length > 0 ? cloudMeasurements : mergedMeasurements,
+        profile: userProfile ? { ...(state.profile || {}), ...userProfile } : state.profile,
+        onboarded: userProfile ? (userProfile.onboarded ?? state.onboarded) : state.onboarded,
+      };
+    });
+
+    return true;
+  } catch (err) {
+    console.warn('Exception syncing user data from cloud:', err);
+    return false;
+  }
+}
+
+/**
+ * Pushes a single completed workout to Supabase.
+ */
+export async function pushWorkoutToCloud(userId: string, workout: Workout): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+
+  try {
+    // 1. Insert Workout
+    const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
+      .insert({
+        user_id: userId,
+        title: workout.title,
+        description: workout.description || null,
+        started_at: workout.startTime,
+        completed_at: workout.endTime,
+        source: workout.source || 'user',
+      })
+      .select('id')
+      .single();
+
+    if (wErr || !wRow) {
+      console.warn('Failed to insert workout to cloud:', wErr);
+      return false;
+    }
+
+    const workoutId = wRow.id;
+
+    // 2. Insert Exercises and Sets
+    for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
+      const we = workout.exercises[eIdx];
+      const { data: exRow, error: exErr } = await (supabase.from('workout_exercises') as any)
+        .insert({
+          workout_id: workoutId,
+          exercise_id: we.exerciseId,
+          order_index: eIdx,
+          notes: we.notes || null,
+        })
+        .select('id')
+        .single();
+
+      if (exErr || !exRow) continue;
+
+      const exerciseId = exRow.id;
+      const setsToInsert = we.sets.map((s, sIdx) => ({
+        workout_exercise_id: exerciseId,
+        set_index: s.setIndex || sIdx + 1,
+        set_type: s.setType || 'working',
+        weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
+        reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
+        distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
+        duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
+        rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
+        completed: s.completed ?? true,
+        completed_at: s.completedAt || null,
+        notes: s.notes || null,
+      }));
+
+      if (setsToInsert.length > 0) {
+        await (supabase.from('workout_sets') as any).insert(setsToInsert);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('Error pushing workout to cloud:', err);
+    return false;
+  }
+}
+
+/**
+ * Pushes a new body measurement to Supabase.
+ */
+export async function pushMeasurementToCloud(userId: string, m: BodyMeasurement): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+
+  try {
+    const { error } = await (supabase.from('body_measurements') as any).insert({
+      user_id: userId,
+      measured_at: m.date,
+      weight_kg: m.weightKg,
+      body_fat_pct: m.bodyFatPct || null,
+      chest_cm: m.chestCm || null,
+      waist_cm: m.waistCm || null,
+      biceps_cm: m.bicepsCm || null,
+    });
+
+    if (error) {
+      console.warn('Failed to push measurement to cloud:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error pushing measurement to cloud:', err);
+    return false;
+  }
+}

@@ -1,49 +1,41 @@
-# PULSE
+# NEXTREP
 
-A dark, premium React Native fitness/gym companion: teach, track, analyze and motivate.
+A dark, premium React Native fitness/gym companion: teach, track, analyze, motivate, and sync to the cloud.
 
-PULSE is a **coach in your pocket**. It comes with a full exercise knowledge base
-(form guides, common mistakes, breathing cues, progression tips), animated
-exercise media (HD clips + GIFs), workout logging with a rest timer, deep
-progress analytics (strength trends, volume, streaks, records), achievements,
-a leaderboard with friends, CSV import/export, and a fully offline data model.
+NextRep is a **coach in your pocket**. It comes with a comprehensive exercise knowledge base
+(form guides, common mistakes, breathing cues, progression tips), bundled high-fidelity animated
+exercise media (HD clips + GIFs), workout logging with rest timers, deep
+progress analytics (strength trends, volume, regularity streaks, records), body measurements,
+CSV import/export, and seamless Supabase cloud synchronization.
 
 ---
 
 ## Key Features
 
-- **Exercise library** — 38 coached exercises searchable by muscle, equipment
-  and difficulty, each with step-by-step form guides and animated media.
-- **Workout logging** — start a plan, complete sets (weight/reps/RPE/notes),
-  automatic rest timer, quick gym-mode logging, and a celebration summary with
-  personal records.
-- **Workout builder** — build custom workouts from the exercise library and
-  save them to history.
-- **Progress analytics** — estimated 1RM trends, volume by muscle, consistency
-  heatmap and streaks, body measurements, and a personal-records leaderboard.
-- **Social** — leaderboard scoring against seeded friends, friend challenges.
-- **Achievements** — 17 live-computed achievement badges.
-- **CSV sync** — export/import workout logs in a standard tracker format
-  (see `src/lib/csv.ts`).
-- **Accent theming** — the whole app re-themes live from 8 user-selectable
-  accent colors.
+- **Exercise library** — Coached exercises searchable by muscle, equipment
+  and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
+- **Workout logging** — Start a plan or custom workout, log sets (weight/reps/RPE/notes),
+  automatic rest timers, quick gym-mode logging, and celebration summaries with PR detection.
+- **Workout builder** — Build custom workouts from the exercise library and save them to history & cloud.
+- **Progress analytics** — Estimated 1RM strength trends, volume by muscle, Regularity
+  heatmap and streaks, body measurements, and a personal-records board.
+- **Supabase Cloud Sync** — Authenticate with Google OAuth or Email/Password, with automatic bidirectional synchronization for profiles, workouts, granular set logs, and body measurements.
+- **Offline-First Resilience** — Instant local state with Zustand and AsyncStorage; syncs to Supabase whenever online.
+- **CSV import / export** — Export/import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
+- **Accent theming** — The whole app re-themes live from 8 user-selectable accent colors.
 
 ---
 
 ## Tech Stack
 
-- **React Native 0.86** + **Expo SDK 57** (works on iOS, Android and web)
+- **React Native 0.86** + **Expo SDK 57** (iOS, Android, and web)
 - **TypeScript** (strict mode)
-- **expo-router** — file-based routing & navigation
-- **Zustand** — global state with `AsyncStorage` persistence
-- **react-native-svg** — charts, rings, muscle maps, animated exercise figures
-- **expo-video / expo-image** — looping exercise clips (mp4) and GIFs
-- **react-native-reanimated** — (dependency of gesture-handler; the app uses
-  the classic `Animated` API throughout)
-- **jest-expo** — unit tests for the stats engine
-
-No backend. All data lives on-device in AsyncStorage (seeded demo data on first
-run).
+- **expo-router** — File-based routing & navigation
+- **Zustand** — Global state with `AsyncStorage` persistence & Supabase cloud sync
+- **Supabase (PostgreSQL + Auth + RLS)** — Cloud database and authentication
+- **react-native-svg** — Charts, rings, anatomical muscle heatmaps, and figures
+- **expo-video / expo-image** — Bundled HD exercise clips (MP4) and animated GIFs
+- **jest-expo** — Unit tests for stats, csv, and auth engines
 
 ---
 
@@ -335,3 +327,273 @@ No `.env` files are required — the app is fully offline with seeded demo data.
   (`WebExerciseVideo` in `components/animation.tsx`); native is unaffected.
 - **First web load is slow** — Metro bundles on the first request; later
   loads are cached.
+
+---
+
+## Database Architecture
+
+PULSE uses **Supabase (PostgreSQL)** as the durable cloud data layer while
+remaining fully offline-friendly. The current app stores everything locally
+via Zustand + AsyncStorage; the cloud schema is designed for future sync,
+real accounts, social features and multi-device access.
+
+### Design Principles
+
+- **Authoritative data** — things the user explicitly created/logged go to
+  the database (workouts, measurements, plans, goals).
+- **Derived data** — things calculated from authoritative records (volume,
+  PRs, streaks, 1RM, progress scores) are computed at read time by
+  `src/lib/stats.ts`, **never stored in the DB**.
+- **UI-only state** — filters, sheet states, timer positions stay local.
+- **Append-oriented** — finished workouts are immutable; editable records
+  use last-write-wins.
+
+### Schema Overview
+
+```
+auth.users
+  └─ profiles (1:1)
+       ├─ workouts ── workout_exercises ── workout_sets
+       ├─ workout_plans ── workout_plan_exercises
+       ├─ body_measurements
+       ├─ user_favorite_exercises ── exercises (global)
+       ├─ manual_prs ── exercises (global)
+       ├─ user_goals
+       ├─ friendships (requester ↔ addressee)
+       └─ challenges ── challenge_participants
+
+exercises (global catalog, 83 entries)
+  └─ exercise_aliases (CSV import matching)
+```
+
+### Tables
+
+| Table | Owner | Purpose |
+| --- | --- | --- |
+| `profiles` | auth.users | Display name, avatar, goals, experience level |
+| `exercises` | global | Canonical exercise catalog (stable IDs for references) |
+| `exercise_aliases` | global | Alternative names for CSV import matching |
+| `workout_plans` | user | Reusable workout templates |
+| `workout_plan_exercises` | user | Exercises within a plan (ordered slots) |
+| `workouts` | user | Completed workout sessions (the historical record) |
+| `workout_exercises` | user | Exercises within a performed workout |
+| `workout_sets` | user | Individual sets: weight/reps/distance/duration/RPE |
+| `body_measurements` | user | Physical measurements over time |
+| `user_favorite_exercises` | user | Favorited exercise IDs |
+| `manual_prs` | user | Explicitly logged personal records |
+| `friendships` | social | Bidirectional friend relationships |
+| `challenges` | social | Multi-user challenges with start/end dates |
+| `challenge_participants` | social | Challenge membership |
+| `user_goals` | user | Personalized training goals |
+
+### What Is NOT Stored
+
+- **PRs** — detected from workout history by `detectPRs()` in `lib/stats.ts`
+- **Streaks** — computed by `currentStreak()` / `longestStreak()`
+- **Volume / 1RM** — computed by `workoutStats()` / `e1rm()`
+- **Leaderboard scores** — computed by `progressScore()` from workout data
+- **Achievement progress** — computed by `computeAchievements()`
+- **Insights** — computed by `generateInsights()`
+
+### Row Level Security (RLS)
+
+Every user-owned table enforces RLS:
+
+- **Private tables** (workouts, plans, measurements, goals, favorites, PRs):
+  users can only SELECT/INSERT/UPDATE/DELETE their own rows.
+- **Social tables** (friendships, challenge_participants): visible to both
+  parties. Challenge metadata is publicly readable for discovery.
+- **Global tables** (exercises, aliases): readable by all authenticated
+  users.
+- **Profiles**: readable by all (for leaderboard/social), updatable only by
+  the owner.
+
+### Indexes
+
+Key indexes support the primary query patterns:
+
+- `workouts(user_id, started_at DESC)` — user workout history
+- `workout_exercises(workout_id, order_index)` — exercises in a session
+- `workout_exercises(exercise_id)` — find sessions by exercise (PR detection)
+- `workout_sets(workout_exercise_id, set_index)` — sets in an exercise
+- `body_measurements(user_id, measured_at DESC)` — measurement history
+- `friendships(requester_id/addressee_id, status)` — social lookups
+- `challenge_participants(challenge_id)` — challenge members
+
+---
+
+## Database Migrations
+
+All schema changes are managed via **Supabase CLI migrations** in the
+`supabase/migrations/` directory.
+
+### Migration Files
+
+| File | Description |
+| --- | --- |
+| `001_profiles` | Profile table + auth trigger |
+| `002_exercises` | Exercise catalog + enums + aliases |
+| `003_workout_plans` | Plans + plan exercises |
+| `004_workouts` | Workouts + exercises + sets |
+| `005_measurements` | Body measurements |
+| `006_favorites_prs` | Favorites + manual PRs |
+| `007_social` | Friendships + challenges |
+| `008_goals` | User goals |
+| `009_security_indexes` | RLS policies + indexes |
+| `010_seed_exercises` | Seed 83 exercises + 123 aliases |
+
+### Commands
+
+```bash
+# Create a new migration
+npx supabase migration new <migration_name>
+
+# Apply all pending migrations to a local database
+npx supabase db reset
+
+# Apply migrations to a linked remote project
+npx supabase db push
+
+# Inspect the local database
+npx supabase db diff
+
+# Generate TypeScript types from the schema
+npx supabase gen types typescript --local > src/lib/database.types.ts
+```
+
+### TypeScript Types
+
+Type-safe query definitions live in `src/lib/database.types.ts`.
+Regenerate after any schema change:
+
+```bash
+npx supabase gen types typescript --local > src/lib/database.types.ts
+```
+
+---
+
+## Local-First Integration Strategy
+
+The cloud schema is designed to enable a gradual transition:
+
+```
+Current (offline + identity):
+  UI → Zustand store / useAuth → AsyncStorage (offline-first)
+                                      └→ Supabase Auth & Profiles (cloud)
+
+Future (full cloud sync):
+  UI → Zustand store → Repository layer
+                         ├→ Local cache (AsyncStorage)
+                         └→ Supabase (cloud workouts/measurements)
+```
+
+1. **Phase 1** (Completed): Database schema, RLS policies, migrations, and TypeScript types.
+2. **Phase 2** (Completed): Supabase Authentication, Google OAuth, session persistence via AsyncStorage, and profile identity sync.
+3. **Phase 3** (Upcoming): Workout history sync (append-only, conflict-free).
+4. **Phase 4** (Upcoming): Real friends, challenges, and live cloud leaderboard.
+
+---
+
+## Authentication Architecture
+
+PULSE uses Supabase Auth for user identity while maintaining an offline-first foundation:
+
+```
+Auth Provider (Email / Google)
+       │
+       ▼
+Supabase Session (persisted in AsyncStorage)
+       │
+       ▼
+Authenticated User ID (auth.users.id)
+       │
+       ▼
+Database Profile (public.profiles row)
+       │
+       ▼
+Local Zustand Store (usePulse / useAuth)
+```
+
+### Key Principles
+
+- **Single Identity Source**: `auth.users.id` maps 1:1 to `profiles.id`.
+- **Persistent Sessions**: Sessions are automatically persisted on-device using `@react-native-async-storage/async-storage` via `@supabase/supabase-js`.
+- **Offline Resilience**: If the user has signed in, cached session credentials and local workout data load immediately without requiring active internet connectivity.
+- **Idempotent Profile Sync**: Google Sign-In and Email Sign-Up safely ensure a `profiles` row exists without overwriting custom local training parameters.
+
+---
+
+## Authentication Flows
+
+### 1. Email / Password Flow
+- **Sign Up**: Email, password (minimum 6 characters), and confirm password. Creates `auth.users` record and triggers automatic `profiles` row creation.
+- **Sign In**: Email and password authentication with user-friendly error formatting.
+- **Password Reset**: Generates a secure recovery link sent to user email redirecting back to `/auth/reset-password`.
+- **Sign Out**: Clears cloud session while keeping local workouts intact.
+
+### 2. Google OAuth Flow
+- Uses Expo `WebBrowser.openAuthSessionAsync` with custom deep-link scheme `pulse://auth/callback`.
+- On web, redirects to `${window.location.origin}/auth/callback`.
+- Extracts authorization code / session tokens, exchanges with Supabase, and hydrates the user's profile.
+
+---
+
+## Required Supabase Configuration
+
+To enable Authentication with Supabase, configure your project in the [Supabase Dashboard](https://supabase.com/dashboard):
+
+### 1. Enable Email Provider
+1. Go to **Authentication** > **Providers** > **Email**.
+2. Ensure **Email provider** is toggled **ON**.
+3. (Optional for testing) Toggle **Confirm email** OFF if you want immediate signup without email verification.
+
+### 2. Configure Redirect URLs
+1. Go to **Authentication** > **URL Configuration**.
+2. Set **Site URL** to:
+   - Web development: `http://localhost:8081`
+   - Mobile: `pulse://`
+3. In **Redirect URLs**, add:
+   - `pulse://auth/callback`
+   - `pulse://auth/reset-password`
+   - `http://localhost:8081/auth/callback`
+   - `http://localhost:8081/auth/reset-password`
+
+---
+
+## Google OAuth Setup
+
+### 1. Google Cloud Console Configuration
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create or select a project.
+3. Go to **APIs & Services** > **OAuth consent screen**:
+   - User Type: **External**
+   - Fill in App name ("PULSE"), user support email, and developer contact info.
+   - Add scope: `.../auth/userinfo.email`, `.../auth/userinfo.profile`.
+4. Go to **APIs & Services** > **Credentials**:
+   - Click **Create Credentials** > **OAuth client ID**.
+   - Application type: **Web application**.
+   - Name: `PULSE Supabase Web Client`.
+   - **Authorized redirect URIs**: Add your Supabase project callback URL:
+     ```
+     https://<your-project-ref>.supabase.co/auth/v1/callback
+     ```
+   - Click **Create** and copy the **Client ID** and **Client Secret**.
+
+### 2. Configure Supabase Google Provider
+1. Open your [Supabase Dashboard](https://supabase.com/dashboard).
+2. Navigate to **Authentication** > **Providers** > **Google**.
+3. Toggle **Google provider** to **ON**.
+4. Paste your **Client ID** and **Client Secret** from Google Cloud Console.
+5. Save changes.
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in your Supabase project keys:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
