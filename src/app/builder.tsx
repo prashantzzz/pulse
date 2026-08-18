@@ -127,7 +127,7 @@ export default function BuilderScreen() {
       <Screen scroll contentStyle={{ paddingBottom: 120 }}>
         <ScreenHeader title={plan ? 'Edit Plan' : 'New Workout'} back right="checkmark" onRight={save} />
 
-        <View style={{ paddingHorizontal: spacing.lg }}>
+        <View style={{ gap: spacing.md }}>
           <View style={styles.nameWrap}>
             <Row align="space-between" style={{ marginBottom: 6 }}>
               <T variant="label" dim>

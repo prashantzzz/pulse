@@ -4,14 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { colors, gradients, shadows, spacing } from '../theme';
@@ -85,6 +88,7 @@ export function BottomSheet({
   children: React.ReactNode;
   height?: number;
 }) {
+  const insets = useSafeAreaInsets();
   const slide = useAnimatedValue(0);
 
   useEffect(() => {
@@ -96,12 +100,15 @@ export function BottomSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.sheetRoot}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.sheetRoot}>
         <Pressable style={styles.sheetBackdrop} onPress={onClose} />
         <Animated.View
           style={[
             styles.sheet,
-            height ? { height } : { maxHeight: '82%' },
+            { paddingBottom: Math.max(insets.bottom, 24) },
+            height ? { height } : { maxHeight: '85%' },
             Platform.OS === 'web' && { boxShadow: `0 12px 32px rgba(0,0,0,0.55), 0 0 24px ${colors.accent}1F` },
             { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] },
           ]}>
@@ -111,9 +118,9 @@ export function BottomSheet({
               {title}
             </T>
           ) : null}
-          <View style={{ padding: spacing.lg, flex: 1 }}>{children}</View>
+          <View style={{ padding: spacing.lg }}>{children}</View>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

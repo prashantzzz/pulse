@@ -32,7 +32,7 @@ export default function ProgressScreen() {
   const [exerciseId, setExerciseId] = useState<string>('bench-press');
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const chartW = Math.min(width - 40, 600) - 40;
+  const chartW = Math.min(width - 32, 600) - 32;
 
   // exercises for the picker sheet — exactly the ones the user's plans include
   // (deduped, in plan order), so the dropdown never offers extras
@@ -40,7 +40,7 @@ export default function ProgressScreen() {
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
-      <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
+      <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
           <T variant="h2">Progress</T>
           <T variant="small" dim style={{ marginTop: 2 }}>
@@ -54,9 +54,9 @@ export default function ProgressScreen() {
         </View>
       </Row>
 
-      <Segmented options={VIEWS} value={view} onChange={setView} style={{ marginHorizontal: spacing.md }} />
+      <Segmented options={VIEWS} value={view} onChange={setView} scrollable />
 
-      <View style={{ marginTop: spacing.lg, paddingHorizontal: spacing.md, gap: spacing.md }}>
+      <View style={{ marginTop: spacing.md, gap: spacing.md }}>
         {view === 'Strength' ? (
           <StrengthView
             workouts={workouts}

@@ -132,7 +132,7 @@ export default function SettingsScreen() {
     <Screen scroll>
       <ScreenHeader title="Settings" back />
 
-      <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+      <View style={{ gap: spacing.md }}>
         {/* Account / Cloud Section */}
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>

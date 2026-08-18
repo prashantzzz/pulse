@@ -59,11 +59,11 @@ export default function RecordsScreen() {
     <Screen scroll contentStyle={{ paddingBottom: 120, paddingTop: 14 }}>
       <ScreenHeader title="Personal Records" subtitle={`${manualPRs.length} manual · ${historyBests.length} from workouts`} back />
 
-      <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
+      <View style={{ marginBottom: spacing.md }}>
         <Button label="Log a New Record" icon="trophy-outline" full size="lg" onPress={openSheet} />
       </View>
 
-      <View style={{ paddingHorizontal: spacing.lg }}>
+      <View>
         <T variant="label" dim style={{ marginBottom: 10 }}>
           Manual records
         </T>
