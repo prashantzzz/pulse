@@ -58,7 +58,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
-    "build:web": "expo export -p web",
+    "build:web": "expo export -p web && node -e \"const fs=require('fs'); if(fs.existsSync('dist/index.html')){ fs.copyFileSync('dist/index.html','dist/404.html'); fs.copyFileSync('vercel.json','dist/vercel.json'); }\"",
     "build:apk": "eas build --platform android --profile preview"
   },
   "jest": {
