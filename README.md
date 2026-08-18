@@ -255,7 +255,7 @@ npm test           # jest — unit tests for lib/stats
 ```
 
 No `.env` files are required — the app is fully offline with seeded demo data.
-
+Uses eas to build the APK
 ---
 
 ## Development Guidelines
