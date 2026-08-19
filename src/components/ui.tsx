@@ -15,7 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
-import { colors, gradients, radius, shadows, spacing, useAccent } from '../theme';
+import { colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -553,13 +553,14 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   // non-scroll screens that own an inner ScrollView need a bounded height
   screenBody: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  scrollContent: { paddingHorizontal: layout.screenPad, paddingTop: layout.screenTopPad },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: layout.screenPad,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
     gap: spacing.xs,
   },
   headerSide: { width: 44, alignItems: 'flex-start' },

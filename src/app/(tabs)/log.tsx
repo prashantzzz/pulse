@@ -10,7 +10,7 @@ import { BottomSheet } from '../../components/misc';
 import { Button, Icon, Row, Screen, Tag } from '../../components/ui';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
-import { colors, gradients, radius, spacing, useAccent } from '../../theme';
+import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { IonName } from '../../components/ui';
 import type { WorkoutPlan } from '../../types';
 
@@ -36,7 +36,7 @@ export default function LogScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <View style={{ paddingHorizontal: spacing.md }}>
         <T variant="label" accent>
           Quick Log

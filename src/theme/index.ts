@@ -287,5 +287,8 @@ export const shadows = {
 
 export const layout = {
   screenPad: 20,
+  screenTopPad: 22,
+  tabContentBottomPad: 130,
+  stackContentBottomPad: 120,
   maxWidth: 640,
 } as const;

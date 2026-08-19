@@ -9,7 +9,7 @@ import { BottomSheet, Stepper, toast } from '../components/misc';
 import { Button, Icon, Row, Screen, ScreenHeader } from '../components/ui';
 import { EXERCISE_MAP, searchExercises, swapOptions } from '../data/exercises';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing, useAccent } from '../theme';
+import { colors, layout, radius, spacing, useAccent } from '../theme';
 
 interface DraftExercise {
   exerciseId: string;
@@ -124,7 +124,7 @@ export default function BuilderScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen scroll contentStyle={{ paddingBottom: 120 }}>
+      <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
         <ScreenHeader title={plan ? 'Edit Plan' : 'New Workout'} back right="checkmark" onRight={save} />
 
         <View style={{ gap: spacing.md }}>

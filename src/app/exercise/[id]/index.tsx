@@ -13,7 +13,7 @@ import { getExerciseAnimation } from '../../../data/exercise-animations';
 import { EXERCISE_MAP, swapOptions } from '../../../data/exercises';
 import { plateauForExercise } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { colors, radius, spacing, useAccent } from '../../../theme';
+import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 
 export default function ExerciseDetailScreen() {
   useAccent();
@@ -56,7 +56,7 @@ export default function ExerciseDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen scroll contentStyle={{ paddingBottom: 120 }}>
+      <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
         <ScreenHeader back right={fav ? 'bookmark' : 'bookmark-outline'} rightLabel="Toggle favorite" onRight={() => toggleFavorite(exercise.id)} />
 
         <View style={{ paddingHorizontal: spacing.md }}>

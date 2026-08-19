@@ -10,7 +10,7 @@ import { EXERCISE_MAP } from '../../../data/exercises';
 import { platesForTarget } from '../../../lib/plates';
 import { previousSet, warmupSets } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { colors, radius, spacing, useAccent } from '../../../theme';
+import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 
 const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
@@ -86,7 +86,7 @@ export default function LogSetScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen scroll contentStyle={{ paddingBottom: 160 }}>
+      <Screen scroll contentStyle={{ paddingBottom: 160, paddingTop: layout.screenTopPad }}>
         <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back />
 
         <View>

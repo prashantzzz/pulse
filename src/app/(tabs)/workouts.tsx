@@ -8,7 +8,7 @@ import { EmptyState } from '../../components/misc';
 import { Button, Row, Screen, Segmented } from '../../components/ui';
 import { PlanCard } from '../../components/workout-card';
 import { usePulse } from '../../store/useStore';
-import { colors, spacing, useAccent } from '../../theme';
+import { colors, layout, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 export default function WorkoutsScreen() {
@@ -24,7 +24,7 @@ export default function WorkoutsScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
         <View>
           <T variant="h2">My Workouts</T>

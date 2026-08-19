@@ -21,7 +21,7 @@ import { formatAuthError, signUpWithEmail, signInWithGoogle } from '../../lib/au
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function SignupScreen() {
   useAccent();
@@ -121,7 +121,7 @@ export default function SignupScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top + 20, 50), paddingBottom: insets.bottom + 30 },
+            { paddingTop: Math.max(insets.top + layout.screenTopPad, 50), paddingBottom: insets.bottom + 30 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
