@@ -60,6 +60,9 @@ export const SEED_PROFILE: UserProfile = {
   style: ['Push / Pull / Legs'],
   trainingAgeMonths: 14,
   onboarded: true,
+  heightCm: 178,
+  weightKg: 66,
+  weightUnit: 'kg',
 };
 
 // Body-weight history: a slow, steady bulk from 61.5 kg ~5 months ago up to

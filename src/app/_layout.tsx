@@ -76,16 +76,17 @@ export default function RootLayout() {
     };
   }, [initializeAuth]);
 
-  // Global Route Guard: strictly allow only auth routes when not authenticated
+  // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {
     if (!fontsLoaded || !hydrated || !isInitialized) return;
 
     const segList = segments as string[];
     const inAuthGroup = segList[0] === 'auth';
     const isIndex = segList.length === 0;
+    const isChallengeInvite = segList[0] === 'challenge';
 
     if (!isAuthenticated) {
-      if (!inAuthGroup && !isIndex) {
+      if (!inAuthGroup && !isIndex && !isChallengeInvite) {
         router.replace('/auth/login' as never);
       }
     }

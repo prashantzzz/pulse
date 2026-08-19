@@ -18,11 +18,12 @@ CSV import/export, and seamless Supabase cloud synchronization.
   automatic rest timers, quick gym-mode logging, and celebration summaries with PR detection.
 - **Workout builder** — Build custom workouts from the exercise library and save them to history & cloud.
 - **Progress analytics** — Estimated 1RM strength trends, volume by muscle, Regularity
-  heatmap and streaks, body measurements, and a personal-records board.
-- **Supabase Cloud Sync** — Authenticate with Google OAuth or Email/Password, with automatic bidirectional synchronization for profiles, workouts, granular set logs, and body measurements.
+  heatmap and streaks, body measurements, BMI classification gauge, and a personal-records board.
+- **Friend Challenges & Leaderboards** — Challenge friends to weekly workout volume, streaks, or lift improvements via SMS/WhatsApp share links (`nextrep://challenge`), with live duels and cloud friendship sync.
+- **Supabase Cloud Sync** — Authenticate with Google OAuth or Email/Password, with automatic bidirectional synchronization for profiles, workouts, granular set logs, body measurements, and friend challenges.
 - **Offline-First Resilience** — Instant local state with Zustand and AsyncStorage; syncs to Supabase whenever online.
 - **CSV import / export** — Export/import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
-- **Accent theming** — The whole app re-themes live from 8 user-selectable accent colors.
+- **Accent theming** — The whole app re-themes live from 8 user-selectable accent colors (default: Mint).
 
 ---
 

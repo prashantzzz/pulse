@@ -37,6 +37,7 @@ interface PulseState {
   seeded: boolean;
   /** user-selected accent color key */
   accentKey: AccentKey;
+  weightUnit: 'kg' | 'lbs';
   profile: UserProfile | null;
   workouts: Workout[];
   /** user-editable workout plans (seeded from SEED_PLANS) */
@@ -51,8 +52,11 @@ interface PulseState {
   setHydrated: () => void;
   completeOnboarding: (profile: UserProfile) => void;
   setAccent: (key: AccentKey) => void;
+  setWeightUnit: (unit: 'kg' | 'lbs') => void;
   toggleFavorite: (exerciseId: string) => void;
   setProfile: (p: Partial<UserProfile>) => void;
+  addFriend: (friend: Friend) => void;
+  setFriends: (friends: Friend[]) => void;
 
   /** Create an active workout from a plan (or raw exercise specs) */
   startWorkout: (
@@ -93,7 +97,8 @@ export const usePulse = create<PulseState>()(
       hydrated: false,
       onboarded: false,
       seeded: false,
-      accentKey: 'lime',
+      accentKey: 'mint',
+      weightUnit: 'kg',
       profile: null,
       workouts: [],
       plans: SEED_PLANS,
@@ -108,6 +113,14 @@ export const usePulse = create<PulseState>()(
       setAccent: (key) => {
         applyAccent(key);
         set({ accentKey: key });
+      },
+
+      setWeightUnit: (unit) => {
+        set({ weightUnit: unit });
+        const p = get().profile;
+        if (p) {
+          set({ profile: { ...p, weightUnit: unit } });
+        }
       },
 
       completeOnboarding: (profile) => {
@@ -129,8 +142,30 @@ export const usePulse = create<PulseState>()(
             : [...s.favorites, exerciseId],
         })),
 
-      setProfile: (p) =>
-        set((s) => ({ profile: s.profile ? { ...s.profile, ...p } : s.profile })),
+      setProfile: (p) => {
+        set((s) => {
+          const updated = s.profile ? { ...s.profile, ...p } : null;
+          if (updated) {
+            supabase.auth.getUser().then(({ data: { user } }) => {
+              if (user) {
+                import('../lib/auth').then(({ upsertProfile }) => {
+                  upsertProfile(user.id, updated).catch(() => {});
+                });
+              }
+            }).catch(() => {});
+          }
+          return { profile: updated };
+        });
+      },
+
+      addFriend: (friend) =>
+        set((s) => ({
+          friends: s.friends.some((f) => f.id === friend.id)
+            ? s.friends.map((f) => (f.id === friend.id ? friend : f))
+            : [...s.friends, friend],
+        })),
+
+      setFriends: (friends) => set({ friends }),
 
       startWorkout: (title, specs) => {
         const now = new Date();
@@ -398,6 +433,7 @@ export const usePulse = create<PulseState>()(
         onboarded: s.onboarded,
         seeded: s.seeded,
         accentKey: s.accentKey,
+        weightUnit: s.weightUnit,
         profile: s.profile,
         workouts: s.workouts,
         plans: s.plans,

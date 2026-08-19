@@ -72,7 +72,7 @@ export const ACCENTS: Record<AccentKey, AccentPalette> = {
   },
 };
 
-let currentAccent: AccentKey = 'lime';
+let currentAccent: AccentKey = 'mint';
 
 // --- reactive accent subscription -------------------------------------------
 // Components that read the (mutated) `colors` object need a re-render signal
@@ -114,7 +114,7 @@ export function useAccent(): AccentKey {
  */
 export function applyAccent(key: AccentKey): void {
   const p = ACCENTS[key];
-  if (!p || currentAccent === key) return;
+  if (!p) return;
   currentAccent = key;
   colors.accent = p.accent;
   colors.accentDim = p.accentDim;
@@ -155,12 +155,12 @@ export const colors = {
   textDim: '#A7AEBA',
   textMuted: '#66707E',
 
-  // Brand — default neon lime (swappable via applyAccent)
-  accent: '#B8FF20',
-  accentDim: '#8ED50E',
-  accentDeep: '#5C8C08',
-  accentSoft: 'rgba(184, 255, 32, 0.13)',
-  accentSoft2: 'rgba(184, 255, 32, 0.22)',
+  // Brand — default Mint (swappable via applyAccent)
+  accent: '#34D399',
+  accentDim: '#10B981',
+  accentDeep: '#047857',
+  accentSoft: 'rgba(52, 211, 153, 0.14)',
+  accentSoft2: 'rgba(52, 211, 153, 0.24)',
 
   // Supporting
   emerald: '#2BD27E',
@@ -205,8 +205,8 @@ export type Color = keyof typeof colors;
 
 /** Brand gradients (pairs used by LinearGradient) */
 export const gradients = {
-  accent: ['#C8FF3C', '#8ED50E'] as [string, string],
-  accentVertical: ['#B8FF20', '#5C8C08'] as [string, string],
+  accent: ['#6EE7B7', '#059669'] as [string, string],
+  accentVertical: ['#34D399', '#047857'] as [string, string],
   emerald: ['#34E39A', '#0FA968'] as [string, string],
   teal: ['#35E4DC', '#0E9E96'] as [string, string],
   cyan: ['#4CC9F0', '#1877F2'] as [string, string],
@@ -216,7 +216,7 @@ export const gradients = {
   purple: ['#C4B5FD', '#7C3AED'] as [string, string],
   surface: ['#1C2026', '#121417'] as [string, string],
   card: ['#1A1E24', '#121417'] as [string, string],
-  hero: ['#182A12', '#0A0B0D'] as [string, string], // mutated live by applyAccent
+  hero: ['#0A291E', '#0A0B0D'] as [string, string], // mutated live by applyAccent
   charcoal: ['#23282F', '#111316'] as [string, string],
   silhouette: ['#2C323B', '#191D23'] as [string, string],
 };
