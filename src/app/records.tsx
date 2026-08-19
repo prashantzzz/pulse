@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { BottomSheet, EmptyState, Stepper, toast } from '../components/misc';
@@ -28,6 +28,19 @@ export default function RecordsScreen() {
   const [exerciseId, setExerciseId] = useState<string | null>(null);
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
+
+  // Dismiss bottom sheet on phone back press
+  useEffect(() => {
+    const onBackPress = () => {
+      if (sheet) {
+        setSheet(false);
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [sheet]);
 
   const historyBests = [...new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId)))]
     .map((id) => ({ id, best: bestForExercise(workouts, id) }))

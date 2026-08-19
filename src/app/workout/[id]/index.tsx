@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProgressRing } from '../../../components/ring';
@@ -30,6 +30,21 @@ export default function ActiveWorkoutScreen() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
+
+  // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard)
+  useEffect(() => {
+    const onBackPress = () => {
+      if (menuOpen) {
+        setMenuOpen(false);
+        return true;
+      }
+      setMenuOpen(true);
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [menuOpen]);
 
   const workout = activeWorkout ?? workouts.find((w) => w.id === id);
   if (!workout) {

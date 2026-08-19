@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { ExerciseAnimation } from '../../../components/animation';
 import { MediaCarousel } from '../../../components/media-carousel';
@@ -25,6 +25,19 @@ export default function ExerciseDetailScreen() {
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
   const [addSheet, setAddSheet] = useState(false);
+
+  // Dismiss bottom sheet on phone back press
+  useEffect(() => {
+    const onBackPress = () => {
+      if (addSheet) {
+        setAddSheet(false);
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [addSheet]);
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
   if (!exercise) {
