@@ -44,7 +44,10 @@ export default function ProfileScreen() {
     : null;
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+    <Screen
+      scroll
+      onSwipeRight={() => router.push('/progress' as never)}
+      contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <View style={styles.headerCard}>
         <LinearGradient colors={[accentTint(colors.accent, 0.15), '#0D0F12']} style={StyleSheet.absoluteFill} />

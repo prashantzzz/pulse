@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   Animated,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -263,6 +264,8 @@ export function Screen({
   contentStyle,
   edges = ['top'],
   scrollProps,
+  onSwipeLeft,
+  onSwipeRight,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -270,14 +273,43 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }) {
   // re-render on accent change; the screen component itself also subscribes
   // (see useAccent) so its `children` elements are recreated with fresh colors
   useAccent();
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
+
+  const swipeHandler = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (!onSwipeLeft && !onSwipeRight) return false;
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.5;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx, vx } = gestureState;
+        const isFlick = Math.abs(vx) > 0.3;
+        const threshold = isFlick ? 25 : 45;
+
+        if (dx < -threshold && onSwipeLeft) {
+          onSwipeLeft();
+        } else if (dx > threshold && onSwipeRight) {
+          onSwipeRight();
+        }
+      },
+      onPanResponderTerminationRequest: () => true,
+    })
+  ).current;
+
   return (
-    <SafeAreaView style={[styles.screen, style]} edges={edges}>
+    <SafeAreaView
+      style={[styles.screen, style]}
+      edges={edges}
+      {...(onSwipeLeft || onSwipeRight ? swipeHandler.panHandlers : {})}>
       <Wrapper
         {...(scrollProps ?? {})}
         style={scroll ? undefined : styles.screenBody}

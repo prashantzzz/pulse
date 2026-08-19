@@ -24,7 +24,11 @@ export default function WorkoutsScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+    <Screen
+      scroll
+      onSwipeRight={() => router.push('/home' as never)}
+      onSwipeLeft={() => router.push('/progress' as never)}
+      contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
         <View>
           <T variant="h2">My Workouts</T>
