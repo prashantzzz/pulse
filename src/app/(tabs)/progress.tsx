@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
@@ -22,6 +23,7 @@ const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12
 
 export default function ProgressScreen() {
   useAccent();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const workouts = usePulse((s) => s.workouts);
   const plans = usePulse((s) => s.plans);
@@ -39,7 +41,11 @@ export default function ProgressScreen() {
   const planExercises = [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))];
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+    <Screen
+      scroll
+      onSwipeRight={() => router.push('/workouts' as never)}
+      onSwipeLeft={() => router.push('/profile' as never)}
+      contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
           <T variant="h2">Progress</T>

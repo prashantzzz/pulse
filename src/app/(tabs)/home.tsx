@@ -67,7 +67,10 @@ export default function HomeScreen() {
   const lastStats = last ? workoutStats(last) : null;
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+    <Screen
+      scroll
+      onSwipeLeft={() => router.push('/workouts' as never)}
+      contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
         <View>
