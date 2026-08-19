@@ -152,7 +152,8 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 40,
     height: 28,
-    borderRadius: 999,
+    borderRadius: 14,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

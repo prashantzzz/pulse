@@ -69,27 +69,6 @@ export default function LogScreen() {
         ))}
       </View>
 
-      {/* active session banner */}
-      <View style={{ paddingHorizontal: spacing.md, marginTop: spacing.xl }}>
-        <View style={styles.sessionCard}>
-          <View style={[styles.sessionGlow, { backgroundColor: `${colors.accent}14` }]} />
-          <Row align="space-between">
-            <View>
-              <Tag label="Active Session" />
-              <T variant="h3" style={{ marginTop: 8 }}>
-                No session running
-              </T>
-              <T variant="small" dim style={{ marginTop: 4 }}>
-                Start one and PULSE handles sets, rest and records.
-              </T>
-            </View>
-            <Pressable onPress={() => setPlanSheet(true)} style={[styles.sessionCta, { backgroundColor: colors.accent }]}>
-              <Icon name="play" size={18} color={colors.bg} />
-            </Pressable>
-          </Row>
-        </View>
-      </View>
-
       <BottomSheet visible={planSheet} onClose={() => setPlanSheet(false)} title="Start a workout">
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={{ gap: spacing.sm }}>

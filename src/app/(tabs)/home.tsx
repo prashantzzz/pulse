@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAnimatedValue } from '../../lib/useAnimatedValue';
 
@@ -12,7 +12,7 @@ import { Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { greetingFor } from '../../lib/greeting';
-import { currentStreak, detectPRs, formatCompact, nextMove, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
+import { currentStreak, detectPRs, formatCompact, nextMove, nextMoves, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
@@ -48,6 +48,7 @@ export default function HomeScreen() {
     ? [...workouts].filter((w) => w.id !== last?.id).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).find((w) => w.title === plan.title)
     : undefined;
   const recentPrs = last ? [...detectPRs(last, workouts)].sort((a, b) => b.deltaPct - a.deltaPct) : [];
+  const moves = nextMoves(workouts, plans, plan?.id);
 
   // one primary recommendation — never a list; the hero's own plan is excluded
   const move = plan ? nextMove(workouts, plans, plan.id) : null;
@@ -233,15 +234,19 @@ export default function HomeScreen() {
         </Section>
       ) : null}
 
-      {/* your next move — one deterministic recommendation */}
-      {move ? (
+      {/* your next move — contextual recommendations carousel */}
+      {moves.length > 0 ? (
         <Section title="Your Next Move">
-          <NextMoveCard move={move} onStartPlan={(planId) => {
-            const p = plans.find((x) => x.id === planId);
-            if (!p) return;
-            const w = startWorkout(p.title, p.exercises);
-            router.push(`/workout/${w.id}`);
-          }} onViewExercise={(id) => router.push(`/exercise/${id}` as never)} />
+          <NextMovesCarousel
+            moves={moves}
+            onStartPlan={(planId) => {
+              const p = plans.find((x) => x.id === planId);
+              if (!p) return;
+              const w = startWorkout(p.title, p.exercises);
+              router.push(`/workout/${w.id}`);
+            }}
+            onViewExercise={(id) => router.push(`/exercise/${id}` as never)}
+          />
         </Section>
       ) : null}
 
@@ -254,6 +259,62 @@ export default function HomeScreen() {
         </Row>
       </Section>
     </Screen>
+  );
+}
+
+function NextMovesCarousel({
+  moves,
+  onStartPlan,
+  onViewExercise,
+}: {
+  moves: NextMove[];
+  onStartPlan: (planId: string) => void;
+  onViewExercise: (exerciseId: string) => void;
+}) {
+  const [w, setW] = useState(0);
+  const [page, setPage] = useState(0);
+
+  if (moves.length === 1) {
+    return <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />;
+  }
+
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 ? (
+        <ScrollView
+          horizontal
+          pagingEnabled
+          snapToInterval={w}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / w);
+            setPage(Math.max(0, Math.min(moves.length - 1, idx)));
+          }}>
+          {moves.map((move, i) => (
+            <View key={i} style={{ width: w, flexShrink: 0 }}>
+              <NextMoveCard move={move} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />
+            </View>
+          ))}
+        </ScrollView>
+      ) : (
+        <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />
+      )}
+      {moves.length > 1 ? (
+        <Row gap={6} align="center" style={{ justifyContent: 'center', marginTop: 10 }}>
+          {moves.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.carouselDot,
+                i === page && { width: 18, backgroundColor: colors.accent },
+              ]}
+            />
+          ))}
+        </Row>
+      ) : null}
+    </View>
   );
 }
 
@@ -390,5 +451,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 999,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface3,
   },
 });

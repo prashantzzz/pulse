@@ -10,7 +10,7 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
@@ -63,6 +63,10 @@ export default function RootLayout() {
   const hydrated = usePulse((s) => s.hydrated);
   const accentKey = usePulse((s) => s.accentKey);
   const initializeAuth = useAuth((s) => s.initialize);
+  const isInitialized = useAuth((s) => s.isInitialized);
+  const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const segments = useSegments();
+  const router = useRouter();
 
   // Initialize Supabase auth session check and subscription
   useEffect(() => {
@@ -71,6 +75,21 @@ export default function RootLayout() {
       unsubscribe();
     };
   }, [initializeAuth]);
+
+  // Global Route Guard: strictly allow only auth routes when not authenticated
+  useEffect(() => {
+    if (!fontsLoaded || !hydrated || !isInitialized) return;
+
+    const segList = segments as string[];
+    const inAuthGroup = segList[0] === 'auth';
+    const isIndex = segList.length === 0;
+
+    if (!isAuthenticated) {
+      if (!inAuthGroup && !isIndex) {
+        router.replace('/auth/login' as never);
+      }
+    }
+  }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, segments, router]);
 
   // apply the user's accent palette before rendering so every component (and
   // re-render) reads the current colors; subscribed above so switching the
@@ -88,13 +107,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      {/*
-        Keyed on the accent so a change in Settings remounts the whole
-        navigator with the fresh palette. This guarantees every screen —
-        mounted or not — picks up the new accent.
-      */}
       <Stack
-        key={accentKey}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },

@@ -142,7 +142,6 @@ export default function ProfileScreen() {
               </Row>
             </Row>
           ) : null}
-          <ProgressBar value={60} color={colors.success} height={8} />
         </Card>
       </Section>
 

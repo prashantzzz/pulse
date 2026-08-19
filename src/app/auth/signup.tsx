@@ -18,6 +18,7 @@ import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
 import { formatAuthError, signUpWithEmail, signInWithGoogle } from '../../lib/auth';
+import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../theme';
@@ -26,7 +27,6 @@ export default function SignupScreen() {
   useAccent();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const syncProfileFromCloud = useAuth((s) => s.syncProfileFromCloud);
   const onboarded = usePulse((s) => s.onboarded);
 
   const [email, setEmail] = useState('');
@@ -65,8 +65,9 @@ export default function SignupScreen() {
         if (data.session) {
           // If auto-confirm is enabled or session is created immediately
           toast('Account created successfully');
-          await syncProfileFromCloud(data.user.id);
-          router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
+          await syncUserDataFromCloud(data.user.id);
+          const isUserOnboarded = usePulse.getState().onboarded;
+          router.replace(isUserOnboarded || onboarded ? '/(tabs)/home' : '/onboarding');
         } else {
           // Email confirmation is required by Supabase project settings
           setSuccessInfo('Account created! Please check your email inbox to confirm your account.');
@@ -93,8 +94,9 @@ export default function SignupScreen() {
       }
       if (result.session?.user) {
         toast('Signed in with Google');
-        const profile = await syncProfileFromCloud(result.session.user.id);
-        if (profile?.onboarded || onboarded) {
+        await syncUserDataFromCloud(result.session.user.id);
+        const isUserOnboarded = usePulse.getState().onboarded;
+        if (isUserOnboarded || onboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/onboarding');

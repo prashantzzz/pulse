@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { pushMeasurementToCloud, pushWorkoutToCloud } from '../lib/sync';
+import { pushMeasurementToCloud, pushWorkoutToCloud, wipeUserWorkoutsInCloud, flushOfflineSyncQueue } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import {
   SEED_FAVORITES,
@@ -81,6 +81,8 @@ interface PulseState {
   removeManualPR: (id: string) => void;
   /** Merge CSV-imported workouts (deduped by title+start time) */
   importWorkouts: (imported: Workout[]) => void;
+  /** Overwrite workout history with new set */
+  replaceWorkouts: (imported: Workout[]) => void;
   resetDemo: () => void;
   clearAllData: () => void;
 }
@@ -331,6 +333,30 @@ export const usePulse = create<PulseState>()(
           return { workouts: [...fresh, ...s.workouts] };
         }),
 
+      replaceWorkouts: (imported) =>
+        set(() => {
+          const fresh = imported.map((w) => ({
+            ...w,
+            id: genId('w'),
+            source: 'user' as const,
+            exercises: w.exercises.map((we) => ({
+              ...we,
+              id: genId('we'),
+              sets: we.sets.map((st) => ({ ...st, id: genId('s') })),
+            })),
+          }));
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              wipeUserWorkoutsInCloud(user.id).then(() => {
+                for (const fw of fresh) {
+                  pushWorkoutToCloud(user.id, fw).catch(() => {});
+                }
+              }).catch(() => {});
+            }
+          }).catch(() => {});
+          return { workouts: fresh };
+        }),
+
       resetDemo: () =>
         set({
           profile: SEED_PROFILE,
@@ -345,7 +371,12 @@ export const usePulse = create<PulseState>()(
           seeded: true,
         }),
 
-      clearAllData: () =>
+      clearAllData: () => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            wipeUserWorkoutsInCloud(user.id).catch(() => {});
+          }
+        }).catch(() => {});
         set({
           workouts: [],
           plans: SEED_PLANS,
@@ -357,7 +388,8 @@ export const usePulse = create<PulseState>()(
           profile: null,
           onboarded: false,
           seeded: true,
-        }),
+        });
+      },
     }),
     {
       name: 'nextrep-store-v1',

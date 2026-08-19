@@ -582,8 +582,8 @@ const styles = StyleSheet.create({
   },
 
   tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },

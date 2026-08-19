@@ -221,98 +221,235 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
 }
 
 /**
- * Pushes a single completed workout to Supabase.
+ * Offline Sync Queue & Cloud Sync System
  */
-export async function pushWorkoutToCloud(userId: string, workout: Workout): Promise<boolean> {
-  if (!isSupabaseConfigured || !userId) return false;
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const OFFLINE_QUEUE_KEY = '@nextrep_offline_sync_queue';
+
+export type OfflineMutation =
+  | { type: 'upsert_workout'; userId: string; workout: Workout; timestamp: number }
+  | { type: 'delete_workout'; userId: string; workoutId: string; timestamp: number }
+  | { type: 'wipe_user_workouts'; userId: string; timestamp: number }
+  | { type: 'upsert_measurement'; userId: string; measurement: BodyMeasurement; timestamp: number }
+  | { type: 'upsert_profile'; userId: string; profile: Partial<UserProfile>; timestamp: number };
+
+async function getOfflineQueue(): Promise<OfflineMutation[]> {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveOfflineQueue(queue: OfflineMutation[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.warn('Failed to persist offline sync queue:', e);
+  }
+}
+
+export async function enqueueOfflineMutation(mutation: OfflineMutation): Promise<void> {
+  const queue = await getOfflineQueue();
+  queue.push(mutation);
+  await saveOfflineQueue(queue);
+  // Attempt to immediately process if online
+  flushOfflineSyncQueue().catch(() => {});
+}
+
+let isFlushing = false;
+
+export async function flushOfflineSyncQueue(): Promise<boolean> {
+  if (isFlushing || !isSupabaseConfigured) return false;
+  isFlushing = true;
 
   try {
-    // 1. Insert Workout
-    const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
-      .insert({
-        user_id: userId,
-        title: workout.title,
-        description: workout.description || null,
-        started_at: workout.startTime,
-        completed_at: workout.endTime,
-        source: workout.source || 'user',
-      })
-      .select('id')
-      .single();
-
-    if (wErr || !wRow) {
-      console.warn('Failed to insert workout to cloud:', wErr);
-      return false;
+    const queue = await getOfflineQueue();
+    if (queue.length === 0) {
+      isFlushing = false;
+      return true;
     }
 
-    const workoutId = wRow.id;
+    const remaining: OfflineMutation[] = [];
 
-    // 2. Insert Exercises and Sets
-    for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
-      const we = workout.exercises[eIdx];
-      const { data: exRow, error: exErr } = await (supabase.from('workout_exercises') as any)
-        .insert({
-          workout_id: workoutId,
-          exercise_id: we.exerciseId,
-          order_index: eIdx,
-          notes: we.notes || null,
-        })
-        .select('id')
-        .single();
+    for (const item of queue) {
+      let success = false;
+      try {
+        if (item.type === 'upsert_workout') {
+          success = await directPushWorkoutToCloud(item.userId, item.workout);
+        } else if (item.type === 'delete_workout') {
+          success = await directDeleteWorkoutFromCloud(item.userId, item.workoutId);
+        } else if (item.type === 'wipe_user_workouts') {
+          success = await directWipeUserWorkoutsInCloud(item.userId);
+        } else if (item.type === 'upsert_measurement') {
+          success = await directPushMeasurementToCloud(item.userId, item.measurement);
+        } else if (item.type === 'upsert_profile') {
+          const { upsertProfile } = await import('./auth');
+          const res = await upsertProfile(item.userId, item.profile);
+          success = !!res;
+        }
+      } catch (err) {
+        console.warn('Error processing queued mutation:', err);
+        success = false;
+      }
 
-      if (exErr || !exRow) continue;
-
-      const exerciseId = exRow.id;
-      const setsToInsert = we.sets.map((s, sIdx) => ({
-        workout_exercise_id: exerciseId,
-        set_index: s.setIndex || sIdx + 1,
-        set_type: s.setType || 'working',
-        weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
-        reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
-        distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
-        duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
-        rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
-        completed: s.completed ?? true,
-        completed_at: s.completedAt || null,
-        notes: s.notes || null,
-      }));
-
-      if (setsToInsert.length > 0) {
-        await (supabase.from('workout_sets') as any).insert(setsToInsert);
+      if (!success) {
+        remaining.push(item);
       }
     }
 
-    return true;
+    await saveOfflineQueue(remaining);
+    isFlushing = false;
+    return remaining.length === 0;
   } catch (err) {
-    console.warn('Error pushing workout to cloud:', err);
+    console.warn('Exception during flushOfflineSyncQueue:', err);
+    isFlushing = false;
     return false;
   }
 }
 
 /**
- * Pushes a new body measurement to Supabase.
+ * Direct cloud operations
  */
-export async function pushMeasurementToCloud(userId: string, m: BodyMeasurement): Promise<boolean> {
+async function directWipeUserWorkoutsInCloud(userId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const { error } = await (supabase.from('workouts') as any).delete().eq('user_id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directDeleteWorkoutFromCloud(userId: string, workoutId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const { error } = await (supabase.from('workouts') as any).delete().eq('id', workoutId).eq('user_id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directPushWorkoutToCloud(userId: string, workout: Workout): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
 
-  try {
-    const { error } = await (supabase.from('body_measurements') as any).insert({
+  // 1. Insert Workout
+  const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
+    .insert({
       user_id: userId,
-      measured_at: m.date,
-      weight_kg: m.weightKg,
-      body_fat_pct: m.bodyFatPct || null,
-      chest_cm: m.chestCm || null,
-      waist_cm: m.waistCm || null,
-      biceps_cm: m.bicepsCm || null,
-    });
+      title: workout.title,
+      description: workout.description || null,
+      started_at: workout.startTime,
+      completed_at: workout.endTime,
+      source: workout.source || 'user',
+    })
+    .select('id')
+    .single();
 
-    if (error) {
-      console.warn('Failed to push measurement to cloud:', error);
-      return false;
+  if (wErr || !wRow) {
+    return false;
+  }
+
+  const workoutId = wRow.id;
+
+  // 2. Insert Exercises and Sets
+  for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
+    const we = workout.exercises[eIdx];
+    const { data: exRow, error: exErr } = await (supabase.from('workout_exercises') as any)
+      .insert({
+        workout_id: workoutId,
+        exercise_id: we.exerciseId,
+        order_index: eIdx,
+        notes: we.notes || null,
+      })
+      .select('id')
+      .single();
+
+    if (exErr || !exRow) continue;
+
+    const exerciseId = exRow.id;
+    const setsToInsert = we.sets.map((s, sIdx) => ({
+      workout_exercise_id: exerciseId,
+      set_index: s.setIndex || sIdx + 1,
+      set_type: s.setType || 'working',
+      weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
+      reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
+      distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
+      duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
+      rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
+      completed: s.completed ?? true,
+      completed_at: s.completedAt || null,
+      notes: s.notes || null,
+    }));
+
+    if (setsToInsert.length > 0) {
+      await (supabase.from('workout_sets') as any).insert(setsToInsert);
+    }
+  }
+
+  return true;
+}
+
+async function directPushMeasurementToCloud(userId: string, m: BodyMeasurement): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+
+  const { error } = await (supabase.from('body_measurements') as any).insert({
+    user_id: userId,
+    measured_at: m.date,
+    weight_kg: m.weightKg,
+    body_fat_pct: m.bodyFatPct || null,
+    chest_cm: m.chestCm || null,
+    waist_cm: m.waistCm || null,
+    biceps_cm: m.bicepsCm || null,
+  });
+
+  return !error;
+}
+
+/**
+ * Public export wrappers that automatically queue offline if cloud is unreachable
+ */
+export async function pushWorkoutToCloud(userId: string, workout: Workout): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const success = await directPushWorkoutToCloud(userId, workout);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'upsert_workout', userId, workout, timestamp: Date.now() });
     }
     return true;
-  } catch (err) {
-    console.warn('Error pushing measurement to cloud:', err);
-    return false;
+  } catch {
+    await enqueueOfflineMutation({ type: 'upsert_workout', userId, workout, timestamp: Date.now() });
+    return true;
+  }
+}
+
+export async function pushMeasurementToCloud(userId: string, m: BodyMeasurement): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const success = await directPushMeasurementToCloud(userId, m);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'upsert_measurement', userId, measurement: m, timestamp: Date.now() });
+    }
+    return true;
+  } catch {
+    await enqueueOfflineMutation({ type: 'upsert_measurement', userId, measurement: m, timestamp: Date.now() });
+    return true;
+  }
+}
+
+export async function wipeUserWorkoutsInCloud(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const success = await directWipeUserWorkoutsInCloud(userId);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'wipe_user_workouts', userId, timestamp: Date.now() });
+    }
+    return true;
+  } catch {
+    await enqueueOfflineMutation({ type: 'wipe_user_workouts', userId, timestamp: Date.now() });
+    return true;
   }
 }

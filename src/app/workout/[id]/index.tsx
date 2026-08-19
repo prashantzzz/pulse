@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProgressRing } from '../../../components/ring';
 import { SetRow } from '../../../components/set-row';
@@ -83,7 +84,7 @@ export default function ActiveWorkoutScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* header */}
       <View style={styles.header}>
         <Pressable
@@ -312,7 +313,7 @@ export default function ActiveWorkoutScreen() {
           </Pressable>
         </View>
       </BottomSheet>
-    </View>
+    </SafeAreaView>
   );
 }
 

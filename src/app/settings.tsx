@@ -31,6 +31,7 @@ export default function SettingsScreen() {
   const setAccent = usePulse((s) => s.setAccent);
   const workouts = usePulse((s) => s.workouts);
   const importWorkouts = usePulse((s) => s.importWorkouts);
+  const replaceWorkouts = usePulse((s) => s.replaceWorkouts);
   const resetDemo = usePulse((s) => s.resetDemo);
   const clearAllData = usePulse((s) => s.clearAllData);
 
@@ -103,20 +104,29 @@ export default function SettingsScreen() {
   };
 
   const handleImported = (text: string) => {
-    const result = parseWorkoutsCsv(text);
-    if (!result.workouts.length) {
-      toast('No workouts found in that file');
-      return;
+    try {
+      const result = parseWorkoutsCsv(text);
+      if (result.error || !result.workouts.length) {
+        toast(result.error ?? 'No workouts found in that file');
+        return;
+      }
+      setImportPreview(result);
+    } catch {
+      toast('Failed to parse CSV. Check column headers.');
     }
-    setImportPreview(result);
   };
 
-  const confirmImport = () => {
+  const confirmImport = (wipeFirst = false) => {
     if (!importPreview) return;
-    importWorkouts(importPreview.workouts);
     const n = importPreview.workouts.length;
+    if (wipeFirst) {
+      replaceWorkouts(importPreview.workouts);
+      toast(`Wiped previous data & imported ${n} workout${n === 1 ? '' : 's'}`);
+    } else {
+      importWorkouts(importPreview.workouts);
+      toast(`Merged ${n} workout${n === 1 ? '' : 's'}`);
+    }
     setImportPreview(null);
-    toast(`${n} workout${n === 1 ? '' : 's'} imported`);
   };
 
   const handleSignOut = async () => {
@@ -481,11 +491,40 @@ export default function SettingsScreen() {
                 {importPreview.newExercises.length > 3 ? ' …' : ''} added to your exercise library.
               </T>
             ) : null}
-            <Pressable onPress={confirmImport} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
-              <T variant="bodySemi" style={{ color: colors.bg }}>
-                Import {importPreview.workouts.length} workout{importPreview.workouts.length === 1 ? '' : 's'}
-              </T>
-            </Pressable>
+            {workouts.length > 0 ? (
+              <View style={{ backgroundColor: colors.dangerSoft2, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: `${colors.red}44` }}>
+                <Row gap={8} align="center">
+                  <Ionicons name="warning-outline" size={18} color={colors.red} />
+                  <T variant="bodySemi" style={{ color: colors.red }}>
+                    Existing Workouts Detected
+                  </T>
+                </Row>
+                <T variant="small" dim style={{ marginTop: 4, fontSize: 12 }}>
+                  You already have {workouts.length} workout{workouts.length === 1 ? '' : 's'} recorded. You can choose to wipe out your previous data and replace it entirely with this CSV, or merge them.
+                </T>
+              </View>
+            ) : null}
+
+            {workouts.length > 0 ? (
+              <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
+                <Pressable onPress={() => confirmImport(true)} style={[styles.saveBtn, { backgroundColor: colors.red, marginTop: 0 }]}>
+                  <T variant="bodySemi" style={{ color: colors.bg }}>
+                    Wipe Previous Data & Replace ({importPreview.workouts.length})
+                  </T>
+                </Pressable>
+                <Pressable onPress={() => confirmImport(false)} style={[styles.saveBtn, { backgroundColor: colors.surface3, borderWidth: 1, borderColor: colors.border, marginTop: 0 }]}>
+                  <T variant="bodySemi" style={{ color: colors.text }}>
+                    Merge with Existing Data
+                  </T>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={() => confirmImport(false)} style={[styles.saveBtn, { backgroundColor: colors.accent }]}>
+                <T variant="bodySemi" style={{ color: colors.bg }}>
+                  Import {importPreview.workouts.length} workout{importPreview.workouts.length === 1 ? '' : 's'}
+                </T>
+              </Pressable>
+            )}
           </View>
         ) : null}
       </BottomSheet>

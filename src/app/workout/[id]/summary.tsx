@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Animated, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnimatedValue } from '../../../lib/useAnimatedValue';
 
@@ -72,10 +73,12 @@ export default function SummaryScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* celebration header */}
-      <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.bg]} style={styles.header}>
+      <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.bg]} style={[styles.header, { paddingTop: Math.max(insets.top + 20, 50) }]}>
         <Animated.View style={{ opacity: confetti.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.9] }) }}>
           <View style={styles.celebrateIcon}>
             <Ionicons name="trophy" size={34} color={colors.bg} />
