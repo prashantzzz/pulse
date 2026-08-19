@@ -40,6 +40,11 @@ export default function SettingsScreen() {
   const [editName, setEditName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile?.name ?? '');
   const [editGender, setEditGender] = useState(false);
+  const [editHeight, setEditHeight] = useState(false);
+  const [heightDraftCm, setHeightDraftCm] = useState(profile?.heightCm ? String(profile.heightCm) : '175');
+  const [heightDraftUnit, setHeightDraftUnit] = useState<'cm' | 'ft-in'>('cm');
+  const [heightDraftFt, setHeightDraftFt] = useState('5');
+  const [heightDraftIn, setHeightDraftIn] = useState('9');
   const [editAccent, setEditAccent] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -235,6 +240,22 @@ export default function SettingsScreen() {
                 <T variant="bodySemi">Body model</T>
                 <T variant="micro" muted>
                   Muscle map shows a {(profile?.gender ?? 'male') === 'male' ? 'male' : 'female'} figure
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+          <Pressable onPress={() => setEditHeight(true)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
+                <Icon name="resize-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Height & BMI baseline</T>
+                <T variant="micro" muted>
+                  {profile?.heightCm
+                    ? `${profile.heightCm} cm (${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}")`
+                    : 'Not set — Tap to add for BMI calculations'}
                 </T>
               </View>
             </Row>
@@ -483,6 +504,92 @@ export default function SettingsScreen() {
         </Pressable>
       </BottomSheet>
 
+      {/* edit height */}
+      <BottomSheet visible={editHeight} onClose={() => setEditHeight(false)} title="Height & Body Stats">
+        <T variant="small" dim style={{ marginBottom: spacing.md }}>
+          Used to calculate your Body Mass Index (BMI) and track physical changes.
+        </T>
+
+        {/* Unit Selector */}
+        <View style={styles.unitPill}>
+          <Pressable
+            onPress={() => setHeightDraftUnit('cm')}
+            style={[styles.unitPillBtn, heightDraftUnit === 'cm' && { backgroundColor: colors.accent }]}>
+            <T variant="micro" style={{ color: heightDraftUnit === 'cm' ? colors.bg : colors.textDim, fontWeight: '700' }}>
+              CM (Metric)
+            </T>
+          </Pressable>
+          <Pressable
+            onPress={() => setHeightDraftUnit('ft-in')}
+            style={[styles.unitPillBtn, heightDraftUnit === 'ft-in' && { backgroundColor: colors.accent }]}>
+            <T variant="micro" style={{ color: heightDraftUnit === 'ft-in' ? colors.bg : colors.textDim, fontWeight: '700' }}>
+              FT & IN (Imperial)
+            </T>
+          </Pressable>
+        </View>
+
+        {heightDraftUnit === 'cm' ? (
+          <View style={[styles.heightInputWrap, { marginTop: spacing.md }]}>
+            <TextInput
+              value={heightDraftCm}
+              onChangeText={setHeightDraftCm}
+              keyboardType="numeric"
+              maxLength={3}
+              placeholder="175"
+              placeholderTextColor={colors.textMuted}
+              style={styles.heightInput}
+            />
+            <T variant="bodySemi" dim>cm</T>
+          </View>
+        ) : (
+          <Row gap={12} style={{ marginTop: spacing.md }}>
+            <View style={[styles.heightInputWrap, { flex: 1 }]}>
+              <TextInput
+                value={heightDraftFt}
+                onChangeText={setHeightDraftFt}
+                keyboardType="numeric"
+                maxLength={1}
+                placeholder="5"
+                placeholderTextColor={colors.textMuted}
+                style={styles.heightInput}
+              />
+              <T variant="bodySemi" dim>ft</T>
+            </View>
+            <View style={[styles.heightInputWrap, { flex: 1 }]}>
+              <TextInput
+                value={heightDraftIn}
+                onChangeText={setHeightDraftIn}
+                keyboardType="numeric"
+                maxLength={2}
+                placeholder="9"
+                placeholderTextColor={colors.textMuted}
+                style={styles.heightInput}
+              />
+              <T variant="bodySemi" dim>in</T>
+            </View>
+          </Row>
+        )}
+
+        <Pressable
+          onPress={() => {
+            const parsedCm = heightDraftUnit === 'cm'
+              ? parseInt(heightDraftCm, 10) || 175
+              : Math.round((parseInt(heightDraftFt, 10) || 5) * 30.48 + (parseInt(heightDraftIn, 10) || 0) * 2.54);
+
+            setProfile({ heightCm: parsedCm });
+            if (user?.id) {
+              upsertProfile(user.id, { heightCm: parsedCm });
+            }
+            setEditHeight(false);
+            toast(`Height updated to ${parsedCm} cm`);
+          }}
+          style={[styles.saveBtn, { backgroundColor: colors.accent, marginTop: spacing.lg }]}>
+          <T variant="bodySemi" style={{ color: colors.bg }}>
+            Save Height
+          </T>
+        </Pressable>
+      </BottomSheet>
+
       {/* import preview */}
       <BottomSheet visible={!!importPreview} onClose={() => setImportPreview(null)} title="Import workouts">
         {importPreview ? (
@@ -677,5 +784,37 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  unitPill: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface2,
+    borderRadius: radius.pill,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  unitPillBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heightInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  heightInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 20,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });
