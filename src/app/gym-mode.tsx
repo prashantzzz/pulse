@@ -3,15 +3,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../components/Text';
 import { toast } from '../components/misc';
 import { EXERCISE_MAP } from '../data/exercises';
 import { useNow, usePulse } from '../store/useStore';
-import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
+import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../theme';
 
 export default function GymModeScreen() {
   useAccent();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const completeSet = usePulse((s) => s.completeSet);
@@ -73,7 +75,7 @@ export default function GymModeScreen() {
       <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
 
       {/* minimal top bar */}
-      <View style={styles.top}>
+      <View style={[styles.top, { paddingTop: Math.max(insets.top + layout.screenTopPad, spacing.xl) }]}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="close" size={26} color={colors.textDim} />
         </Pressable>

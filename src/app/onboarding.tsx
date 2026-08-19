@@ -2,11 +2,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
 import { Button, Chip, Icon, Row } from '../components/ui';
-import { ACCENTS, accentTint, colors, gradients, radius, spacing, useAccent, type AccentKey } from '../theme';
+import { ACCENTS, accentTint, colors, gradients, layout, radius, spacing, useAccent, type AccentKey } from '../theme';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { upsertProfile } from '../lib/auth';
@@ -41,6 +42,7 @@ const ACCENT_ORDER = Object.keys(ACCENTS) as AccentKey[];
 
 export default function OnboardingScreen() {
   useAccent();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useAuth((s) => s.user);
   const completeOnboarding = usePulse((s) => s.completeOnboarding);
@@ -148,10 +150,10 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: Math.max(insets.top + layout.screenTopPad, 60), paddingBottom: insets.bottom + 20 }]}>
       <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
       {step > 0 ? (
-        <Pressable onPress={() => setStep(step - 1)} style={styles.backBtn} hitSlop={10}>
+        <Pressable onPress={() => setStep(step - 1)} style={[styles.backBtn, { top: Math.max(insets.top + 10, 52) }]} hitSlop={10}>
           <Icon name="chevron-back" size={20} />
         </Pressable>
       ) : null}

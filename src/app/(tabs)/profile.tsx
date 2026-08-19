@@ -11,7 +11,7 @@ import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function ProfileScreen() {
   useAccent();
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
     : null;
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <View style={styles.headerCard}>
         <LinearGradient colors={[accentTint(colors.accent, 0.15), '#0D0F12']} style={StyleSheet.absoluteFill} />

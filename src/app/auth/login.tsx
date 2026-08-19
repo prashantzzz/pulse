@@ -21,12 +21,12 @@ import { formatAuthError, signInWithEmail, signInWithGoogle } from '../../lib/au
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function LoginScreen() {
   useAccent();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const onboarded = usePulse((s) => s.onboarded);
 
   const [email, setEmail] = useState('');
@@ -39,6 +39,7 @@ export default function LoginScreen() {
   const handleSignIn = async () => {
     if (!email.trim() || !password) {
       setErrorMessage('Please enter both email and password.');
+      toast('Please fill in both email and password');
       return;
     }
 
@@ -104,7 +105,7 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top + 20, 50), paddingBottom: insets.bottom + 30 },
+            { paddingTop: Math.max(insets.top + layout.screenTopPad, 50), paddingBottom: insets.bottom + 30 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>

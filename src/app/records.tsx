@@ -8,7 +8,7 @@ import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../components/ui'
 import { EXERCISES, EXERCISE_MAP } from '../data/exercises';
 import { bestForExercise, e1rm } from '../lib/stats';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing, useAccent } from '../theme';
+import { colors, layout, radius, spacing, useAccent } from '../theme';
 
 /**
  * Personal Records hub — reachable from the Log tab's "Add Personal Record"
@@ -56,7 +56,7 @@ export default function RecordsScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 120, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
       <ScreenHeader title="Personal Records" subtitle={`${manualPRs.length} manual · ${historyBests.length} from workouts`} back />
 
       <View style={{ marginBottom: spacing.md }}>

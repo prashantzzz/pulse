@@ -14,7 +14,7 @@ import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { greetingFor } from '../../lib/greeting';
 import { currentStreak, detectPRs, formatCompact, nextMove, nextMoves, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 // rotate through the user's plans (editable in My Workouts) — module-level so
@@ -67,7 +67,7 @@ export default function HomeScreen() {
   const lastStats = last ? workoutStats(last) : null;
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
         <View>

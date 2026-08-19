@@ -13,7 +13,7 @@ import { Button, Card, Row } from '../../../components/ui';
 import { formatDurationLabel } from '../../../lib/format';
 import { detectPRs, formatCompact, whatChanged, workoutRepeatSpecs, workoutStats } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
-import { accentTint, colors, radius, spacing, useAccent } from '../../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../../theme';
 
 export default function SummaryScreen() {
   useAccent();
@@ -78,7 +78,7 @@ export default function SummaryScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* celebration header */}
-      <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.bg]} style={[styles.header, { paddingTop: Math.max(insets.top + 20, 50) }]}>
+      <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.bg]} style={[styles.header, { paddingTop: Math.max(insets.top + layout.screenTopPad, 50) }]}>
         <Animated.View style={{ opacity: confetti.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.9] }) }}>
           <View style={styles.celebrateIcon}>
             <Ionicons name="trophy" size={34} color={colors.bg} />

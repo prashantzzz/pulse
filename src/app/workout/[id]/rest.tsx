@@ -7,7 +7,7 @@ import { CountdownRing } from '../../../components/ring';
 import { T } from '../../../components/Text';
 import { BottomSheet, Stepper, toast } from '../../../components/misc';
 import { Button, Screen } from '../../../components/ui';
-import { colors, spacing, useAccent } from '../../../theme';
+import { colors, layout, spacing, useAccent } from '../../../theme';
 
 const PRESETS = [30, 60, 90, 120];
 
@@ -46,7 +46,7 @@ export default function RestTimerScreen() {
 
   return (
     <View style={styles.root}>
-      <Screen scroll contentStyle={{ paddingTop: 20, alignItems: 'center' }}>
+      <Screen scroll contentStyle={{ paddingTop: layout.screenTopPad, alignItems: 'center' }}>
         {/* header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>

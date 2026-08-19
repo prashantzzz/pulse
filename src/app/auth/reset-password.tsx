@@ -16,7 +16,7 @@ import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
 import { formatAuthError, updatePassword } from '../../lib/auth';
-import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function ResetPasswordScreen() {
   useAccent();
@@ -69,7 +69,7 @@ export default function ResetPasswordScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top + 20, 50), paddingBottom: insets.bottom + 30 },
+            { paddingTop: Math.max(insets.top + layout.screenTopPad, 50), paddingBottom: insets.bottom + 30 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>

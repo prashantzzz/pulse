@@ -13,7 +13,7 @@ import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
 import { previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
-import { colors, radius, spacing, useAccent } from '../../../theme';
+import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 
 export default function ActiveWorkoutScreen() {
   useAccent();
@@ -126,7 +126,7 @@ export default function ActiveWorkoutScreen() {
         </T>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: 150, paddingTop: spacing.sm }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: layout.screenPad, paddingBottom: 150, paddingTop: layout.screenTopPad }}>
         {workout.exercises.map((we) => {
           const ex = EXERCISE_MAP[we.exerciseId];
           if (!ex) return null;

@@ -13,7 +13,7 @@ import { T } from '../../components/Text';
 import { Icon, Row, Screen, Segmented } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { usePulse } from '../../store/useStore';
-import { colors, spacing, useAccent } from '../../theme';
+import { colors, layout, spacing, useAccent } from '../../theme';
 
 type ProgressView = 'Strength' | 'Volume' | 'Regularity' | 'Body' | 'Records';
 const VIEWS = ['Strength', 'Volume', 'Regularity', 'Body', 'Records'] as const;
@@ -39,7 +39,7 @@ export default function ProgressScreen() {
   const planExercises = [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))];
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
+    <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
           <T variant="h2">Progress</T>
