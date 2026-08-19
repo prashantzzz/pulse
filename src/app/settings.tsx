@@ -3,8 +3,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { BackHandler, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
@@ -53,6 +53,44 @@ export default function SettingsScreen() {
   const [autoRest, setAutoRest] = useState(true);
   const [importPreview, setImportPreview] = useState<CsvImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Intercept phone back button to dismiss open bottom sheets
+  useEffect(() => {
+    const onBackPress = () => {
+      if (editName) {
+        setEditName(false);
+        return true;
+      }
+      if (editGender) {
+        setEditGender(false);
+        return true;
+      }
+      if (editHeight) {
+        setEditHeight(false);
+        return true;
+      }
+      if (editAccent) {
+        setEditAccent(false);
+        return true;
+      }
+      if (confirmClear) {
+        setConfirmClear(false);
+        return true;
+      }
+      if (confirmSignOut) {
+        setConfirmSignOut(false);
+        return true;
+      }
+      if (importPreview) {
+        setImportPreview(null);
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [editName, editGender, editHeight, editAccent, confirmClear, confirmSignOut, importPreview]);
 
   const exportCSV = async () => {
     if (workouts.length === 0) {

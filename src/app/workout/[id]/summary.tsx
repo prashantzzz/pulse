@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Animated, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnimatedValue } from '../../../lib/useAnimatedValue';
@@ -22,6 +22,16 @@ export default function SummaryScreen() {
   const workouts = usePulse((s) => s.workouts);
   const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
+
+  // Pressing phone hardware back takes user safely to Home
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/(tabs)/home' as never);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const confetti = useAnimatedValue(0);
   useEffect(() => {

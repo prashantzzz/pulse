@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ExerciseThumb } from '../components/muscle-icon';
 import { T } from '../components/Text';
@@ -38,6 +38,32 @@ export default function BuilderScreen() {
   const [editing, setEditing] = useState<number | null>(null);
   const [swapIndex, setSwapIndex] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Intercept phone back button to dismiss open bottom sheets
+  useEffect(() => {
+    const onBackPress = () => {
+      if (pickerOpen) {
+        setPickerOpen(false);
+        return true;
+      }
+      if (swapIndex != null) {
+        setSwapIndex(null);
+        return true;
+      }
+      if (confirmDelete) {
+        setConfirmDelete(false);
+        return true;
+      }
+      if (editing != null) {
+        setEditing(null);
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [pickerOpen, swapIndex, confirmDelete, editing]);
 
   // Add exercises passed via the ?add=<exerciseId> param. The param can arrive
   // after the first render (e.g. on web), so track the last applied value and
