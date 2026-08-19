@@ -19,6 +19,8 @@ export default function ProfileScreen() {
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
   const favorites = usePulse((s) => s.favorites);
+  const measurements = usePulse((s) => s.measurements);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const streak = currentStreak(workouts);
   const volume = totalVolume(workouts);
@@ -31,6 +33,15 @@ export default function ProfileScreen() {
   const byMuscle = volumeByMuscle(workouts, 60);
   const strongest = byMuscle[0];
   const weakest = byMuscle[byMuscle.length - 1];
+
+  const latestWeight = measurements.length > 0
+    ? measurements[measurements.length - 1].weightKg
+    : (profile?.weightKg ?? 68);
+  const height = profile?.heightCm ?? 175;
+  const heightM = height / 100;
+  const userBmi = heightM > 0.5 && latestWeight > 20
+    ? Math.round((latestWeight / (heightM * heightM)) * 10) / 10
+    : null;
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: 130, paddingTop: 14 }}>
@@ -57,6 +68,74 @@ export default function ProfileScreen() {
           <HeaderStat label="PRs" value={`${prCount}`} accent />
         </Row>
       </View>
+
+      {/* body metrics & bmi */}
+      <Section title="Body & Health Metrics" action="Update" onAction={() => router.push('/measure' as never)}>
+        <Card style={{ padding: spacing.lg, gap: spacing.md }}>
+          <Row align="space-between">
+            <View>
+              <T variant="micro" muted>BODY MASS INDEX (BMI)</T>
+              <Row align="center" gap={8} style={{ marginTop: 2 }}>
+                <T variant="h2" accent>{userBmi ?? '—'}</T>
+                {userBmi ? (
+                  <View style={[styles.bmiBadge, {
+                    backgroundColor: userBmi < 18.5 ? `${colors.cyan}1A` : userBmi < 25 ? `${colors.accent}1A` : userBmi < 30 ? `${colors.gold}1A` : `${colors.red}1A`,
+                    borderColor: userBmi < 18.5 ? `${colors.cyan}44` : userBmi < 25 ? `${colors.accent}44` : userBmi < 30 ? `${colors.gold}44` : `${colors.red}44`,
+                  }]}>
+                    <T variant="smallSemi" style={{
+                      color: userBmi < 18.5 ? colors.cyan : userBmi < 25 ? colors.accent : userBmi < 30 ? colors.gold : colors.red,
+                      fontSize: 11,
+                    }}>
+                      {userBmi < 18.5 ? 'Underweight' : userBmi < 25 ? 'Normal / Healthy' : userBmi < 30 ? 'Overweight' : 'High BMI'}
+                    </T>
+                  </View>
+                ) : null}
+              </Row>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <T variant="micro" muted>CURRENT WEIGHT</T>
+              <T variant="bodySemi" style={{ marginTop: 2 }}>
+                {weightUnit === 'lbs' ? `${Math.round(latestWeight * 2.20462)} lbs` : `${latestWeight.toFixed(1)} kg`}
+              </T>
+            </View>
+          </Row>
+
+          {/* BMI spectrum meter */}
+          <View style={{ marginTop: 4 }}>
+            <View style={styles.bmiSpectrumTrack}>
+              <View style={[styles.bmiSpectrumSegment, { backgroundColor: colors.cyan, flex: 18.5 }]} />
+              <View style={[styles.bmiSpectrumSegment, { backgroundColor: colors.accent, flex: 6.5 }]} />
+              <View style={[styles.bmiSpectrumSegment, { backgroundColor: colors.gold, flex: 5 }]} />
+              <View style={[styles.bmiSpectrumSegment, { backgroundColor: colors.red, flex: 10 }]} />
+            </View>
+            {userBmi ? (
+              <View style={[styles.bmiPointerWrap, { left: `${Math.max(5, Math.min(95, ((userBmi - 15) / 25) * 100))}%` }]}>
+                <View style={[styles.bmiPointer, { backgroundColor: colors.text }]} />
+              </View>
+            ) : null}
+            <Row align="space-between" style={{ marginTop: 6 }}>
+              <T variant="micro" muted>Under (18.5)</T>
+              <T variant="micro" muted>Normal (25)</T>
+              <T variant="micro" muted>Over (30)</T>
+            </Row>
+          </View>
+
+          <Row align="space-between" style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, marginTop: 4 }}>
+            <View>
+              <T variant="micro" muted>RECORDED HEIGHT</T>
+              <T variant="smallSemi" style={{ marginTop: 2 }}>
+                {height} cm ({Math.floor(height / 30.48)}&apos;{Math.round((height % 30.48) / 2.54)}&quot;)
+              </T>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <T variant="micro" muted>LOGGED CHECK-INS</T>
+              <T variant="smallSemi" style={{ marginTop: 2 }}>
+                {measurements.length} check-in{measurements.length === 1 ? '' : 's'}
+              </T>
+            </View>
+          </Row>
+        </Card>
+      </Section>
 
       {/* weekly progress ring */}
       <Section title="This Month">
@@ -258,5 +337,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.emeraldSoft,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bmiBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  bmiSpectrumTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: colors.surface3,
+  },
+  bmiSpectrumSegment: {
+    height: '100%',
+  },
+  bmiPointerWrap: {
+    position: 'relative',
+    marginTop: -2,
+    marginLeft: -4,
+  },
+  bmiPointer: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
   },
 });

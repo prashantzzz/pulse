@@ -5,11 +5,12 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
-import { Button, Chip, Icon } from '../components/ui';
+import { Button, Chip, Icon, Row } from '../components/ui';
 import { ACCENTS, accentTint, colors, gradients, radius, spacing, useAccent, type AccentKey } from '../theme';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { upsertProfile } from '../lib/auth';
+import { addFriendConnection, getPendingInvite, joinCloudChallenge } from '../lib/social';
 import type { UserProfile } from '../types';
 
 const GENDERS = [
@@ -43,10 +44,17 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const user = useAuth((s) => s.user);
   const completeOnboarding = usePulse((s) => s.completeOnboarding);
+  const addMeasurement = usePulse((s) => s.addMeasurement);
   const accentKey = usePulse((s) => s.accentKey);
   const setAccent = usePulse((s) => s.setAccent);
   const [step, setStep] = useState(0);
   const [gender, setGender] = useState<UserProfile['gender'] | null>(null);
+  const [unitMode, setUnitMode] = useState<'metric' | 'imperial'>('metric');
+  const [heightCm, setHeightCm] = useState('175');
+  const [weightKg, setWeightKg] = useState('68');
+  const [heightFt, setHeightFt] = useState('5');
+  const [heightIn, setHeightIn] = useState('9');
+  const [weightLbs, setWeightLbs] = useState('150');
   const [goals, setGoals] = useState<string[]>([]);
   const [experience, setExperience] = useState<UserProfile['experience'] | null>(null);
   const [frequency, setFrequency] = useState<string | null>(null);
@@ -59,6 +67,7 @@ export default function OnboardingScreen() {
     { title: 'Welcome to NextRep', subtitle: 'Your personal training companion.', body: "Let's build a stronger you.", cta: 'Get Started' },
     { title: "What's your gender?", subtitle: 'We match your muscle map to a body like yours', body: '', cta: 'Next' },
     { title: 'Pick your accent', subtitle: 'The color that powers NextRep', body: '', cta: 'Next' },
+    { title: 'Height & Weight', subtitle: 'Calculate your BMI and set your baseline', body: '', cta: 'Next' },
     { title: "What's your goal?", subtitle: 'Choose up to 2', body: '', cta: 'Next' },
     { title: 'How experienced are you?', subtitle: 'We tailor your training plan', body: '', cta: 'Next' },
     { title: 'How often do you train?', subtitle: 'A typical week for you', body: '', cta: 'Next' },
@@ -68,24 +77,51 @@ export default function OnboardingScreen() {
   ];
   const s = steps[step];
 
+  const parsedHeightCm = unitMode === 'metric' ? parseFloat(heightCm) || 0 : (parseFloat(heightFt) || 0) * 30.48 + (parseFloat(heightIn) || 0) * 2.54;
+  const parsedWeightKg = unitMode === 'metric' ? parseFloat(weightKg) || 0 : (parseFloat(weightLbs) || 0) * 0.453592;
+  const heightM = parsedHeightCm / 100;
+  const liveBmi = heightM > 0.5 && parsedWeightKg > 20 ? Math.round((parsedWeightKg / (heightM * heightM)) * 10) / 10 : null;
+
   const canNext = () => {
     if (step === 0) return true;
     if (step === 1) return !!gender;
-    if (step === 2) return true; // lime is the default, nothing to gate
-    if (step === 3) return goals.length > 0;
-    if (step === 4) return !!experience;
-    if (step === 5) return !!frequency;
-    if (step === 6) return equipment.length > 0;
-    if (step === 7) return styles2.length > 0;
+    if (step === 2) return true;
+    if (step === 3) return parsedHeightCm >= 100 && parsedWeightKg >= 30;
+    if (step === 4) return goals.length > 0;
+    if (step === 5) return !!experience;
+    if (step === 6) return !!frequency;
+    if (step === 7) return equipment.length > 0;
+    if (step === 8) return styles2.length > 0;
     return name.trim().length > 1;
   };
 
-  const finish = (profile: UserProfile) => {
+  const finish = async (profile: UserProfile) => {
     completeOnboarding(profile);
-    if (user?.id) {
-      upsertProfile(user.id, profile);
+    if (profile.weightKg) {
+      addMeasurement({
+        id: `m-initial-${Date.now()}`,
+        date: new Date().toISOString(),
+        weightKg: profile.weightKg,
+        bodyFatPct: null,
+        chestCm: null,
+        waistCm: null,
+        bicepsCm: null,
+      });
     }
-    router.replace('/(tabs)/home');
+    if (user?.id) {
+      upsertProfile(user.id, profile).catch(() => {});
+    }
+
+    const pending = await getPendingInvite();
+    if (pending && user?.id) {
+      await addFriendConnection(user.id, pending.fromUserId).catch(() => {});
+      if (pending.challengeId) {
+        await joinCloudChallenge(pending.challengeId, user.id).catch(() => {});
+      }
+      router.replace('/challenge' as never);
+    } else {
+      router.replace('/(tabs)/home');
+    }
   };
 
   const defaultProfile = (): UserProfile => ({
@@ -98,6 +134,9 @@ export default function OnboardingScreen() {
     style: styles2,
     trainingAgeMonths: experience === 'Advanced' ? 26 : experience === 'Intermediate' ? 12 : 3,
     onboarded: true,
+    heightCm: Math.round(parsedHeightCm) || 175,
+    weightKg: Math.round(parsedWeightKg * 10) / 10 || 68,
+    weightUnit: unitMode === 'imperial' ? 'lbs' : 'kg',
   });
 
   const next = () => {
@@ -203,6 +242,142 @@ export default function OnboardingScreen() {
         ) : null}
 
         {step === 3 ? (
+          <View style={{ gap: spacing.md, marginTop: spacing.lg }}>
+            {/* Unit selector pill */}
+            <View style={styles.unitToggle}>
+              <Pressable
+                onPress={() => setUnitMode('metric')}
+                style={[styles.unitToggleBtn, unitMode === 'metric' && { backgroundColor: colors.accent }]}>
+                <T variant="smallSemi" style={{ color: unitMode === 'metric' ? colors.bg : colors.textDim }}>
+                  Metric (cm / kg)
+                </T>
+              </Pressable>
+              <Pressable
+                onPress={() => setUnitMode('imperial')}
+                style={[styles.unitToggleBtn, unitMode === 'imperial' && { backgroundColor: colors.accent }]}>
+                <T variant="smallSemi" style={{ color: unitMode === 'imperial' ? colors.bg : colors.textDim }}>
+                  Imperial (ft-in / lbs)
+                </T>
+              </Pressable>
+            </View>
+
+            {/* Inputs */}
+            {unitMode === 'metric' ? (
+              <View style={{ gap: spacing.sm }}>
+                <View style={styles.metricInputCard}>
+                  <T variant="micro" muted>HEIGHT</T>
+                  <Row align="center" gap={8} style={{ marginTop: 4 }}>
+                    <TextInput
+                      value={heightCm}
+                      onChangeText={setHeightCm}
+                      keyboardType="numeric"
+                      maxLength={3}
+                      style={styles.metricInputText}
+                      placeholder="175"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <T variant="bodySemi" dim>cm</T>
+                  </Row>
+                </View>
+                <View style={styles.metricInputCard}>
+                  <T variant="micro" muted>CURRENT WEIGHT</T>
+                  <Row align="center" gap={8} style={{ marginTop: 4 }}>
+                    <TextInput
+                      value={weightKg}
+                      onChangeText={setWeightKg}
+                      keyboardType="numeric"
+                      maxLength={5}
+                      style={styles.metricInputText}
+                      placeholder="68"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <T variant="bodySemi" dim>kg</T>
+                  </Row>
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.sm }}>
+                <View style={styles.metricInputCard}>
+                  <T variant="micro" muted>HEIGHT</T>
+                  <Row align="center" gap={12} style={{ marginTop: 4 }}>
+                    <Row align="center" gap={4}>
+                      <TextInput
+                        value={heightFt}
+                        onChangeText={setHeightFt}
+                        keyboardType="numeric"
+                        maxLength={1}
+                        style={styles.metricInputTextSmall}
+                        placeholder="5"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                      <T variant="bodySemi" dim>ft</T>
+                    </Row>
+                    <Row align="center" gap={4}>
+                      <TextInput
+                        value={heightIn}
+                        onChangeText={setHeightIn}
+                        keyboardType="numeric"
+                        maxLength={2}
+                        style={styles.metricInputTextSmall}
+                        placeholder="9"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                      <T variant="bodySemi" dim>in</T>
+                    </Row>
+                  </Row>
+                </View>
+                <View style={styles.metricInputCard}>
+                  <T variant="micro" muted>CURRENT WEIGHT</T>
+                  <Row align="center" gap={8} style={{ marginTop: 4 }}>
+                    <TextInput
+                      value={weightLbs}
+                      onChangeText={setWeightLbs}
+                      keyboardType="numeric"
+                      maxLength={4}
+                      style={styles.metricInputText}
+                      placeholder="150"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <T variant="bodySemi" dim>lbs</T>
+                  </Row>
+                </View>
+              </View>
+            )}
+
+            {/* Live BMI Preview Card */}
+            {liveBmi ? (
+              <View style={styles.bmiCard}>
+                <Row align="space-between">
+                  <View>
+                    <T variant="micro" muted>CALCULATED BMI</T>
+                    <T variant="h2" accent style={{ marginTop: 2 }}>{liveBmi}</T>
+                  </View>
+                  <View style={[styles.bmiBadge, {
+                    backgroundColor: liveBmi < 18.5 ? `${colors.cyan}1A` : liveBmi < 25 ? `${colors.accent}1A` : liveBmi < 30 ? `${colors.gold}1A` : `${colors.red}1A`,
+                    borderColor: liveBmi < 18.5 ? `${colors.cyan}44` : liveBmi < 25 ? `${colors.accent}44` : liveBmi < 30 ? `${colors.gold}44` : `${colors.red}44`,
+                  }]}>
+                    <T variant="smallSemi" style={{
+                      color: liveBmi < 18.5 ? colors.cyan : liveBmi < 25 ? colors.accent : liveBmi < 30 ? colors.gold : colors.red,
+                    }}>
+                      {liveBmi < 18.5 ? 'Underweight' : liveBmi < 25 ? 'Normal / Healthy' : liveBmi < 30 ? 'Overweight' : 'High BMI'}
+                    </T>
+                  </View>
+                </Row>
+                <T variant="small" dim style={{ marginTop: 6, fontSize: 12 }}>
+                  {liveBmi < 18.5
+                    ? 'Target nutrient-dense meals & progressive strength overload.'
+                    : liveBmi < 25
+                    ? 'Optimal metabolic baseline for lean muscle growth & strength.'
+                    : liveBmi < 30
+                    ? 'Great foundation to build dense muscle and body recomposition.'
+                    : 'Focus on regular training consistency and caloric balance.'}
+                </T>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {step === 4 ? (
           <View style={styles.grid}>
             {GOALS.map((g) => {
               const sel = goals.includes(g.label);
@@ -228,7 +403,7 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <View style={{ gap: spacing.sm, marginTop: spacing.xl }}>
             {EXPERIENCE.map((e) => (
               <Pressable
@@ -248,7 +423,7 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 5 ? (
+        {step === 6 ? (
           <View style={styles.chipWrap}>
             {FREQUENCY.map((f) => (
               <Chip key={f} label={f} selected={frequency === f} onPress={() => setFrequency(f)} style={{ paddingHorizontal: 22, paddingVertical: 14 }} />
@@ -256,11 +431,11 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 6 || step === 7 ? (
+        {step === 7 || step === 8 ? (
           <View style={styles.chipWrap}>
-            {(step === 6 ? EQUIPMENT : STYLES).map((e) => {
-              const list = step === 6 ? equipment : styles2;
-              const setList = step === 6 ? setEquipment : setStyles2;
+            {(step === 7 ? EQUIPMENT : STYLES).map((e) => {
+              const list = step === 7 ? equipment : styles2;
+              const setList = step === 7 ? setEquipment : setStyles2;
               const sel = list.includes(e);
               return (
                 <Chip
@@ -275,7 +450,7 @@ export default function OnboardingScreen() {
           </View>
         ) : null}
 
-        {step === 8 ? (
+        {step === 9 ? (
           <View style={{ marginTop: spacing.xl }}>
             <View style={styles.inputWrap}>
               <Icon name="person-outline" size={20} color={colors.textMuted} />
@@ -398,5 +573,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   input: { flex: 1, paddingVertical: 16, color: colors.text, fontSize: 16, fontFamily: 'Inter_500Medium' },
+  unitToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface2,
+    borderRadius: radius.pill,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  unitToggleBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricInputCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+  },
+  metricInputText: {
+    fontSize: 22,
+    color: colors.text,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    minWidth: 70,
+  },
+  metricInputTextSmall: {
+    fontSize: 22,
+    color: colors.text,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    minWidth: 35,
+  },
+  bmiCard: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+  },
+  bmiBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
   footer: { paddingBottom: 40, alignItems: 'center' },
 });

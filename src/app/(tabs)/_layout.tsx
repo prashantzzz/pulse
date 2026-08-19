@@ -104,8 +104,10 @@ function PulseTabBar({
 }
 
 export default function TabsLayout() {
+  const accentKey = useAccent();
   return (
     <Tabs
+      key={accentKey}
       screenOptions={{
         headerShown: false,
         animation: 'shift',

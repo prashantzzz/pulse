@@ -173,6 +173,9 @@ export interface UserProfile {
   style: string[];
   trainingAgeMonths: number;
   onboarded: boolean;
+  heightCm?: number;
+  weightKg?: number;
+  weightUnit?: 'kg' | 'lbs';
 }
 
 /** A workout plan (template) the user can start or build */

@@ -34,6 +34,8 @@ export default function SettingsScreen() {
   const replaceWorkouts = usePulse((s) => s.replaceWorkouts);
   const resetDemo = usePulse((s) => s.resetDemo);
   const clearAllData = usePulse((s) => s.clearAllData);
+  const weightUnit = usePulse((s) => s.weightUnit);
+  const setWeightUnit = usePulse((s) => s.setWeightUnit);
 
   const [editName, setEditName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile?.name ?? '');
@@ -263,10 +265,30 @@ export default function SettingsScreen() {
 
         {/* Preferences */}
         <Card style={{ padding: spacing.md }}>
-          <T variant="label" dim style={{ marginBottom: spacing.sm }}>
-            Training Preferences
-          </T>
-          <PrefRow label="Units" desc="Kilograms" right={<T variant="smallMedium" dim>kg / lb toggle soon</T>} onToggle={() => setUnitsLb((v) => !v)} switchValue={unitsLb} />
+          <View style={[styles.settingRow, { alignItems: 'center' }]}>
+            <View style={{ flex: 1 }}>
+              <T variant="bodySemi">Weight Units</T>
+              <T variant="micro" muted>
+                {weightUnit === 'kg' ? 'Metric — Kilograms (kg)' : 'Imperial — Pounds (lbs)'}
+              </T>
+            </View>
+            <View style={{ flexDirection: 'row', backgroundColor: colors.surface3, borderRadius: radius.pill, padding: 3, borderWidth: 1, borderColor: colors.border }}>
+              <Pressable
+                onPress={() => setWeightUnit('kg')}
+                style={[{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill }, weightUnit === 'kg' && { backgroundColor: colors.accent }]}>
+                <T variant="micro" style={{ color: weightUnit === 'kg' ? colors.bg : colors.textDim, fontWeight: '700' }}>
+                  KG
+                </T>
+              </Pressable>
+              <Pressable
+                onPress={() => setWeightUnit('lbs')}
+                style={[{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill }, weightUnit === 'lbs' && { backgroundColor: colors.accent }]}>
+                <T variant="micro" style={{ color: weightUnit === 'lbs' ? colors.bg : colors.textDim, fontWeight: '700' }}>
+                  LBS
+                </T>
+              </Pressable>
+            </View>
+          </View>
           <PrefRow label="Auto-start rest timer" desc="After completing a set" onToggle={() => setAutoRest((v) => !v)} switchValue={autoRest} />
           <PrefRow label="Haptic feedback" desc="Vibration on set completion" onToggle={() => setHaptics((v) => !v)} switchValue={haptics} />
         </Card>

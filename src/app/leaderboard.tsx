@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { Avatar } from '../components/misc';
-import { Chip, Row, Screen, ScreenHeader } from '../components/ui';
+import { Button, Chip, Row, Screen, ScreenHeader } from '../components/ui';
 import { consistencyPct, currentStreak, detectPRs, progressScore, totalVolume, workoutsInLastDays } from '../lib/stats';
+import { fetchCloudFriends } from '../lib/social';
+import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { accentTint, colors, radius, spacing, useAccent } from '../theme';
 import type { Friend } from '../types';
@@ -17,9 +19,21 @@ const FILTERS = ['This Week', 'This Month', 'All Time'] as const;
 export default function LeaderboardScreen() {
   useAccent();
   const router = useRouter();
+  const user = useAuth((s) => s.user);
   const friends = usePulse((s) => s.friends);
+  const setFriends = usePulse((s) => s.setFriends);
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('This Week');
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCloudFriends(user.id).then((cloudFriends) => {
+        if (cloudFriends.length > 0) {
+          setFriends(cloudFriends);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id, setFriends]);
 
   const myScore = progressScore({
     workoutsThisWeek: workoutsInLastDays(workouts, 7).length,
