@@ -331,7 +331,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     overflow: 'hidden',
-    marginHorizontal: spacing.md,
   },
   headerGlow: {
     position: 'absolute',

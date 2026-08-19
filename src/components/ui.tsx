@@ -173,6 +173,7 @@ export function Segmented<T extends string>({
       <View style={{ marginHorizontal: -spacing.md, paddingHorizontal: spacing.md }}>
         <ScrollView
           horizontal
+          nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.segmentedScroll, style]}>
           {options.map((opt) => {
@@ -208,7 +209,7 @@ export function Segmented<T extends string>({
             <T
               variant="smallSemi"
               numberOfLines={1}
-              style={{ color: active ? colors.bg : colors.textDim, fontSize: 12.5 }}>
+              style={{ color: active ? colors.bg : colors.textDim, fontSize: 13 }}>
               {opt}
             </T>
           </Pressable>
@@ -288,12 +289,14 @@ export function Screen({
       onMoveShouldSetPanResponder: (_, gestureState) => {
         if (!onSwipeLeft && !onSwipeRight) return false;
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.5;
+        // Require dominant, deliberate horizontal swipe to change tab screens
+        // so inner swipeable cards (e.g. MediaCarousel, Segmented) are never hijacked
+        return Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 2.2;
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dx, vx } = gestureState;
-        const isFlick = Math.abs(vx) > 0.3;
-        const threshold = isFlick ? 25 : 45;
+        const isFlick = Math.abs(vx) > 0.4;
+        const threshold = isFlick ? 32 : 55;
 
         if (dx < -threshold && onSwipeLeft) {
           onSwipeLeft();

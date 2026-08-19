@@ -36,6 +36,16 @@ export function MediaCarousel({
     ref.current?.scrollTo({ x: next * w, animated: true });
   };
 
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (w <= 0) return;
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
+    if (next !== index) {
+      lastIndex.current = next;
+      setIndex(next);
+    }
+  };
+
   const handleScrollBeginDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     dragStartX.current = e.nativeEvent.contentOffset.x;
   };
@@ -43,23 +53,9 @@ export function MediaCarousel({
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (w <= 0) return;
     const offsetX = e.nativeEvent.contentOffset.x;
-    const delta = offsetX - dragStartX.current;
-    let next = lastIndex.current;
-
-    // Fluid sensitivity: 30px displacement or gentle flick velocity
-    if (Math.abs(delta) > 30 || Math.abs(e.nativeEvent.velocity?.x ?? 0) > 0.15) {
-      if (delta > 0 && next < pages.length - 1) {
-        next += 1;
-      } else if (delta < 0 && next > 0) {
-        next -= 1;
-      }
-    } else {
-      next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
-    }
-
+    const next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
     lastIndex.current = next;
     setIndex(next);
-    ref.current?.scrollTo({ x: next * w, animated: true });
   };
 
   return (
@@ -70,11 +66,14 @@ export function MediaCarousel({
             ref={ref}
             horizontal
             pagingEnabled
+            nestedScrollEnabled
             snapToInterval={w}
             snapToAlignment="start"
             decelerationRate="fast"
             disableIntervalMomentum
             showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onScrollBeginDrag={handleScrollBeginDrag}
             onMomentumScrollEnd={handleScrollEnd}
             onScrollEndDrag={handleScrollEnd}

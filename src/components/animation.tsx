@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -116,18 +115,10 @@ function WebExerciseVideo({ player }: { player: ReturnType<typeof useVideoPlayer
 }
 
 /**
- * Animated GIF — shot on the same white studio background as the Vital clips,
- * so it is shown on the matching light card (see assets/gifs/).
- */
-function ExerciseGif({ source }: { source: number }) {
-  return <Image source={source} style={styles.video} contentFit="contain" />;
-}
-
-/**
  * Fallback card for exercises that have no bundled animation: the anatomical
  * muscle-highlight figure (same view the Muscles tab shows) on the dark card,
  * so the exercise page never renders a blank/white surface. Drop a real
- * animation into assets/vital|gifs + one line in exercise-animations.ts and
+ * animation into assets/vital + one line in exercise-animations.ts and
  * this branch is replaced automatically.
  */
 function MuscleFallback({ exercise, height, gender }: { exercise: Exercise; height: number; gender: 'male' | 'female' }) {
@@ -147,9 +138,6 @@ export function ExerciseAnimation({
   height?: number;
   gender?: 'male' | 'female';
 }) {
-  // Single source of truth for which animation an exercise uses — see
-  // src/data/exercise-animations.ts. Branch on the asset type (.mp4 vs .gif)
-  // so swapping a gif for an mp4 with the same base name just works.
   const asset = getExerciseAnimation(exercise.id);
 
   return (
@@ -159,12 +147,6 @@ export function ExerciseAnimation({
           {/* light studio background matches the footage — the full frame shows */}
           <View style={[StyleSheet.absoluteFill, styles.videoCardBg]} />
           <ExerciseVideo source={asset.source} />
-        </>
-      ) : asset?.type === 'gif' ? (
-        <>
-          {/* gifs share the same light studio look as the Vital clips */}
-          <View style={[StyleSheet.absoluteFill, styles.videoCardBg]} />
-          <ExerciseGif source={asset.source} />
         </>
       ) : (
         <MuscleFallback exercise={exercise} height={height} gender={gender} />
