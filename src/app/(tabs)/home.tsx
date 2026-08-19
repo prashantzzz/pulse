@@ -72,7 +72,7 @@ export default function HomeScreen() {
       onSwipeLeft={() => router.push('/workouts' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
-      <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
+      <Row align="space-between" style={{ marginBottom: spacing.lg }}>
         <View>
           <T variant="h2">
             {greeting.heading}, {profile?.name ?? 'Athlete'}
@@ -81,15 +81,9 @@ export default function HomeScreen() {
             {greeting.sub}
           </T>
         </View>
-        <Row gap={10}>
-          <Pressable style={styles.iconBtn} onPress={() => router.push('/achievements' as never)}>
-            <Ionicons name="notifications-outline" size={20} color={colors.textDim} />
-            <View style={[styles.notifDot, { backgroundColor: colors.accent }]} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/profile' as never)}>
-            <Avatar name={profile?.name ?? 'Athlete'} size={40} hue={90} showRing={streak > 0} />
-          </Pressable>
-        </Row>
+        <Pressable onPress={() => router.push('/profile' as never)}>
+          <Avatar name={profile?.name ?? 'Athlete'} size={40} hue={90} showRing={streak > 0} />
+        </Pressable>
       </Row>
 
       {/* streak banner */}
@@ -409,7 +403,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    marginHorizontal: spacing.md,
     overflow: 'hidden',
   },
   streakFlame: {

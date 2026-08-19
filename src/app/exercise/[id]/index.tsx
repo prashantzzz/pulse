@@ -72,7 +72,7 @@ export default function ExerciseDetailScreen() {
       <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
         <ScreenHeader back right={fav ? 'bookmark' : 'bookmark-outline'} rightLabel="Toggle favorite" onRight={() => toggleFavorite(exercise.id)} />
 
-        <View style={{ paddingHorizontal: spacing.md }}>
+        <View>
           {getExerciseAnimation(exercise.id) ? (
             <MediaCarousel
               labels={['Animation', 'Muscles']}

@@ -29,7 +29,7 @@ export default function WorkoutsScreen() {
       onSwipeRight={() => router.push('/home' as never)}
       onSwipeLeft={() => router.push('/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
-      <Row align="space-between" style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
+      <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
           <T variant="h2">My Workouts</T>
           <T variant="small" dim style={{ marginTop: 2 }}>
@@ -46,9 +46,9 @@ export default function WorkoutsScreen() {
         </Row>
       </Row>
 
-      <Segmented options={['My Plans', 'Templates']} value={tab} onChange={setTab} style={{ marginHorizontal: spacing.md }} />
+      <Segmented options={['My Plans', 'Templates']} value={tab} onChange={setTab} />
 
-      <View style={{ marginTop: spacing.lg, gap: spacing.md, paddingHorizontal: spacing.md }}>
+      <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
         {tab === 'My Plans'
           ? plans.map((p) => (
               // Tapping the card expands its exercise list (see PlanCard); the
@@ -73,7 +73,7 @@ export default function WorkoutsScreen() {
           )}
       </View>
 
-      <View style={{ paddingHorizontal: spacing.md, marginTop: spacing.lg }}>
+      <View style={{ marginTop: spacing.lg }}>
         <Button
           label="Build a New Workout"
           icon="create-outline"

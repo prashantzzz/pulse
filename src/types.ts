@@ -35,6 +35,7 @@ export type Equipment =
   | 'Cable'
   | 'Bodyweight'
   | 'Kettlebell'
+  | 'Plate'
   | 'Band'
   | 'Cardio';
 
