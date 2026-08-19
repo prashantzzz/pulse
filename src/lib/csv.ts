@@ -370,6 +370,7 @@ export interface CsvImportResult {
   skipped: number;
   /** exercises created on the fly because they were not in the knowledge base */
   newExercises: string[];
+  error?: string;
 }
 
 let idCounter = 0;
@@ -378,11 +379,26 @@ function genId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${idCounter}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-/** Parse a tracker CSV into PULSE workouts. */
+/** Parse a tracker CSV into NextRep workouts. */
 export function parseWorkoutsCsv(text: string): CsvImportResult {
   const rows = splitCsv(text);
-  if (rows.length < 2) return { workouts: [], skipped: rows.length, newExercises: [] };
+  if (rows.length < 2) {
+    return { workouts: [], skipped: rows.length, newExercises: [], error: 'The uploaded file is empty or does not contain data rows.' };
+  }
   const idx = headerToIndex(rows[0]);
+  const hasTitle = idx['title'] !== undefined || idx['workout_title'] !== undefined;
+  const hasStart = idx['start_time'] !== undefined || idx['start'] !== undefined || idx['date'] !== undefined;
+  const hasExercise = idx['exercise_title'] !== undefined || idx['exercise'] !== undefined || idx['exercise_name'] !== undefined || idx['name'] !== undefined;
+
+  if (!hasTitle && !hasStart && !hasExercise) {
+    return {
+      workouts: [],
+      skipped: rows.length,
+      newExercises: [],
+      error: 'Unrecognized CSV format. Expected columns like title, start_time, exercise_title, weight_kg, reps.',
+    };
+  }
+
   const get = (row: string[], keys: string[]): string => {
     for (const k of keys) {
       const i = idx[k];

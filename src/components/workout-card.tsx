@@ -64,7 +64,7 @@ export function PlanCard({
               </T>
               <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
             </Row>
-            <Row gap={6} wrap>
+            <Row gap={4} wrap style={{ flexShrink: 1, marginTop: 1 }}>
               {plan.muscles.map((m) => (
                 <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
               ))}

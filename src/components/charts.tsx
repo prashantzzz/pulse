@@ -180,8 +180,15 @@ export function BarChart({
   const padBottom = 20;
   const padTop = showValues ? 16 : 8;
   const max = Math.max(...data.map((d) => d.value), 1);
-  const barW = Math.min(26, (width - 16) / data.length - 8);
-  const gap = data.length > 1 ? (width - 16 - barW * data.length) / (data.length - 1) : 0;
+  const n = data.length || 1;
+  const availW = Math.max(10, width - 16);
+  const minGap = n > 25 ? 1.5 : n > 12 ? 3 : 6;
+  const rawBarW = (availW - (n - 1) * minGap) / n;
+  const barW = Math.max(2.5, Math.min(26, rawBarW));
+  const gap = n > 1 ? (availW - barW * n) / (n - 1) : 0;
+
+  // Smart label thinning: show max 6-8 labels evenly across the axis
+  const labelInterval = n <= 8 ? 1 : n <= 16 ? 2 : n <= 30 ? 4 : Math.ceil(n / 6);
 
   return (
     <Svg width={width} height={height}>
@@ -201,6 +208,8 @@ export function BarChart({
         const y = height - padBottom - h;
         const active = highlight == null || highlight === i;
         const useGrad = highlight == null || highlight === i;
+        const showLabel = i % labelInterval === 0 || i === n - 1;
+
         return (
           <G key={i}>
             <Rect
@@ -208,10 +217,10 @@ export function BarChart({
               y={y}
               width={barW}
               height={h}
-              rx={barW / 2.4}
+              rx={barW > 4 ? barW / 2.4 : 1}
               fill={useGrad && active ? 'url(#barfill)' : 'url(#barfill-dim)'}
             />
-            {showValues ? (
+            {showValues && (n <= 12 || showLabel) ? (
               <SvgText
                 x={x + barW / 2}
                 y={y - 6}
@@ -222,15 +231,17 @@ export function BarChart({
                 {d.value >= 1000 ? `${Math.round(d.value / 1000)}k` : d.value}
               </SvgText>
             ) : null}
-            <SvgText
-              x={x + barW / 2}
-              y={height - 6}
-              fontSize={9.5}
-              fill={i === highlight ? colors.text : colors.textMuted}
-              textAnchor="middle"
-              fontFamily="Inter_500Medium">
-              {d.label}
-            </SvgText>
+            {showLabel ? (
+              <SvgText
+                x={x + barW / 2}
+                y={height - 6}
+                fontSize={9.5}
+                fill={i === highlight ? colors.text : colors.textMuted}
+                textAnchor="middle"
+                fontFamily="Inter_500Medium">
+                {d.label}
+              </SvgText>
+            ) : null}
           </G>
         );
       })}

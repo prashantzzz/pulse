@@ -18,6 +18,7 @@ import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
 import { formatAuthError, signInWithEmail, signInWithGoogle } from '../../lib/auth';
+import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, radius, spacing, useAccent } from '../../theme';
@@ -26,7 +27,6 @@ export default function LoginScreen() {
   useAccent();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const syncProfileFromCloud = useAuth((s) => s.syncProfileFromCloud);
   const onboarded = usePulse((s) => s.onboarded);
 
   const [email, setEmail] = useState('');
@@ -49,8 +49,9 @@ export default function LoginScreen() {
       const data = await signInWithEmail(email, password);
       if (data?.user) {
         toast('Signed in successfully');
-        const profile = await syncProfileFromCloud(data.user.id);
-        if (profile?.onboarded || onboarded) {
+        await syncUserDataFromCloud(data.user.id);
+        const isUserOnboarded = usePulse.getState().onboarded;
+        if (isUserOnboarded || onboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/onboarding');
@@ -76,8 +77,9 @@ export default function LoginScreen() {
       }
       if (result.session?.user) {
         toast('Signed in with Google');
-        const profile = await syncProfileFromCloud(result.session.user.id);
-        if (profile?.onboarded || onboarded) {
+        await syncUserDataFromCloud(result.session.user.id);
+        const isUserOnboarded = usePulse.getState().onboarded;
+        if (isUserOnboarded || onboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/onboarding');

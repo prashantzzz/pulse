@@ -305,7 +305,10 @@ export function weeklyVolumes(workouts: Workout[], weeks = 8): { label: string; 
   const now = new Date();
   for (let i = weeks - 1; i >= 0; i -= 1) {
     const end = new Date(now.getTime() - i * 7 * 86400000);
-    const label = end.toLocaleDateString('en-US', { month: 'short' });
+    const label =
+      weeks <= 8
+        ? end.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+        : end.toLocaleDateString('en-US', { month: 'short' });
     out.push({ label, volume: 0, sets: 0 });
   }
   for (const w of workouts) {
@@ -670,13 +673,15 @@ const MUSCLE_LABEL: Partial<Record<MuscleGroup, string>> = {
  * `todayPlanId` is the plan already offered by the home hero, so the two
  * surfaces never compete. Returns null when there is nothing worth saying.
  */
-export function nextMove(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove | null {
-  if (workouts.length === 0) return null;
+/**
+ * Returns a list of contextual training recommendations for the carousel.
+ */
+export function nextMoves(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove[] {
+  if (workouts.length === 0) return [];
+  const moves: NextMove[] = [];
   const now = Date.now();
 
-  // 1. Untrained muscle group (plan that hasn't been hit recently).
-  let bestPlan: WorkoutPlan | null = null;
-  let bestDays = 0;
+  // 1. Untrained muscle groups (plans that haven't been hit recently).
   for (const plan of plans) {
     if (todayPlanId && plan.id === todayPlanId) continue;
     const muscleSet = new Set(plan.muscles);
@@ -694,51 +699,54 @@ export function nextMove(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?
         }
       }
     }
-    if (!lastTs) continue; // never trained — not enough signal to advise
+    if (!lastTs) continue;
     const days = Math.floor((now - lastTs) / 86400000);
-    if (days >= 7 && days > bestDays) {
-      bestDays = days;
-      bestPlan = plan;
+    if (days >= 4) {
+      const label = MUSCLE_LABEL[plan.muscles[0] as MuscleGroup] ?? plan.muscles[0];
+      const plural = label.endsWith('s');
+      moves.push({
+        kind: 'untrained',
+        headline: `${label} ${plural ? "haven't" : "hasn't"} been trained recently.`,
+        detail: `${days} days since your last ${plan.title} session — consistency drives results.`,
+        cta: `Start ${plan.title}`,
+        action: { type: 'start-plan', planId: plan.id, planTitle: plan.title },
+      });
     }
   }
-  if (bestPlan) {
-    const label = MUSCLE_LABEL[bestPlan.muscles[0] as MuscleGroup] ?? bestPlan.muscles[0];
-    const plural = label.endsWith('s');
-    return {
-      kind: 'untrained',
-      headline: `${label} ${plural ? "haven't" : "hasn't"} been trained recently.`,
-      detail: `${bestDays} days since your last ${bestPlan.title} — consistency is the fastest way to progress.`,
-      cta: `Start ${bestPlan.title}`,
-      action: { type: 'start-plan', planId: bestPlan.id, planTitle: bestPlan.title },
-    };
+
+  // 2. Close to an all-time personal record (PR radar).
+  const radarList = prRadar(workouts, 2);
+  for (const radar of radarList) {
+    if (radar.pct >= 85) {
+      moves.push({
+        kind: 'pr-close',
+        headline: `You're close to a ${radar.exerciseName} PR.`,
+        detail: `${radar.pct}% of your all-time best — one strong session could set a new record.`,
+        cta: `View ${radar.exerciseName}`,
+        action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
+        pct: radar.pct,
+      });
+    }
   }
 
-  // 2. Close to an all-time personal record.
-  const radar = prRadar(workouts, 1)[0];
-  if (radar && radar.pct >= 90) {
-    return {
-      kind: 'pr-close',
-      headline: `You're close to a ${radar.exerciseName} PR.`,
-      detail: `${radar.pct}% of your all-time best — one strong session could take it.`,
-      cta: `View ${radar.exerciseName}`,
-      action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
-      pct: radar.pct,
-    };
-  }
-
-  // 3. A stalled strength exercise.
-  const plateau = detectPlateaus(workouts, { limit: 1 })[0];
-  if (plateau) {
-    return {
+  // 3. Stalled strength exercises.
+  const plateaus = detectPlateaus(workouts, { limit: 2 });
+  for (const plateau of plateaus) {
+    moves.push({
       kind: 'plateau',
       headline: `${plateau.exerciseName} may be plateauing.`,
-      detail: `Same load across your last ${plateau.sessions} sessions. Try increasing reps before increasing weight.`,
+      detail: `Same load across your last ${plateau.sessions} sessions. Try adding 1-2 reps before increasing weight.`,
       cta: `View ${plateau.exerciseName}`,
       action: { type: 'view-exercise', exerciseId: plateau.exerciseId, exerciseName: plateau.exerciseName },
-    };
+    });
   }
 
-  return null;
+  return moves.slice(0, 4);
+}
+
+export function nextMove(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove | null {
+  const moves = nextMoves(workouts, plans, todayPlanId);
+  return moves.length > 0 ? moves[0] : null;
 }
 
 // ---------------------------------------------------------------------------

@@ -26,19 +26,39 @@ export function MediaCarousel({
   const [w, setW] = useState(0);
   const [index, setIndex] = useState(0);
   const ref = useRef<ScrollView>(null);
+  const lastIndex = useRef(0);
+  const dragStartX = useRef(0);
 
   const goTo = (i: number) => {
     const next = Math.max(0, Math.min(pages.length - 1, i));
+    lastIndex.current = next;
     setIndex(next);
     ref.current?.scrollTo({ x: next * w, animated: true });
+  };
+
+  const handleScrollBeginDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    dragStartX.current = e.nativeEvent.contentOffset.x;
   };
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (w <= 0) return;
     const offsetX = e.nativeEvent.contentOffset.x;
-    const next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
+    const delta = offsetX - dragStartX.current;
+    let next = lastIndex.current;
+
+    // Fluid sensitivity: 30px displacement or gentle flick velocity
+    if (Math.abs(delta) > 30 || Math.abs(e.nativeEvent.velocity?.x ?? 0) > 0.15) {
+      if (delta > 0 && next < pages.length - 1) {
+        next += 1;
+      } else if (delta < 0 && next > 0) {
+        next -= 1;
+      }
+    } else {
+      next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
+    }
+
+    lastIndex.current = next;
     setIndex(next);
-    // Smoothly snap to the exact full card offset
     ref.current?.scrollTo({ x: next * w, animated: true });
   };
 
@@ -55,6 +75,7 @@ export function MediaCarousel({
             decelerationRate="fast"
             disableIntervalMomentum
             showsHorizontalScrollIndicator={false}
+            onScrollBeginDrag={handleScrollBeginDrag}
             onMomentumScrollEnd={handleScrollEnd}
             onScrollEndDrag={handleScrollEnd}
             style={[

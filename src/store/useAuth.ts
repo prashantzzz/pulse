@@ -12,7 +12,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { usePulse } from './useStore';
 import type { UserProfile } from '../types';
 
-import { syncUserDataFromCloud } from '../lib/sync';
+import { syncUserDataFromCloud, flushOfflineSyncQueue } from '../lib/sync';
 
 interface AuthState {
   session: Session | null;
@@ -50,12 +50,10 @@ export const useAuth = create<AuthState>((set, get) => ({
   isAuthenticated: false,
 
   setSession: (session) => {
-    const user = session?.user ?? null;
     set({
       session,
-      user,
-      isAuthenticated: Boolean(user),
-      isLoading: false,
+      user: session?.user ?? null,
+      isAuthenticated: Boolean(session?.user),
     });
   },
 
@@ -81,6 +79,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   initialize: () => {
+    // Flush any pending offline queue on start
+    flushOfflineSyncQueue().catch(() => {});
+
     if (!isSupabaseConfigured) {
       set({ isLoading: false, isInitialized: true });
       return () => {};
@@ -100,6 +101,7 @@ export const useAuth = create<AuthState>((set, get) => ({
 
         if (session?.user) {
           await syncUserDataFromCloud(session.user.id);
+          await flushOfflineSyncQueue();
         }
       })
       .catch((err) => {
@@ -123,6 +125,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         // If logged in via Google OAuth, sync avatar and name if needed
         await syncGoogleProfile(user);
         await syncUserDataFromCloud(user.id);
+        await flushOfflineSyncQueue();
       }
     });
 
