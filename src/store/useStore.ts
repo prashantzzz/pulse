@@ -444,7 +444,26 @@ export const usePulse = create<PulseState>()(
         activeWorkout: s.activeWorkout,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHydrated();
+        if (state) {
+          // Remove any legacy mock friends like 'f2'..'f6' ('Marcus Lee', etc.)
+          if (state.friends && state.friends.length > 0) {
+            const legacyIds = new Set(['f2', 'f3', 'f4', 'f5', 'f6']);
+            const cleanFriends = state.friends.filter(
+              (f) =>
+                !legacyIds.has(f.id) &&
+                f.id !== 'me' &&
+                f.name !== 'Marcus Lee' &&
+                f.name !== 'Sofia Reyes' &&
+                f.name !== 'James Okafor' &&
+                f.name !== 'Priya Nair' &&
+                f.name !== 'Daniel Kim'
+            );
+            if (cleanFriends.length !== state.friends.length) {
+              state.setFriends(cleanFriends);
+            }
+          }
+          state.setHydrated();
+        }
       },
     },
   ),

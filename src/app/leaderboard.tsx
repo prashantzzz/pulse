@@ -47,12 +47,17 @@ export default function LeaderboardScreen() {
   const me: Friend = { id: 'me', name: 'You', isContact: true, score: myScore, workoutsThisWeek: workoutsInLastDays(workouts, 7).length, prsThisMonth: 3, streak: currentStreak(workouts), volumeKg: totalVolume(workoutsInLastDays(workouts, 7)), avatarHue: 90 };
 
   // drop any persisted "You" placeholder so the live-computed row is the only one
-  const ranked = [...friends.filter((f) => f.id !== 'me' && f.name !== 'You'), me].sort((a, b) => b.score - a.score);
+  const realFriends = friends.filter((f) => f.id !== 'me' && f.name !== 'You');
+  const ranked = [...realFriends, me].sort((a, b) => b.score - a.score);
   const myRank = ranked.findIndex((f) => f.id === 'me') + 1;
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Leaderboard" subtitle={`You're ranked #${myRank}`} back />
+      <ScreenHeader
+        title="Leaderboard"
+        subtitle={realFriends.length > 0 ? `You're ranked #${myRank}` : `Your Score: ${myScore}`}
+        back
+      />
       <View>
         <Row gap={8}>
           {FILTERS.map((f) => (
@@ -60,33 +65,35 @@ export default function LeaderboardScreen() {
           ))}
         </Row>
 
-        {/* podium */}
-        <View style={styles.podium}>
-          <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
-          <View style={[styles.podiumGlow, { backgroundColor: `${colors.accent}14` }]} />
-          <Row align="space-between">
-            {ranked.slice(0, 3).map((f, i) => {
-              const medal = ['gold', 'emerald', 'teal'][i] as 'gold' | 'emerald' | 'teal';
-              const isMe = f.id === 'me';
-              return (
-                <View key={f.id} style={{ alignItems: 'center', gap: 6, width: 90 }}>
-                  <View style={[styles.medal, { backgroundColor: colors[medal] }]}>
-                    <T variant="micro" style={{ color: colors.bg, fontWeight: '700' }}>
-                      #{i + 1}
+        {/* podium (shown when friends are connected) */}
+        {realFriends.length > 0 ? (
+          <View style={styles.podium}>
+            <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
+            <View style={[styles.podiumGlow, { backgroundColor: `${colors.accent}14` }]} />
+            <Row align="space-between">
+              {ranked.slice(0, 3).map((f, i) => {
+                const medal = ['gold', 'emerald', 'teal'][i] as 'gold' | 'emerald' | 'teal';
+                const isMe = f.id === 'me';
+                return (
+                  <View key={f.id} style={{ alignItems: 'center', gap: 6, width: 90 }}>
+                    <View style={[styles.medal, { backgroundColor: colors[medal] }]}>
+                      <T variant="micro" style={{ color: colors.bg, fontWeight: '700' }}>
+                        #{i + 1}
+                      </T>
+                    </View>
+                    <Avatar name={f.name} size={52} hue={f.avatarHue} showRing={isMe} />
+                    <T variant="smallSemi" style={{ fontSize: 12 }} numberOfLines={1}>
+                      {f.name}
+                    </T>
+                    <T variant="micro" accent>
+                      {f.score}
                     </T>
                   </View>
-                  <Avatar name={f.name} size={52} hue={f.avatarHue} showRing={isMe} />
-                  <T variant="smallSemi" style={{ fontSize: 12 }} numberOfLines={1}>
-                    {f.name}
-                  </T>
-                  <T variant="micro" accent>
-                    {f.score}
-                  </T>
-                </View>
-              );
-            })}
-          </Row>
-        </View>
+                );
+              })}
+            </Row>
+          </View>
+        ) : null}
 
         {/* list */}
         <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
@@ -123,6 +130,19 @@ export default function LeaderboardScreen() {
             );
           })}
         </View>
+
+        {/* Empty friends state */}
+        {realFriends.length === 0 ? (
+          <View style={styles.emptyFriendsCard}>
+            <Ionicons name="people-outline" size={32} color={colors.accent} />
+            <T variant="bodySemi" center style={{ marginTop: spacing.sm }}>
+              No friends on your leaderboard yet
+            </T>
+            <T variant="small" dim center style={{ marginTop: 4, paddingHorizontal: spacing.md }}>
+              Invite workout partners or send a friend challenge to compare workout streaks, PRs, and weekly volume!
+            </T>
+          </View>
+        ) : null}
 
         <Pressable onPress={() => router.push('/challenge' as never)} style={styles.challengeCta}>
           <View style={[styles.challengeIcon, { backgroundColor: colors.accent }]}>
@@ -204,6 +224,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyFriendsCard: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

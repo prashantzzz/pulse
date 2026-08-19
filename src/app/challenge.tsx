@@ -55,17 +55,7 @@ export default function ChallengeScreen() {
   const [challenge, setChallenge] = useState(0);
   const [friendId, setFriendId] = useState<string | null>(null);
   const [incomingInvite, setIncomingInvite] = useState<PendingInvite | null>(null);
-  const [activeDuels, setActiveDuels] = useState<ActiveDuel[]>([
-    {
-      id: 'duel-1',
-      title: 'Most workouts this week',
-      friendName: 'Marcus',
-      friendHue: 200,
-      myScore: Math.min(workouts.length, 4),
-      friendScore: 3,
-      daysLeft: 4,
-    },
-  ]);
+  const [activeDuels, setActiveDuels] = useState<ActiveDuel[]>([]);
 
   // Check incoming invite params or stored pending invite
   useEffect(() => {

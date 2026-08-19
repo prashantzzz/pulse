@@ -86,14 +86,6 @@ export const SEED_MEASUREMENTS: BodyMeasurement[] = (() => {
   return out;
 })();
 
-export const SEED_FRIENDS: Friend[] = [
-  // Note: no "You" placeholder here — the leaderboard always computes the
-  // current user's row live (id 'me') from the logged workouts.
-  { id: 'f2', name: 'Marcus Lee', isContact: true, score: 78, workoutsThisWeek: 5, prsThisMonth: 2, streak: 9, volumeKg: 41200, avatarHue: 160 },
-  { id: 'f3', name: 'Sofia Reyes', isContact: true, score: 71, workoutsThisWeek: 4, prsThisMonth: 3, streak: 14, volumeKg: 28700, avatarHue: 200 },
-  { id: 'f4', name: 'James Okafor', isContact: true, score: 64, workoutsThisWeek: 3, prsThisMonth: 1, streak: 6, volumeKg: 35100, avatarHue: 20 },
-  { id: 'f5', name: 'Priya Nair', isContact: true, score: 58, workoutsThisWeek: 4, prsThisMonth: 2, streak: 5, volumeKg: 22400, avatarHue: 280 },
-  { id: 'f6', name: 'Daniel Kim', isContact: true, score: 52, workoutsThisWeek: 2, prsThisMonth: 1, streak: 4, volumeKg: 18900, avatarHue: 40 },
-];
+export const SEED_FRIENDS: Friend[] = [];
 
 export const SEED_FAVORITES = ['bench-press', 'lat-pulldown', 'squat', 'shoulder-press'];
