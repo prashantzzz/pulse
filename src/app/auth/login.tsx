@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -112,13 +113,12 @@ export default function LoginScreen() {
           
           {/* Logo & Header */}
           <View style={styles.header}>
-            <View style={styles.logoWrap}>
-              <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
-              <T variant="hero" style={{ color: colors.bg, fontSize: 28, lineHeight: 34 }}>
-                N
-              </T>
-            </View>
-            <T variant="hero" style={{ marginTop: 16, fontSize: 32, letterSpacing: 2 }}>
+            <Image
+              source={require('../../../assets/images/logo.png')}
+              style={{ width: 68, height: 68, borderRadius: 18 }}
+              resizeMode="contain"
+            />
+            <T variant="hero" style={{ marginTop: 14, fontSize: 30, letterSpacing: 1.5 }}>
               NextRep
             </T>
             <T variant="h2" style={{ marginTop: 8 }}>

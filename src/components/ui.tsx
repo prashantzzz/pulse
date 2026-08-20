@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
+import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -73,10 +75,20 @@ export function Button({
   const height = size === 'lg' ? 56 : size === 'sm' ? 38 : 48;
   const labelSize = size === 'lg' ? 17 : size === 'sm' ? 13 : 15;
 
+  const handlePress = () => {
+    if (disabled) return;
+    if (variant === 'primary') {
+      hapticsLight();
+    } else if (variant === 'danger') {
+      hapticsWarning();
+    }
+    onPress?.();
+  };
+
   return (
     <Animated.View style={[{ transform: [{ scale }] }, full && styles.full]}>
       <Pressable
-        onPress={onPress}
+        onPress={handlePress}
         disabled={disabled}
         onPressIn={pressIn}
         onPressOut={pressOut}
@@ -313,6 +325,16 @@ export function Screen({
       style={[styles.screen, style]}
       edges={edges}
       {...(onSwipeLeft || onSwipeRight ? swipeHandler.panHandlers : {})}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%">
+          <Defs>
+            <Pattern id="pulse-bg-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+              <Circle cx="2" cy="2" r="0.9" fill={colors.accent} fillOpacity={0.035} />
+            </Pattern>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#pulse-bg-dots)" />
+        </Svg>
+      </View>
       <Wrapper
         {...(scrollProps ?? {})}
         style={scroll ? undefined : styles.screenBody}

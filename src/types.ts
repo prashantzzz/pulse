@@ -177,6 +177,7 @@ export interface UserProfile {
   heightCm?: number;
   weightKg?: number;
   weightUnit?: 'kg' | 'lbs';
+  avatarUrl?: string;
 }
 
 /** A workout plan (template) the user can start or build */

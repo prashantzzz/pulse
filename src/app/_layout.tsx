@@ -20,6 +20,7 @@ import { ToastHost } from '../components/misc';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { applyAccent, colors } from '../theme';
+import { requestNotificationPermissions, scheduleEveningReminder, cancelEveningReminder } from '../lib/notifications';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -75,6 +76,26 @@ export default function RootLayout() {
       unsubscribe();
     };
   }, [initializeAuth]);
+
+  // Request notification permissions and schedule/cancel daily evening reminder
+  useEffect(() => {
+    if (!hydrated) return;
+    async function setupNotifications() {
+      const granted = await requestNotificationPermissions();
+      if (!granted) return;
+
+      const workouts = usePulse.getState().workouts;
+      const todayStr = new Date().toDateString();
+      const workedOutToday = workouts.some((w) => new Date(w.startTime).toDateString() === todayStr);
+
+      if (workedOutToday) {
+        await cancelEveningReminder();
+      } else {
+        await scheduleEveningReminder();
+      }
+    }
+    setupNotifications();
+  }, [hydrated]);
 
   // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {
