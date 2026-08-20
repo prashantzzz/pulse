@@ -8,6 +8,7 @@ import { T } from '../../components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, gradients, useAccent } from '../../theme';
+import { hapticsLight } from '../../lib/haptics';
 
 // Tab switches pan left/right: each scene translates by its progress relative
 // to the active tab (-1 left … +1 right), so the incoming screen slides in from
@@ -62,7 +63,10 @@ function PulseTabBar({
           return (
             <View key={tab.name} style={styles.centerSlot}>
               <Pressable
-                onPress={() => router.push('/log' as never)}
+                onPress={() => {
+                  hapticsLight();
+                  router.push('/log' as never);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel="Log"
                 style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] }]}>
@@ -84,6 +88,7 @@ function PulseTabBar({
             accessibilityLabel={tab.label}
             accessibilityState={focused ? { selected: true } : undefined}
             onPress={() => {
+              hapticsLight();
               const target = state.routeNames[i];
               const evt = navigation.emit({ type: 'tabPress', target });
               if (!evt.defaultPrevented) {

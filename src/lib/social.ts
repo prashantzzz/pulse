@@ -56,7 +56,15 @@ export async function savePendingInvite(invite: PendingInvite): Promise<void> {
 export async function getPendingInvite(): Promise<PendingInvite | null> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_INVITE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const invite: PendingInvite = JSON.parse(raw);
+    // Expire invites older than 7 days
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    if (invite.timestamp && Date.now() - invite.timestamp > SEVEN_DAYS_MS) {
+      await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+      return null;
+    }
+    return invite;
   } catch {
     return null;
   }

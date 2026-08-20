@@ -39,6 +39,7 @@ function mapRowToUserProfile(row: ProfileRow): UserProfile {
     style: row.preferred_training_style ?? [],
     trainingAgeMonths: row.training_age_months ?? 0,
     onboarded: row.onboarded ?? false,
+    avatarUrl: row.avatar_url ?? undefined,
   };
 }
 
@@ -140,6 +141,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       await authSignOut();
     } finally {
+      // Clear friends list so a new user on the same device doesn't see stale friends
+      usePulse.getState().setFriends([]);
       set({
         session: null,
         user: null,

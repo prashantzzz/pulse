@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -133,12 +134,11 @@ export default function SignupScreen() {
 
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoWrap}>
-              <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
-              <T variant="hero" style={{ color: colors.bg, fontSize: 28, lineHeight: 34 }}>
-                N
-              </T>
-            </View>
+            <Image
+              source={require('../../../assets/images/logo.png')}
+              style={{ width: 68, height: 68, borderRadius: 18 }}
+              resizeMode="contain"
+            />
             <T variant="h1" style={{ marginTop: 16 }}>
               Create your account
             </T>

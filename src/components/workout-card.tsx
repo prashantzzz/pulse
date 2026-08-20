@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
-import { accentTint, colors, gradients, radius, spacing } from '../theme';
+import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
 import type { Workout, WorkoutPlan } from '../types';
 import { T } from './Text';
 import { Row, Tag } from './ui';
@@ -211,13 +211,14 @@ export function TodayWorkoutCard({
   prevWorkout?: Workout | null;
   onStart: () => void;
 }) {
+  useAccent();
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(plan.exercises.reduce((s, e) => s + e.sets * 3, 0) * 1.15 + 8);
   const first = EXERCISE_MAP[plan.exercises[0]?.exerciseId];
 
   return (
     <View style={[styles.heroCard, { borderColor: `${colors.accent}2E` }]}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.16), '#0E1410', colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.16), colors.bg]} style={StyleSheet.absoluteFill} />
       <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
       <View style={{ padding: spacing.lg, gap: 10 }}>
         <Row align="space-between">

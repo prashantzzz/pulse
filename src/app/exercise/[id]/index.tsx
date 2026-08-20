@@ -54,8 +54,9 @@ export default function ExerciseDetailScreen() {
   }
 
   const fav = favorites.includes(exercise.id);
+  const displayDifficulty = (d: string) => (d === 'Intermediate' ? 'Medium' : d);
   const attr = [
-    { label: 'Difficulty', value: exercise.difficulty },
+    { label: 'Difficulty', value: displayDifficulty(exercise.difficulty) },
     { label: 'Equipment', value: exercise.equipment },
     { label: 'Type', value: exercise.type },
     { label: 'Region', value: exercise.region },

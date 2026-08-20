@@ -291,6 +291,8 @@ export const usePulse = create<PulseState>()(
           workouts: [...s.workouts, finished],
           activeWorkout: null,
         }));
+        // Cancel evening notification reminder since user trained today
+        import('../lib/notifications').then(({ cancelEveningReminder }) => cancelEveningReminder()).catch(() => {});
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushWorkoutToCloud(user.id, finished).catch(() => {});
         }).catch(() => {});

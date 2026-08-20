@@ -14,6 +14,7 @@ import { formatDuration } from '../../../lib/format';
 import { previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
+import { hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
 
 export default function ActiveWorkoutScreen() {
   useAccent();
@@ -93,6 +94,7 @@ export default function ActiveWorkoutScreen() {
       patchSet(exerciseId, setId, { completed: false, completedAt: null });
       toast('Set marked incomplete');
     } else {
+      hapticsMedium();
       completeSet(exerciseId, setId);
       toast('Set complete');
     }
@@ -285,7 +287,10 @@ export default function ActiveWorkoutScreen() {
           size="md"
           onPress={() => {
             const finished = finishWorkout();
-            if (finished) router.replace(`/workout/${finished.id}/summary`);
+            if (finished) {
+              hapticsSuccess();
+              router.replace(`/workout/${finished.id}/summary`);
+            }
           }}
         />
       </View>
@@ -311,7 +316,10 @@ export default function ActiveWorkoutScreen() {
             onPress={() => {
               setMenuOpen(false);
               const finished = finishWorkout();
-              if (finished) router.replace(`/workout/${finished.id}/summary`);
+              if (finished) {
+                hapticsSuccess();
+                router.replace(`/workout/${finished.id}/summary`);
+              }
             }}
           />
           <Pressable

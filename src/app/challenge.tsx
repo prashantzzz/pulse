@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
+import { hapticsSuccess } from '../lib/haptics';
 
 const CHALLENGES: { icon: IonName; title: string; desc: string; type: string; grad: keyof typeof gradients }[] = [
   { icon: 'barbell-outline', title: 'Most workouts this week', desc: 'Who trains more? Winner takes the streak crown.', type: 'most_workouts', grad: 'accent' },
@@ -110,18 +111,21 @@ export default function ChallengeScreen() {
         await joinCloudChallenge(incomingInvite.challengeId, user.id);
       }
 
-      // Add to local state
-      addFriend({
-        id: incomingInvite.fromUserId,
-        name: incomingInvite.fromName,
-        isContact: true,
-        score: 65,
-        workoutsThisWeek: 2,
-        prsThisMonth: 1,
-        streak: 2,
-        volumeKg: 4500,
-        avatarHue: 210,
-      });
+      // Add to local state if not already present
+      const alreadyFriend = friends.some((f) => f.id === incomingInvite.fromUserId);
+      if (!alreadyFriend) {
+        addFriend({
+          id: incomingInvite.fromUserId,
+          name: incomingInvite.fromName,
+          isContact: true,
+          score: 65,
+          workoutsThisWeek: 2,
+          prsThisMonth: 1,
+          streak: 2,
+          volumeKg: 4500,
+          avatarHue: 210,
+        });
+      }
 
       setActiveDuels((prev) => [
         {
@@ -139,6 +143,7 @@ export default function ChallengeScreen() {
 
     await clearPendingInvite();
     setIncomingInvite(null);
+    hapticsSuccess();
     toast(`Challenge accepted! You and ${incomingInvite.fromName} are now competing. 🤝`);
   };
 

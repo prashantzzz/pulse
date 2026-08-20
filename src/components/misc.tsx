@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -32,11 +33,13 @@ export function Avatar({
   size = 44,
   hue,
   showRing,
+  uri,
 }: {
   name: string;
   size?: number;
   hue?: number;
   showRing?: boolean;
+  uri?: string | null;
 }) {
   const initials = name
     .split(' ')
@@ -45,6 +48,8 @@ export function Avatar({
     .join('')
     .toUpperCase();
   const g = AVATAR_GRADIENTS[(hue ?? name.length * 7) % AVATAR_GRADIENTS.length];
+  const innerRadius = (size - (showRing ? 4 : 0)) / 2;
+
   return (
     <View
       style={{
@@ -54,19 +59,36 @@ export function Avatar({
         padding: showRing ? 2 : 0,
         borderWidth: showRing ? 2 : 0,
         borderColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
       }}>
-      <LinearGradient
-        colors={[...gradients[g]]}
-        style={{
-          flex: 1,
-          borderRadius: (size - 4) / 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <T variant="bodySemi" style={{ color: colors.bg, fontSize: size * 0.34, fontWeight: '700' }}>
-          {initials}
-        </T>
-      </LinearGradient>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={{
+            width: size - (showRing ? 4 : 0),
+            height: size - (showRing ? 4 : 0),
+            borderRadius: innerRadius,
+          }}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
+        <LinearGradient
+          colors={[...gradients[g]]}
+          style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: innerRadius,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <T variant="bodySemi" style={{ color: colors.bg, fontSize: size * 0.34, fontWeight: '700' }}>
+            {initials}
+          </T>
+        </LinearGradient>
+      )}
     </View>
   );
 }

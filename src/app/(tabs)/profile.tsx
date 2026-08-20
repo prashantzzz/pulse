@@ -1,26 +1,53 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
-import { AchievementBadge, Avatar } from '../../components/misc';
+import { AchievementBadge, Avatar, toast } from '../../components/misc';
 import { Button, Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
+import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
+import { hapticsLight, hapticsSuccess } from '../../lib/haptics';
+import { pickAndCropAvatar, uploadAvatarImage } from '../../lib/storage';
 
 export default function ProfileScreen() {
   useAccent();
   const router = useRouter();
   const profile = usePulse((s) => s.profile);
+  const setProfile = usePulse((s) => s.setProfile);
+  const user = useAuth((s) => s.user);
   const workouts = usePulse((s) => s.workouts);
   const favorites = usePulse((s) => s.favorites);
   const measurements = usePulse((s) => s.measurements);
   const weightUnit = usePulse((s) => s.weightUnit);
+
+  const [uploading, setUploading] = useState(false);
+
+  const handlePickAvatar = async () => {
+    hapticsLight();
+    const picked = await pickAndCropAvatar();
+    if (!picked) return;
+
+    setUploading(true);
+    try {
+      const avatarUrl = await uploadAvatarImage(user?.id || 'me', picked);
+      setProfile({ avatarUrl });
+      hapticsSuccess();
+      toast('Profile photo updated');
+    } catch (err) {
+      console.warn('Avatar update failed:', err);
+      toast('Could not update avatar.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const streak = currentStreak(workouts);
   const volume = totalVolume(workouts);
@@ -53,7 +80,29 @@ export default function ProfileScreen() {
         <LinearGradient colors={[accentTint(colors.accent, 0.15), '#0D0F12']} style={StyleSheet.absoluteFill} />
         <View style={[styles.headerGlow, { backgroundColor: `${colors.accent}14` }]} />
         <Row align="space-between">
-          <Avatar name={profile?.name ?? 'Athlete'} size={64} hue={90} showRing={streak > 0} />
+          <Pressable
+            onPress={handlePickAvatar}
+            disabled={uploading}
+            style={({ pressed }) => [{ position: 'relative' }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile picture">
+            <Avatar
+              name={profile?.name ?? 'Athlete'}
+              uri={profile?.avatarUrl}
+              size={64}
+              hue={90}
+              showRing={streak > 0}
+            />
+            {uploading ? (
+              <View style={styles.avatarLoadingOverlay}>
+                <ActivityIndicator size="small" color={colors.accent} />
+              </View>
+            ) : (
+              <View style={[styles.avatarCameraBadge, { backgroundColor: colors.accent }]}>
+                <Ionicons name="camera" size={12} color={colors.bg} />
+              </View>
+            )}
+          </Pressable>
           <Pressable style={styles.settingsBtn} onPress={() => router.push('/settings' as never)}>
             <Icon name="settings-outline" size={20} color={colors.textDim} />
           </Pressable>
@@ -390,5 +439,28 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1.5,
     borderColor: colors.surface,
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

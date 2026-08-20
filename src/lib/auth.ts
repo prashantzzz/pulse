@@ -315,7 +315,7 @@ export async function upsertProfile(
     const payload: Database['public']['Tables']['profiles']['Insert'] = {
       id: userId,
       display_name: profile.display_name ?? profile.name ?? 'Athlete',
-      avatar_url: profile.avatar_url ?? null,
+      avatar_url: profile.avatarUrl ?? profile.avatar_url ?? null,
       gender: profile.gender ?? 'male',
       goal: profile.goal ?? [],
       experience_level: profile.experience ?? 'Beginner',
