@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 
@@ -50,14 +50,13 @@ export default function SplashScreen() {
       <View style={[styles.glowTop, { backgroundColor: `${colors.accent}12` }]} />
       <View style={[styles.glowBottom, { backgroundColor: `${colors.accent}12` }]} />
       <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>
-        {/* NextRep mark */}
-        <View style={styles.logoWrap}>
-          <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 30 }]} />
-          <T variant="hero" style={{ color: colors.bg, fontSize: 34, lineHeight: 40 }}>
-            N
-          </T>
-        </View>
-        <T variant="hero" style={{ marginTop: 24, letterSpacing: 4, fontSize: 36 }}>
+        {/* NextRep logo */}
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={{ width: 88, height: 88, borderRadius: 24 }}
+          resizeMode="contain"
+        />
+        <T variant="hero" style={{ marginTop: 20, letterSpacing: 3, fontSize: 34 }}>
           NextRep
         </T>
         <T variant="body" dim style={{ marginTop: 10, letterSpacing: 0.4 }}>

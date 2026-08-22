@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
@@ -14,8 +14,8 @@ import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } f
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
-import { hapticsLight, hapticsSuccess } from '../../lib/haptics';
-import { pickAndCropAvatar, uploadAvatarImage } from '../../lib/storage';
+import { hapticsLight, hapticsSuccess, hapticsWarning } from '../../lib/haptics';
+import { pickAndCropAvatar, removeAvatarImage, uploadAvatarImage } from '../../lib/storage';
 
 export default function ProfileScreen() {
   useAccent();
@@ -29,6 +29,7 @@ export default function ProfileScreen() {
   const weightUnit = usePulse((s) => s.weightUnit);
 
   const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const handlePickAvatar = async () => {
     hapticsLight();
@@ -44,6 +45,23 @@ export default function ProfileScreen() {
     } catch (err) {
       console.warn('Avatar update failed:', err);
       toast('Could not update avatar.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    hapticsWarning();
+    setUploading(true);
+    try {
+      await removeAvatarImage(user?.id || 'me');
+      setProfile({ avatarUrl: undefined });
+      hapticsSuccess();
+      toast('Profile photo removed');
+      setPreviewOpen(false);
+    } catch (err) {
+      console.warn('Avatar removal failed:', err);
+      toast('Could not remove avatar.');
     } finally {
       setUploading(false);
     }
@@ -81,11 +99,13 @@ export default function ProfileScreen() {
         <View style={[styles.headerGlow, { backgroundColor: `${colors.accent}14` }]} />
         <Row align="space-between">
           <Pressable
-            onPress={handlePickAvatar}
-            disabled={uploading}
+            onPress={() => {
+              hapticsLight();
+              setPreviewOpen(true);
+            }}
             style={({ pressed }) => [{ position: 'relative' }, pressed && { opacity: 0.85 }]}
             accessibilityRole="button"
-            accessibilityLabel="Change profile picture">
+            accessibilityLabel="View profile photo">
             <Avatar
               name={profile?.name ?? 'Athlete'}
               uri={profile?.avatarUrl}
@@ -93,15 +113,9 @@ export default function ProfileScreen() {
               hue={90}
               showRing={streak > 0}
             />
-            {uploading ? (
-              <View style={styles.avatarLoadingOverlay}>
-                <ActivityIndicator size="small" color={colors.accent} />
-              </View>
-            ) : (
-              <View style={[styles.avatarCameraBadge, { backgroundColor: colors.accent }]}>
-                <Ionicons name="camera" size={12} color={colors.bg} />
-              </View>
-            )}
+            <View style={[styles.avatarCameraBadge, { backgroundColor: colors.accent }]}>
+              <Ionicons name="eye" size={11} color={colors.bg} />
+            </View>
           </Pressable>
           <Pressable style={styles.settingsBtn} onPress={() => router.push('/settings' as never)}>
             <Icon name="settings-outline" size={20} color={colors.textDim} />
@@ -346,6 +360,70 @@ export default function ProfileScreen() {
           </Row>
         </Card>
       </Section>
+
+      {/* Profile Photo Preview & Edit Modal */}
+      <Modal visible={previewOpen} transparent animationType="fade" onRequestClose={() => setPreviewOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPreviewOpen(false)} />
+          <View style={[styles.modalCard, { borderColor: `${colors.accent}40` }]}>
+            <Row align="space-between" style={{ width: '100%', marginBottom: spacing.sm }}>
+              <T variant="h3">Profile Photo</T>
+              <Pressable
+                onPress={() => setPreviewOpen(false)}
+                hitSlop={10}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close photo preview">
+                <Ionicons name="close" size={20} color={colors.textDim} />
+              </Pressable>
+            </Row>
+
+            <View style={{ position: 'relative', marginVertical: spacing.lg, alignItems: 'center' }}>
+              <Avatar
+                name={profile?.name ?? 'Athlete'}
+                uri={profile?.avatarUrl}
+                size={180}
+                hue={90}
+                showRing
+              />
+              {uploading ? (
+                <View style={[styles.avatarLoadingOverlay, { borderRadius: 90 }]}>
+                  <ActivityIndicator size="large" color={colors.accent} />
+                </View>
+              ) : null}
+            </View>
+
+            <T variant="bodySemi" center style={{ fontSize: 17 }}>
+              {profile?.name ?? 'Athlete'}
+            </T>
+            <T variant="micro" muted center style={{ marginBottom: spacing.xl, marginTop: 4 }}>
+              {profile?.avatarUrl ? 'Photo synced with your account' : 'Default initials avatar'}
+            </T>
+
+            <View style={{ width: '100%', gap: spacing.sm }}>
+              <Button
+                label={uploading ? 'Updating Photo...' : 'Change Photo'}
+                icon="camera-outline"
+                disabled={uploading}
+                full
+                onPress={async () => {
+                  await handlePickAvatar();
+                }}
+              />
+              {profile?.avatarUrl ? (
+                <Button
+                  label="Remove Photo"
+                  variant="ghost"
+                  icon="trash-outline"
+                  disabled={uploading}
+                  full
+                  onPress={handleRemoveAvatar}
+                />
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -460,6 +538,30 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.xxl,
+    borderWidth: 1,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface3,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { BottomSheet } from '../../components/misc';
-import { Button, Icon, Row, Screen, Tag } from '../../components/ui';
+import { Button, Icon, Screen } from '../../components/ui';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
 import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
@@ -89,6 +89,23 @@ export default function LogScreen() {
                 <Button label="Start" size="sm" onPress={() => begin(p)} />
               </Pressable>
             ))}
+            <Pressable
+              onPress={() => {
+                setPlanSheet(false);
+                router.push('/workouts' as never);
+              }}
+              style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.85 }]}>
+              <View style={styles.planEmoji}>
+                <Icon name="albums-outline" size={20} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T variant="bodySemi">Browse Workout Templates</T>
+                <T variant="small" muted style={{ fontSize: 12 }}>
+                  Choose from 9 evidence-based programs
+                </T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
             <Pressable
               onPress={() => {
                 setPlanSheet(false);

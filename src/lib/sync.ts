@@ -182,6 +182,7 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           style: profileRow.preferred_training_style ?? [],
           trainingAgeMonths: profileRow.training_age_months ?? 0,
           onboarded: profileRow.onboarded ?? true,
+          avatarUrl: profileRow.avatar_url ?? undefined,
         }
       : null;
 

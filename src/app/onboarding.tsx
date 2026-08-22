@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccentPreview } from '../components/accent-preview';
@@ -201,12 +201,12 @@ export default function OnboardingScreen() {
 
         {step === 0 ? (
           <View style={styles.welcome}>
-            <LinearGradient colors={[...gradients.charcoal]} style={styles.welcomeArt} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <T variant="hero" accent style={{ fontSize: 52 }}>
-                N
-              </T>
-            </LinearGradient>
-            <T variant="h3" center style={{ marginTop: spacing.lg }}>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={{ width: 110, height: 110, borderRadius: 28 }}
+              resizeMode="contain"
+            />
+            <T variant="h3" center style={{ marginTop: spacing.xl }}>
               A coach in your pocket — teach, track, analyze and motivate.
             </T>
           </View>
