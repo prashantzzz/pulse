@@ -2,16 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { pushMeasurementToCloud, pushWorkoutToCloud, wipeUserWorkoutsInCloud, flushOfflineSyncQueue } from '../lib/sync';
+import { pushMeasurementToCloud, pushWorkoutToCloud, wipeUserWorkoutsInCloud, pushPlanToCloud, pushAllPlansToCloud, removePlanFromCloud, flushOfflineSyncQueue } from '../lib/sync';
 import { supabase } from '../lib/supabase';
-import {
-  SEED_FAVORITES,
-  SEED_FRIENDS,
-  SEED_MEASUREMENTS,
-  SEED_PLANS,
-  SEED_PROFILE,
-  SEED_WORKOUTS,
-} from '../data/seed';
+import { SEED_PLANS } from '../data/seed';
 import { applyAccent, type AccentKey } from '../theme';
 import type {
   ActiveWorkout,
@@ -76,6 +69,8 @@ interface PulseState {
   finishWorkout: () => Workout | null;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
+  /** Append a new workout plan (e.g. built via the builder) */
+  addPlan: (plan: WorkoutPlan) => void;
   /** Replace entire active workout plans set (e.g. when applying a template) */
   setPlans: (plans: WorkoutPlan[]) => void;
   /** Replace an existing plan (edit via the builder) */
@@ -89,8 +84,9 @@ interface PulseState {
   importWorkouts: (imported: Workout[]) => void;
   /** Overwrite workout history with new set */
   replaceWorkouts: (imported: Workout[]) => void;
-  resetDemo: () => void;
   clearAllData: () => void;
+  /** Clear all local user session state upon logout without cloud data deletion */
+  clearSessionCache: () => void;
 }
 
 export const usePulse = create<PulseState>()(
@@ -322,17 +318,37 @@ export const usePulse = create<PulseState>()(
         }).catch(() => {});
       },
 
-      setPlans: (plans) => set({ plans }),
+      addPlan: (plan) => {
+        set((s) => ({ plans: [...s.plans, plan] }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushPlanToCloud(user.id, plan).catch(() => {});
+        }).catch(() => {});
+      },
 
-      updatePlan: (id, plan) =>
+      setPlans: (plans) => {
+        set({ plans });
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushAllPlansToCloud(user.id, plans).catch(() => {});
+        }).catch(() => {});
+      },
+
+      updatePlan: (id, plan) => {
         set((s) => ({
           plans: s.plans.map((p) => (p.id === id ? plan : p)),
-        })),
+        }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushPlanToCloud(user.id, plan).catch(() => {});
+        }).catch(() => {});
+      },
 
-      removePlan: (id) =>
+      removePlan: (id) => {
         set((s) => ({
           plans: s.plans.filter((p) => p.id !== id),
-        })),
+        }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) removePlanFromCloud(user.id, id).catch(() => {});
+        }).catch(() => {});
+      },
 
       addMeasurement: (m) => {
         set((s) => ({ measurements: [...s.measurements, m] }));
@@ -398,20 +414,6 @@ export const usePulse = create<PulseState>()(
           return { workouts: fresh };
         }),
 
-      resetDemo: () =>
-        set({
-          profile: SEED_PROFILE,
-          workouts: SEED_WORKOUTS,
-          plans: SEED_PLANS,
-          measurements: SEED_MEASUREMENTS,
-          favorites: SEED_FAVORITES,
-          friends: SEED_FRIENDS,
-          manualPRs: [],
-          activeWorkout: null,
-          onboarded: true,
-          seeded: true,
-        }),
-
       clearAllData: () => {
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) {
@@ -431,6 +433,20 @@ export const usePulse = create<PulseState>()(
           seeded: true,
         });
       },
+
+      clearSessionCache: () =>
+        set({
+          profile: null,
+          workouts: [],
+          plans: [],
+          measurements: [],
+          favorites: [],
+          friends: [],
+          manualPRs: [],
+          activeWorkout: null,
+          onboarded: false,
+          seeded: false,
+        }),
     }),
     {
       name: 'nextrep-store-v1',

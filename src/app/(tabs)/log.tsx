@@ -37,7 +37,7 @@ export default function LogScreen() {
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
-      <View style={{ paddingHorizontal: spacing.md }}>
+      <View>
         <T variant="label" accent>
           Quick Log
         </T>
@@ -49,7 +49,7 @@ export default function LogScreen() {
         </T>
       </View>
 
-      <View style={{ marginTop: spacing.lg, gap: spacing.md, paddingHorizontal: spacing.md }}>
+      <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
         {ACTIONS.map((a) => (
           <Pressable
             key={a.title}

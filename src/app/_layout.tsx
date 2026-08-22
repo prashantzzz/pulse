@@ -20,7 +20,8 @@ import { ToastHost } from '../components/misc';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { applyAccent, colors } from '../theme';
-import { requestNotificationPermissions, scheduleEveningReminder, cancelEveningReminder } from '../lib/notifications';
+import * as Notifications from 'expo-notifications';
+import { requestNotificationPermissions, scheduleEveningReminder, cancelEveningReminder, setupNotificationCategories } from '../lib/notifications';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -77,12 +78,14 @@ export default function RootLayout() {
     };
   }, [initializeAuth]);
 
-  // Request notification permissions and schedule/cancel daily evening reminder
+  // Request notification permissions, setup categories, and schedule/cancel daily evening reminder
   useEffect(() => {
     if (!hydrated) return;
     async function setupNotifications() {
       const granted = await requestNotificationPermissions();
       if (!granted) return;
+
+      await setupNotificationCategories();
 
       const workouts = usePulse.getState().workouts;
       const todayStr = new Date().toDateString();
@@ -96,6 +99,39 @@ export default function RootLayout() {
     }
     setupNotifications();
   }, [hydrated]);
+
+  // Handle interaction with notification action buttons ('Start Workout', 'Pause', 'Finish') and notification taps
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const actionId = response.actionIdentifier;
+      const data = response.notification.request.content.data as { url?: string; workoutId?: string } | undefined;
+
+      if (actionId === 'START_WORKOUT') {
+        router.push('/(tabs)/workouts' as never);
+      } else if (actionId === 'PAUSE_WORKOUT') {
+        usePulse.getState().pauseActiveWorkout();
+        if (data?.workoutId) {
+          router.push(`/workout/${data.workoutId}` as never);
+        }
+      } else if (actionId === 'FINISH_WORKOUT') {
+        if (data?.workoutId) {
+          router.push(`/workout/${data.workoutId}` as never);
+        }
+      } else if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+        if (data?.url) {
+          router.push(data.url as never);
+        } else if (data?.workoutId) {
+          router.push(`/workout/${data.workoutId}` as never);
+        }
+      }
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [router]);
 
   // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {

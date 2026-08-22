@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   Animated,
+  Dimensions,
+  Easing,
   PanResponder,
   Pressable,
   ScrollView,
@@ -15,7 +17,17 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import {
+  Activity,
+  Apple,
+  Dumbbell,
+  Flame,
+  Footprints,
+  Trophy,
+  Weight,
+  Zap,
+} from 'lucide-react-native';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
 import { hapticsLight, hapticsWarning } from '../lib/haptics';
@@ -291,35 +303,84 @@ export function Screen({
 }) {
   // re-render on accent change; the screen component itself also subscribes
   // (see useAccent) so its `children` elements are recreated with fresh colors
-  useAccent();
+  const accentKey = useAccent();
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
+
+  const translateX = useAnimatedValue(0);
 
   const swipeHandler = React.useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
+        onMoveShouldSetPanResponder: (_, { dx, dy }) => {
           if (!onSwipeLeft && !onSwipeRight) return false;
-          const { dx, dy } = gestureState;
-          // Require dominant, deliberate horizontal swipe to change tab screens
-          // so inner swipeable cards (e.g. MediaCarousel, Segmented) are never hijacked
-          return Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 2.2;
+          // Capture dominant horizontal drag
+          const isHorizontal = Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.5;
+          if (!isHorizontal) return false;
+          // Directional qualification
+          if (dx < 0 && !onSwipeLeft) return false;
+          if (dx > 0 && !onSwipeRight) return false;
+          return true;
         },
-        onPanResponderRelease: (_, gestureState) => {
-          const { dx, vx } = gestureState;
-          const isFlick = Math.abs(vx) > 0.4;
-          const threshold = isFlick ? 32 : 55;
-
-          if (dx < -threshold && onSwipeLeft) {
-            onSwipeLeft();
-          } else if (dx > threshold && onSwipeRight) {
-            onSwipeRight();
+        onPanResponderMove: (_, { dx }) => {
+          // Apply rubberbanding when dragging into unswipable direction
+          if (dx < 0 && !onSwipeLeft) {
+            translateX.setValue(dx * 0.2);
+          } else if (dx > 0 && !onSwipeRight) {
+            translateX.setValue(dx * 0.2);
+          } else {
+            translateX.setValue(dx);
           }
+        },
+        onPanResponderRelease: (_, { dx, vx }) => {
+          const isFlickLeft = dx < -35 && vx < -0.35;
+          const isFlickRight = dx > 35 && vx > 0.35;
+          const isDragLeft = dx < -75;
+          const isDragRight = dx > 75;
+
+          if ((isDragLeft || isFlickLeft) && onSwipeLeft) {
+            Animated.timing(translateX, {
+              toValue: -Dimensions.get('window').width * 0.8,
+              duration: 150,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }).start(() => {
+              onSwipeLeft();
+              translateX.setValue(0);
+            });
+          } else if ((isDragRight || isFlickRight) && onSwipeRight) {
+            Animated.timing(translateX, {
+              toValue: Dimensions.get('window').width * 0.8,
+              duration: 150,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }).start(() => {
+              onSwipeRight();
+              translateX.setValue(0);
+            });
+          } else {
+            Animated.spring(translateX, {
+              toValue: 0,
+              damping: 15,
+              stiffness: 220,
+              mass: 0.8,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateX, {
+            toValue: 0,
+            damping: 15,
+            stiffness: 220,
+            mass: 0.8,
+            useNativeDriver: true,
+          }).start();
         },
         onPanResponderTerminationRequest: () => true,
       }),
-    [onSwipeLeft, onSwipeRight],
+    [onSwipeLeft, onSwipeRight, translateX],
   );
 
   return (
@@ -328,26 +389,66 @@ export function Screen({
       edges={edges}
       {...(onSwipeLeft || onSwipeRight ? swipeHandler.panHandlers : {})}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Svg width="100%" height="100%">
+        {/* Ambient Top Glow in selected Theme Color */}
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
           <Defs>
-            <Pattern id="pulse-bg-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-              <Circle cx="2" cy="2" r="0.9" fill={colors.accent} fillOpacity={0.035} />
-            </Pattern>
+            <RadialGradient
+              id={`pulse-radial-glow-${accentKey}`}
+              cx="50%"
+              cy="0%"
+              rx="75%"
+              ry="45%"
+              fx="50%"
+              fy="0%">
+              <Stop offset="0%" stopColor={colors.accent} stopOpacity="0.14" />
+              <Stop offset="50%" stopColor={colors.accent} stopOpacity="0.04" />
+              <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
+            </RadialGradient>
           </Defs>
-          <Rect width="100%" height="100%" fill="url(#pulse-bg-dots)" />
+          <Rect width="100%" height="100%" fill={`url(#pulse-radial-glow-${accentKey})`} />
         </Svg>
+
+        {/* Scattered tasteful Lucide gym doodles */}
+        <View style={styles.doodleOverlay}>
+          <View style={[styles.doodleItem, { top: '5%', left: '8%', transform: [{ rotate: '-18deg' }] }]}>
+            <Dumbbell size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '10%', right: '10%', transform: [{ rotate: '15deg' }] }]}>
+            <Zap size={22} color={colors.accent} strokeWidth={1.4} opacity={0.075} />
+          </View>
+          <View style={[styles.doodleItem, { top: '22%', right: '8%', transform: [{ rotate: '-12deg' }] }]}>
+            <Flame size={23} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '34%', left: '10%', transform: [{ rotate: '18deg' }] }]}>
+            <Activity size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '48%', right: '12%', transform: [{ rotate: '-14deg' }] }]}>
+            <Weight size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '60%', left: '8%', transform: [{ rotate: '-20deg' }] }]}>
+            <Trophy size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '74%', right: '10%', transform: [{ rotate: '16deg' }] }]}>
+            <Footprints size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          </View>
+          <View style={[styles.doodleItem, { top: '88%', left: '12%', transform: [{ rotate: '12deg' }] }]}>
+            <Apple size={23} color={colors.accent} strokeWidth={1.4} opacity={0.075} />
+          </View>
+        </View>
       </View>
-      <Wrapper
-        {...(scrollProps ?? {})}
-        style={scroll ? undefined : styles.screenBody}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          { paddingBottom: insets.bottom + 40 },
-          scroll && styles.scrollContent,
-          contentStyle,
-        ]}>
-        {children}
-      </Wrapper>
+      <Animated.View style={[{ flex: 1, transform: [{ translateX }] }]}>
+        <Wrapper
+          {...(scrollProps ?? {})}
+          style={scroll ? undefined : styles.screenBody}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            { paddingBottom: insets.bottom + 40 },
+            scroll && styles.scrollContent,
+            contentStyle,
+          ]}>
+          {children}
+        </Wrapper>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -356,6 +457,7 @@ export function ScreenHeader({
   title,
   subtitle,
   back,
+  onBack,
   right,
   rightLabel = 'Action',
   onRight,
@@ -364,6 +466,7 @@ export function ScreenHeader({
   title?: string;
   subtitle?: string;
   back?: boolean;
+  onBack?: () => void;
   right?: IonName;
   /** accessibility label for the right-hand icon button */
   rightLabel?: string;
@@ -371,11 +474,12 @@ export function ScreenHeader({
   titleColor?: string;
 }) {
   const router = useRouter();
+  const handleBackPress = onBack ?? (() => router.back());
   return (
     <View style={styles.header}>
       <View style={styles.headerSide}>
         {back ? (
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={handleBackPress} hitSlop={10} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Go back">
             <Icon name="chevron-back" size={22} color={colors.text} />
           </Pressable>
         ) : null}
@@ -659,4 +763,11 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: radius.pill },
 
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
+  doodleOverlay: {
+    ...(StyleSheet.absoluteFill as object),
+    overflow: 'hidden',
+  },
+  doodleItem: {
+    position: 'absolute',
+  },
 });

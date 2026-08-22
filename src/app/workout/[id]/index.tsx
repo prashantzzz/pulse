@@ -15,6 +15,7 @@ import { previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
+import { presentActiveWorkoutNotification, dismissActiveWorkoutNotification } from '../../../lib/notifications';
 
 export default function ActiveWorkoutScreen() {
   useAccent();
@@ -48,6 +49,48 @@ export default function ActiveWorkoutScreen() {
   }, [menuOpen]);
 
   const workout = activeWorkout ?? workouts.find((w) => w.id === id);
+
+  // while paused the elapsed timer is frozen at the pause moment
+  const elapsedSec = workout
+    ? workout.paused
+      ? Math.max(0, Math.floor((new Date(workout.pausedAt ?? workout.startTime).getTime() - new Date(workout.startTime).getTime()) / 1000))
+      : Math.max(0, Math.floor((now - new Date(workout.startTime).getTime()) / 1000))
+    : 0;
+  const totalSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.length, 0) : 0;
+  const doneSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0) : 0;
+  const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
+
+  const elapsedInterval = Math.floor(elapsedSec / 15);
+
+  // Keep live notification synced with current exercise, sets progress, and duration
+  useEffect(() => {
+    if (!workout) {
+      dismissActiveWorkoutNotification();
+      return;
+    }
+
+    const currentEx = workout.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? workout.exercises[workout.exercises.length - 1];
+    const currentExName = currentEx ? EXERCISE_MAP[currentEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
+    const currentSetInfo = totalSets > 0 ? `Set ${doneSets + 1}/${totalSets} · ${currentExName}` : 'Workout in progress';
+
+    presentActiveWorkoutNotification({
+      workoutTitle: workout.title,
+      currentSetInfo,
+      durationText: formatDuration(elapsedSec),
+      isPaused: workout.paused,
+      workoutId: workout.id,
+    });
+  }, [workout, doneSets, totalSets, elapsedSec, elapsedInterval]);
+
+  // Clean up notification on unmount if workout has completed or been discarded
+  useEffect(() => {
+    return () => {
+      if (!usePulse.getState().activeWorkout) {
+        dismissActiveWorkoutNotification();
+      }
+    };
+  }, []);
+
   if (!workout) {
     return (
       <Screen>
@@ -61,14 +104,6 @@ export default function ActiveWorkoutScreen() {
       </Screen>
     );
   }
-
-  // while paused the elapsed timer is frozen at the pause moment
-  const elapsedSec = workout.paused
-    ? Math.max(0, Math.floor((new Date(workout.pausedAt ?? workout.startTime).getTime() - new Date(workout.startTime).getTime()) / 1000))
-    : Math.max(0, Math.floor((now - new Date(workout.startTime).getTime()) / 1000));
-  const totalSets = workout.exercises.reduce((s, we) => s + we.sets.length, 0);
-  const doneSets = workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
-  const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
   // expand first incomplete exercise by default
   const expandedId = expanded ?? workout.exercises.find((we) => we.sets.some((s) => !s.completed))?.id ?? workout.exercises[0]?.id;
@@ -296,6 +331,7 @@ export default function ActiveWorkoutScreen() {
           label={pct === 100 ? 'Complete' : 'Finish Workout'}
           size="md"
           onPress={() => {
+            dismissActiveWorkoutNotification();
             const finished = finishWorkout();
             if (finished) {
               hapticsSuccess();
@@ -325,6 +361,7 @@ export default function ActiveWorkoutScreen() {
             full
             onPress={() => {
               setMenuOpen(false);
+              dismissActiveWorkoutNotification();
               const finished = finishWorkout();
               if (finished) {
                 hapticsSuccess();
@@ -335,6 +372,7 @@ export default function ActiveWorkoutScreen() {
           <Pressable
             onPress={() => {
               setMenuOpen(false);
+              dismissActiveWorkoutNotification();
               cancelActiveWorkout();
               router.replace('/(tabs)/home' as never);
             }}

@@ -7,7 +7,8 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { usePulse } from '../store/useStore';
-import type { BodyMeasurement, ExerciseSet, SetType, UserProfile, Workout, WorkoutExercise } from '../types';
+import { SEED_PLANS } from '../data/seed';
+import type { BodyMeasurement, ExerciseSet, SetType, UserProfile, Workout, WorkoutExercise, WorkoutPlan } from '../types';
 
 interface RawSet {
   id: string;
@@ -161,15 +162,46 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       .eq('user_id', userId)
       .order('started_at', { ascending: false });
 
-    if (workoutsErr) {
-      console.warn('Error fetching workouts from cloud:', workoutsErr);
+    // 4. Fetch User Workout Plans
+    const { data: plansData, error: plansErr } = await (supabase.from('workout_plans') as any)
+      .select(`
+        id,
+        name,
+        emoji,
+        muscles,
+        workout_plan_exercises (
+          id,
+          exercise_id,
+          order_index,
+          target_sets,
+          target_reps
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (plansErr) {
+      console.warn('Error fetching workout plans from cloud:', plansErr);
     }
 
-    // 4. Transform data
+    // 5. Transform data
     const cloudWorkouts: Workout[] = (workoutsData || []).map((w: unknown) => mapCloudWorkout(w as RawWorkout));
     const cloudMeasurements: BodyMeasurement[] = (measurementsData || []).map((m: unknown) =>
       mapCloudMeasurement(m as RawMeasurement),
     );
+
+    const cloudPlans: WorkoutPlan[] = (plansData || []).map((p: any) => ({
+      id: p.id,
+      title: p.name,
+      emoji: p.emoji || '💪',
+      muscles: p.muscles || [],
+      exercises: (p.workout_plan_exercises || [])
+        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        .map((e: any) => ({
+          exerciseId: e.exercise_id,
+          sets: e.target_sets || 3,
+          targetReps: e.target_reps || '8-12',
+        })),
+    }));
 
     const userProfile: UserProfile | null = profileRow
       ? {
@@ -182,34 +214,17 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           style: profileRow.preferred_training_style ?? [],
           trainingAgeMonths: profileRow.training_age_months ?? 0,
           onboarded: profileRow.onboarded ?? true,
-          avatarUrl: profileRow.avatar_url ?? undefined,
+          avatarUrl: profileRow.avatar_url ? `${profileRow.avatar_url}?t=${Date.now()}` : undefined,
         }
       : null;
 
-    // 5. Update local store state
+    // 6. Update local store state
     usePulse.setState((state) => {
-      // Merge workouts: cloud workouts are authoritative, preserve any purely local pending ones if necessary
-      const existingWorkoutsMap = new Map(state.workouts.map((w) => [`${w.title}|${w.startTime}`, w]));
-      for (const cw of cloudWorkouts) {
-        existingWorkoutsMap.set(`${cw.title}|${cw.startTime}`, cw);
-      }
-      const mergedWorkouts = Array.from(existingWorkoutsMap.values()).sort(
-        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
-      );
-
-      // Merge measurements
-      const existingMeasMap = new Map(state.measurements.map((m) => [m.date, m]));
-      for (const cm of cloudMeasurements) {
-        existingMeasMap.set(cm.date, cm);
-      }
-      const mergedMeasurements = Array.from(existingMeasMap.values()).sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-      );
-
       return {
-        workouts: cloudWorkouts.length > 0 ? cloudWorkouts : mergedWorkouts,
-        measurements: cloudMeasurements.length > 0 ? cloudMeasurements : mergedMeasurements,
-        profile: userProfile ? { ...(state.profile || {}), ...userProfile } : state.profile,
+        workouts: cloudWorkouts,
+        measurements: cloudMeasurements,
+        plans: cloudPlans.length > 0 ? cloudPlans : (state.plans.length > 0 ? state.plans : SEED_PLANS),
+        profile: userProfile ?? state.profile,
         onboarded: userProfile ? (userProfile.onboarded ?? state.onboarded) : state.onboarded,
       };
     });
@@ -410,6 +425,68 @@ async function directPushMeasurementToCloud(userId: string, m: BodyMeasurement):
   return !error;
 }
 
+async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
+      .upsert({
+        id: plan.id.length === 36 ? plan.id : undefined, // only use id if valid uuid, otherwise auto-generate
+        user_id: userId,
+        name: plan.title,
+        emoji: plan.emoji || '💪',
+        muscles: plan.muscles || [],
+      })
+      .select('id')
+      .single();
+
+    if (pErr || !pRow) return false;
+    const planId = pRow.id;
+
+    await (supabase.from('workout_plan_exercises') as any).delete().eq('plan_id', planId);
+
+    const exercisesToInsert = plan.exercises.map((e, idx) => ({
+      plan_id: planId,
+      exercise_id: e.exerciseId,
+      order_index: idx,
+      target_sets: e.sets || 3,
+      target_reps: e.targetReps || '8-12',
+    }));
+
+    if (exercisesToInsert.length > 0) {
+      await (supabase.from('workout_plan_exercises') as any).insert(exercisesToInsert);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function directRemovePlanFromCloud(userId: string, planId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const { error } = await (supabase.from('workout_plans') as any)
+      .delete()
+      .eq('id', planId)
+      .eq('user_id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directPushAllPlansToCloud(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    await (supabase.from('workout_plans') as any).delete().eq('user_id', userId);
+    for (const p of plans) {
+      await directPushPlanToCloud(userId, p);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Public export wrappers that automatically queue offline if cloud is unreachable
  */
@@ -424,6 +501,36 @@ export async function pushWorkoutToCloud(userId: string, workout: Workout): Prom
   } catch {
     await enqueueOfflineMutation({ type: 'upsert_workout', userId, workout, timestamp: Date.now() });
     return true;
+  }
+}
+
+export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    await directPushPlanToCloud(userId, plan);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function removePlanFromCloud(userId: string, planId: string): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    await directRemovePlanFromCloud(userId, planId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function pushAllPlansToCloud(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    await directPushAllPlansToCloud(userId, plans);
+    return true;
+  } catch {
+    return false;
   }
 }
 
