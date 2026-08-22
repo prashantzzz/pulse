@@ -123,7 +123,7 @@ export default function FormGuideScreen() {
               Primary: {exercise.muscleGroup} · Secondary: {exercise.secondaryMuscles.join(', ') || '—'}
             </T>
             <View style={{ marginTop: spacing.md }}>
-              <MuscleMap intensity={intensity} height={250} gender={profile?.gender ?? 'male'} />
+              <MuscleMap intensity={intensity} selected={exercise.muscleGroup} height={250} gender={profile?.gender ?? 'male'} />
             </View>
           </Card>
         </View>

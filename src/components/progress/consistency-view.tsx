@@ -10,8 +10,9 @@ import { spacing } from '../../theme';
 import type { Workout } from '../../types';
 import { SummaryCard, TF_LABELS, TimeframeChips, type ProgressTimeframe } from './shared';
 
-const TF_HEAT_WEEKS: Record<ProgressTimeframe, number> = {
-  '7D': 1,
+const CONSISTENCY_TIMEFRAMES: ProgressTimeframe[] = ['1M', '3M', '6M', '1Y'];
+
+const TF_HEAT_WEEKS: Record<string, number> = {
   '1M': 4,
   '3M': 12,
   '6M': 26,
@@ -34,10 +35,11 @@ export function ConsistencyView({
   onTimeframeChange?: (t: ProgressTimeframe) => void;
 }) {
   const [localTf, setLocalTf] = useState<ProgressTimeframe>('3M');
-  const activeTf = tf ?? localTf;
+  const rawTf = tf ?? localTf;
+  const activeTf: ProgressTimeframe = rawTf === '7D' ? '1M' : rawTf;
   const handleTfChange = onTimeframeChange ?? setLocalTf;
 
-  const heatWeeks = TF_HEAT_WEEKS[activeTf];
+  const heatWeeks = TF_HEAT_WEEKS[activeTf] ?? 12;
 
   // heatmap grid: Mon..Sun columns, intensity = daily volume
   const keys = workoutDayKeys(workouts);
@@ -81,7 +83,7 @@ export function ConsistencyView({
         <SummaryCard label="Sessions/wk" value={`${sessionsPerWeek(workouts)}`} icon="calendar" flex1 />
       </Row>
 
-      <TimeframeChips tf={activeTf} onChange={handleTfChange} />
+      <TimeframeChips tf={activeTf} onChange={handleTfChange} options={CONSISTENCY_TIMEFRAMES} />
 
       <Card style={{ padding: spacing.lg }}>
         <Row align="space-between">
@@ -91,7 +93,7 @@ export function ConsistencyView({
           </T>
         </Row>
         <T variant="small" dim style={{ fontSize: 12, marginTop: 2, marginBottom: spacing.md }}>
-          {heatWeeks === 1 ? 'This week' : `Last ${heatWeeks} weeks`} · Theme intensity = workout volume
+          Last {heatWeeks} weeks · Theme intensity = workout volume
         </T>
         <View style={{ overflow: 'hidden' }}>
           <CalendarHeatmap weeks={weeksGrid} timeframe={activeTf} cardWidth={chartW} />

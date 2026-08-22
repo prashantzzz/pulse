@@ -47,8 +47,8 @@ describe('Workout Program Templates Library', () => {
 
     expect(plans).toHaveLength(3);
     expect(plans[0].title).toBe('Full Body A');
-    expect(plans[0].exercises).toHaveLength(7);
-    expect(plans[0].exercises[0].exerciseId).toBe('bench-press');
+    expect(plans[0].exercises).toHaveLength(5);
+    expect(plans[0].exercises[0].exerciseId).toBe('squat');
     expect(plans[0].exercises[0].sets).toBe(3);
     expect(plans[0].exercises[0].targetReps).toBe('6-8');
   });

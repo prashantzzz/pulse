@@ -1,103 +1,70 @@
-Below is the template library YOU HAVE TO put into **NextRep**.
+# Revised NextRep template library
 
-## 1. The template structure I recommend
+I'd use these as your **9 core templates**:
 
-It should have these 9 combinations:
+| Experience   | 3 Days    | 4 Days        | 5 Days                             |
+| ------------ | --------- | ------------- | ---------------------------------- |
+| Beginner     | Full Body | Upper / Lower | Upper / Lower + Full Body          |
+| Intermediate | Full Body | Upper / Lower | Push / Pull / Legs + Upper / Lower |
+| Advanced     | Full Body | Upper / Lower | Push / Pull / Legs + Upper / Lower |
 
-| Experience   | 3 days          | 4 days           | 5 days                             |
-| ------------ | --------------- | ---------------- | ---------------------------------- |
-| Beginner     | Full Body A/B/C | Upper / Lower ×2 | Full Body rotation                 |
-| Intermediate | Full Body A/B/C | Upper / Lower ×2 | Push / Pull / Legs + Upper / Lower |
-| Advanced     | Full Body A/B/C | Upper / Lower ×2 | Push / Pull / Legs + Upper / Lower |
-
-The programming principle is(just so that u have some context):
-
-**Beginner → lower volume, simpler exercises, more repetition of movement patterns**
-
-**Intermediate → moderate volume, more exercise variety, more direct muscle work**
-
-**Advanced → higher volume, more specialization, heavier compounds and more exercise variation**
-
-This also fits the broad progression model traditionally used by ACSM: novice lifters use relatively straightforward moderate-repetition work, while intermediate/advanced lifters can use a broader loading range. ([PubMed][2])
+These are much more realistic than my earlier versions.
 
 ---
 
-# 2. BEGINNER — 3 DAYS
+# BEGINNER — 3 DAYS
 
-### Full Body A / B / C
+## Full Body A / B / C
 
-This should be the **best default recommendation for new users**.
-
-Schedule:
-
-**Mon — Full Body A**
-**Wed — Full Body B**
-**Fri — Full Body C**
-
-The objective is to teach the major movement patterns while giving each muscle multiple weekly exposures.
+This is the one I'd recommend most strongly to a new lifter.
 
 ### Day A
 
 | Exercise               | Sets × Reps |
 | ---------------------- | ----------: |
+| Barbell Squat          |     3 × 6–8 |
 | Barbell Bench Press    |     3 × 6–8 |
 | Lat Pulldown           |    3 × 8–12 |
-| Leg Press              |    3 × 8–12 |
-| Seated Cable Row       |    2 × 8–12 |
+| Romanian Deadlift      |    2 × 8–10 |
 | Dumbbell Lateral Raise |   2 × 12–15 |
-| Triceps Pushdown       |   2 × 10–15 |
-| Standing Calf Raise    |   2 × 12–15 |
 
 ### Day B
 
 | Exercise                | Sets × Reps |
 | ----------------------- | ----------: |
-| Goblet Squat            |    3 × 8–12 |
+| Leg Press               |    3 × 8–12 |
 | Incline Dumbbell Press  |    3 × 8–12 |
 | Seated Cable Row        |    3 × 8–12 |
-| Romanian Deadlift       |    2 × 8–10 |
 | Dumbbell Shoulder Press |    2 × 8–12 |
 | Dumbbell Bicep Curl     |   2 × 10–15 |
-| Standing Calf Raise     |   2 × 12–15 |
 
 ### Day C
 
-| Exercise               | Sets × Reps |
-| ---------------------- | ----------: |
-| Barbell Squat          |     3 × 6–8 |
-| Lat Pulldown           |    3 × 8–12 |
-| Dumbbell Bench Press   |    3 × 8–12 |
-| Leg Curl               |   2 × 10–15 |
-| Dumbbell Lateral Raise |   2 × 12–15 |
-| Hammer Curl            |   2 × 10–15 |
-| Triceps Pushdown       |   2 × 10–15 |
+| Exercise             | Sets × Reps |
+| -------------------- | ----------: |
+| Goblet Squat         |    3 × 8–12 |
+| Dumbbell Bench Press |    3 × 8–12 |
+| Lat Pulldown         |    3 × 8–12 |
+| Leg Curl             |   2 × 10–15 |
+| Triceps Pushdown     |   2 × 10–15 |
 
-**Why this works:** beginners don't need huge exercise menus. Repeating squats, presses, rows, pulldowns and hinges lets them learn technique while accumulating enough weekly work.
+**Why this is good:** only 12 working sets on most days, and nearly the entire body is trained repeatedly without unnecessary isolation work.
 
 ---
 
-# 3. BEGINNER — 4 DAYS
+# BEGINNER — 4 DAYS
 
-### Upper / Lower
-
-Schedule:
-
-**Mon — Upper A**
-**Tue — Lower A**
-**Thu — Upper B**
-**Fri — Lower B**
+## Upper / Lower
 
 ### Upper A
 
-| Exercise                | Sets × Reps |
-| ----------------------- | ----------: |
-| Barbell Bench Press     |     3 × 6–8 |
-| Lat Pulldown            |    3 × 8–12 |
-| Seated Cable Row        |    2 × 8–12 |
-| Dumbbell Shoulder Press |    2 × 8–12 |
-| Dumbbell Lateral Raise  |   2 × 12–15 |
-| Triceps Pushdown        |   2 × 10–15 |
-| Dumbbell Bicep Curl     |   2 × 10–15 |
+| Exercise               | Sets × Reps |
+| ---------------------- | ----------: |
+| Barbell Bench Press    |     3 × 6–8 |
+| Lat Pulldown           |    3 × 8–12 |
+| Seated Cable Row       |    2 × 8–12 |
+| Dumbbell Lateral Raise |   2 × 12–15 |
+| Dumbbell Bicep Curl    |   2 × 10–15 |
 
 ### Lower A
 
@@ -107,18 +74,16 @@ Schedule:
 | Romanian Deadlift   |    3 × 8–10 |
 | Leg Press           |   2 × 10–12 |
 | Leg Curl            |   2 × 10–15 |
-| Standing Calf Raise |   3 × 12–15 |
+| Standing Calf Raise |   2 × 12–15 |
 
 ### Upper B
 
 | Exercise                | Sets × Reps |
 | ----------------------- | ----------: |
 | Incline Dumbbell Press  |    3 × 8–10 |
-| Seated Cable Row        |    3 × 8–12 |
-| Lat Pulldown            |    2 × 8–12 |
+| Lat Pulldown            |    3 × 8–12 |
+| Seated Cable Row        |    2 × 8–12 |
 | Dumbbell Shoulder Press |    2 × 8–12 |
-| Dumbbell Lateral Raise  |   2 × 12–15 |
-| Hammer Curl             |   2 × 10–15 |
 | Triceps Pushdown        |   2 × 10–15 |
 
 ### Lower B
@@ -129,67 +94,84 @@ Schedule:
 | Romanian Deadlift     |    3 × 8–10 |
 | Bulgarian Split Squat |    2 × 8–12 |
 | Leg Curl              |   2 × 10–15 |
-| Standing Calf Raise   |   3 × 12–15 |
+| Standing Calf Raise   |   2 × 12–15 |
+
+This is very manageable: **10–12 working sets/session**.
 
 ---
 
-# 4. BEGINNER — 5 DAYS
+# BEGINNER — 5 DAYS
 
-### Low-volume Full Body Rotation
+## Upper / Lower + Full Body
 
-I would **not** give a beginner a high-volume 5-day bodybuilding split.
+I would **not** give a beginner a 5-day PPL. That unnecessarily turns five available days into five demanding days.
 
 Instead:
 
-**Mon — Full Body A**
-**Tue — Full Body B**
-**Wed — Rest / Recovery**
-**Thu — Full Body C**
-**Fri — Full Body A**
-**Sat — Full Body B**
-**Sun — Rest**
+**Mon — Upper A**
+**Tue — Lower A**
+**Wed — Full Body**
+**Thu — Upper B**
+**Fri — Lower B**
+**Weekend — Rest**
 
-The following week starts with C, creating a rotating A/B/C system.
-
-### Full Body A
+### Upper A
 
 | Exercise               | Sets × Reps |
 | ---------------------- | ----------: |
 | Barbell Bench Press    |     3 × 6–8 |
-| Leg Press              |    3 × 8–12 |
 | Lat Pulldown           |    3 × 8–12 |
+| Seated Cable Row       |    2 × 8–12 |
 | Dumbbell Lateral Raise |   2 × 12–15 |
-| Triceps Pushdown       |   2 × 10–15 |
-
-### Full Body B
-
-| Exercise               | Sets × Reps |
-| ---------------------- | ----------: |
-| Goblet Squat           |    3 × 8–12 |
-| Incline Dumbbell Press |    3 × 8–12 |
-| Seated Cable Row       |    3 × 8–12 |
-| Romanian Deadlift      |    2 × 8–10 |
 | Dumbbell Bicep Curl    |   2 × 10–15 |
 
-### Full Body C
+### Lower A
 
-| Exercise               | Sets × Reps |
-| ---------------------- | ----------: |
-| Barbell Squat          |     3 × 6–8 |
-| Dumbbell Bench Press   |    3 × 8–12 |
-| Lat Pulldown           |    3 × 8–12 |
-| Leg Curl               |   2 × 10–15 |
-| Dumbbell Lateral Raise |   2 × 12–15 |
+| Exercise          | Sets × Reps |
+| ----------------- | ----------: |
+| Barbell Squat     |     3 × 6–8 |
+| Romanian Deadlift |    3 × 8–10 |
+| Leg Press         |   2 × 10–12 |
+| Leg Curl          |   2 × 10–15 |
+| Calf Raise        |   2 × 12–15 |
 
-This is deliberately **low volume per session**. Someone choosing five gym days doesn't automatically need five hard bodybuilding sessions.
+### Full Body
+
+| Exercise                   | Sets × Reps |
+| -------------------------- | ----------: |
+| Goblet Squat               |    2 × 8–12 |
+| Incline Dumbbell Press     |    2 × 8–12 |
+| Lat Pulldown               |    2 × 8–12 |
+| Dumbbell Romanian Deadlift |   2 × 10–12 |
+| Dumbbell Lateral Raise     |   2 × 12–15 |
+
+### Upper B
+
+| Exercise                | Sets × Reps |
+| ----------------------- | ----------: |
+| Incline Dumbbell Press  |    3 × 8–10 |
+| Seated Cable Row        |    3 × 8–12 |
+| Lat Pulldown            |    2 × 8–12 |
+| Dumbbell Shoulder Press |    2 × 8–12 |
+| Triceps Pushdown        |   2 × 10–15 |
+
+### Lower B
+
+| Exercise              | Sets × Reps |
+| --------------------- | ----------: |
+| Leg Press             |    3 × 8–12 |
+| Romanian Deadlift     |    3 × 8–10 |
+| Bulgarian Split Squat |    2 × 8–12 |
+| Leg Curl              |   2 × 10–15 |
+| Calf Raise            |   2 × 12–15 |
+
+This is a good example of how **five training days doesn't mean five huge workouts**.
 
 ---
 
-# 5. INTERMEDIATE — 3 DAYS
+# INTERMEDIATE — 3 DAYS
 
-### Full Body A / B / C
-
-This is where the app can start giving the user substantially more work.
+## Full Body A / B / C
 
 ### Day A
 
@@ -199,41 +181,35 @@ This is where the app can start giving the user substantially more work.
 | Barbell Bench Press    |     3 × 6–8 |
 | Lat Pulldown           |    3 × 8–12 |
 | Romanian Deadlift      |    2 × 8–10 |
-| Dumbbell Lateral Raise |   3 × 12–15 |
-| Triceps Pushdown       |   2 × 10–15 |
-| Dumbbell Bicep Curl    |   2 × 10–15 |
+| Dumbbell Lateral Raise |   2 × 12–20 |
 
 ### Day B
 
 | Exercise                | Sets × Reps |
 | ----------------------- | ----------: |
-| Romanian Deadlift       |     3 × 6–8 |
-| Incline Dumbbell Press  |    3 × 8–10 |
-| Seated Cable Row        |    3 × 8–12 |
-| Leg Press               |   3 × 10–12 |
+| Leg Press               |    3 × 8–12 |
+| Incline Dumbbell Press  |    3 × 8–12 |
+| Barbell Row             |    3 × 6–10 |
 | Dumbbell Shoulder Press |    2 × 8–12 |
-| Hammer Curl             |   2 × 10–15 |
-| Standing Calf Raise     |   3 × 12–15 |
+| Dumbbell Bicep Curl     |   2 × 10–15 |
 
 ### Day C
 
-| Exercise               | Sets × Reps |
-| ---------------------- | ----------: |
-| Barbell Squat          |     3 × 6–8 |
-| Dumbbell Bench Press   |    3 × 8–12 |
-| Lat Pulldown           |    3 × 8–12 |
-| Bulgarian Split Squat  |    2 × 8–12 |
-| Dumbbell Lateral Raise |   3 × 12–20 |
-| Triceps Pushdown       |   2 × 10–15 |
-| Hammer Curl            |   2 × 10–15 |
+| Exercise             | Sets × Reps |
+| -------------------- | ----------: |
+| Barbell Squat        |     3 × 6–8 |
+| Dumbbell Bench Press |    3 × 8–12 |
+| Seated Cable Row     |    3 × 8–12 |
+| Leg Curl             |   2 × 10–15 |
+| Triceps Pushdown     |   2 × 10–15 |
 
 ---
 
-# 6. INTERMEDIATE — 4 DAYS
+# INTERMEDIATE — 4 DAYS
 
-### Upper / Lower ×2
+## Upper / Lower
 
-This would probably be the **best overall template** for an intermediate user.
+This would be my **default recommended template for an intermediate user**.
 
 ### Upper A
 
@@ -241,33 +217,29 @@ This would probably be the **best overall template** for an intermediate user.
 | ---------------------- | ----------: |
 | Barbell Bench Press    |     3 × 5–8 |
 | Barbell Row            |    3 × 6–10 |
-| Incline Dumbbell Press |    3 × 8–12 |
-| Lat Pulldown           |    3 × 8–12 |
+| Incline Dumbbell Press |    2 × 8–12 |
+| Lat Pulldown           |    2 × 8–12 |
 | Dumbbell Lateral Raise |   3 × 12–20 |
-| Triceps Pushdown       |   2 × 10–15 |
-| Dumbbell Bicep Curl    |   2 × 10–15 |
 
 ### Lower A
 
-| Exercise            | Sets × Reps |
-| ------------------- | ----------: |
-| Barbell Squat       |     3 × 5–8 |
-| Romanian Deadlift   |    3 × 6–10 |
-| Leg Press           |   3 × 10–12 |
-| Leg Curl            |   2 × 10–15 |
-| Standing Calf Raise |   3 × 10–15 |
+| Exercise          | Sets × Reps |
+| ----------------- | ----------: |
+| Barbell Squat     |     3 × 5–8 |
+| Romanian Deadlift |    3 × 6–10 |
+| Leg Press         |   3 × 10–12 |
+| Leg Curl          |   2 × 10–15 |
+| Calf Raise        |   2 × 12–15 |
 
 ### Upper B
 
-| Exercise                     | Sets × Reps |
-| ---------------------------- | ----------: |
-| Incline Dumbbell Bench Press |    3 × 6–10 |
-| Lat Pulldown                 |    3 × 8–12 |
-| Seated Cable Row             |    3 × 8–12 |
-| Dumbbell Shoulder Press      |    3 × 8–12 |
-| Dumbbell Lateral Raise       |   3 × 12–20 |
-| Hammer Curl                  |   2 × 10–15 |
-| Overhead Triceps Extension   |   2 × 10–15 |
+| Exercise                | Sets × Reps |
+| ----------------------- | ----------: |
+| Incline Dumbbell Press  |    3 × 8–10 |
+| Lat Pulldown            |    3 × 8–12 |
+| Seated Cable Row        |    3 × 8–12 |
+| Dumbbell Shoulder Press |    2 × 8–12 |
+| Dumbbell Lateral Raise  |   3 × 12–20 |
 
 ### Lower B
 
@@ -277,23 +249,15 @@ This would probably be the **best overall template** for an intermediate user.
 | Bulgarian Split Squat |    3 × 8–12 |
 | Leg Press             |   3 × 10–15 |
 | Leg Curl              |   3 × 10–15 |
-| Standing Calf Raise   |   3 × 12–15 |
+| Calf Raise            |   3 × 12–20 |
+
+Notice something important: **only one heavy deadlift day**. I would not program high-volume deadlifting twice weekly just to inflate the exercise list.
 
 ---
 
-# 7. INTERMEDIATE — 5 DAYS
+# INTERMEDIATE — 5 DAYS
 
-### Push / Pull / Legs + Upper / Lower
-
-Schedule:
-
-**Mon — Push**
-**Tue — Pull**
-**Wed — Legs**
-**Thu — Rest**
-**Fri — Upper**
-**Sat — Lower**
-**Sun — Rest**
+## Push / Pull / Legs + Upper / Lower
 
 ### Push
 
@@ -301,9 +265,9 @@ Schedule:
 | ----------------------- | ----------: |
 | Barbell Bench Press     |     3 × 5–8 |
 | Incline Dumbbell Press  |    3 × 8–12 |
-| Dumbbell Shoulder Press |    3 × 8–12 |
+| Dumbbell Shoulder Press |    2 × 8–12 |
 | Dumbbell Lateral Raise  |   3 × 12–20 |
-| Triceps Pushdown        |   3 × 10–15 |
+| Triceps Pushdown        |   2 × 10–15 |
 
 ### Pull
 
@@ -312,31 +276,28 @@ Schedule:
 | Deadlift            |     2 × 4–6 |
 | Lat Pulldown        |    3 × 8–12 |
 | Seated Cable Row    |    3 × 8–12 |
-| Face Pull           |   2 × 12–15 |
-| Dumbbell Bicep Curl |    3 × 8–12 |
-| Hammer Curl         |   2 × 10–15 |
+| Face Pull           |   2 × 12–20 |
+| Dumbbell Bicep Curl |   3 × 10–15 |
 
 ### Legs
 
-| Exercise            | Sets × Reps |
-| ------------------- | ----------: |
-| Barbell Squat       |     3 × 5–8 |
-| Romanian Deadlift   |    3 × 8–10 |
-| Leg Press           |   3 × 10–12 |
-| Leg Curl            |   2 × 10–15 |
-| Standing Calf Raise |   3 × 12–15 |
+| Exercise          | Sets × Reps |
+| ----------------- | ----------: |
+| Barbell Squat     |     3 × 5–8 |
+| Romanian Deadlift |    3 × 8–10 |
+| Leg Press         |   3 × 10–12 |
+| Leg Curl          |   2 × 10–15 |
+| Calf Raise        |   3 × 12–15 |
 
 ### Upper
 
-| Exercise                     | Sets × Reps |
-| ---------------------------- | ----------: |
-| Incline Dumbbell Bench Press |    3 × 8–10 |
-| Barbell Row                  |    3 × 8–10 |
-| Lat Pulldown                 |   3 × 10–12 |
-| Dumbbell Shoulder Press      |    2 × 8–12 |
-| Dumbbell Lateral Raise       |   3 × 12–20 |
-| Triceps Pushdown             |   2 × 10–15 |
-| Hammer Curl                  |   2 × 10–15 |
+| Exercise               | Sets × Reps |
+| ---------------------- | ----------: |
+| Incline Dumbbell Press |    3 × 8–10 |
+| Barbell Row            |    3 × 6–10 |
+| Lat Pulldown           |   3 × 10–12 |
+| Dumbbell Lateral Raise |   3 × 12–20 |
+| Hammer Curl            |   2 × 10–15 |
 
 ### Lower
 
@@ -345,17 +306,18 @@ Schedule:
 | Barbell Squat         |     3 × 6–8 |
 | Romanian Deadlift     |    3 × 8–10 |
 | Bulgarian Split Squat |    2 × 8–12 |
-| Leg Press             |   2 × 10–15 |
-| Leg Curl              |   2 × 10–15 |
-| Standing Calf Raise   |   3 × 12–15 |
+| Leg Curl              |   3 × 10–15 |
+| Calf Raise            |   3 × 12–20 |
+
+This gives an intermediate user much more weekly stimulus **without making any single workout ridiculous**.
 
 ---
 
-# 8. ADVANCED — 3 DAYS
+# ADVANCED — 3 DAYS
 
-### High-efficiency Full Body
+## Full Body
 
-For advanced trainees limited to three days, I'd make the sessions more demanding rather than trying to pretend they need a classic six-day split.
+Advanced trainees with only three days have to be efficient.
 
 ### Day A
 
@@ -364,9 +326,8 @@ For advanced trainees limited to three days, I'd make the sessions more demandin
 | Barbell Squat          |     4 × 4–6 |
 | Barbell Bench Press    |     4 × 5–8 |
 | Barbell Row            |    3 × 6–10 |
-| Romanian Deadlift      |    3 × 6–10 |
+| Romanian Deadlift      |    2 × 6–10 |
 | Dumbbell Lateral Raise |   3 × 12–20 |
-| Triceps Pushdown       |   2 × 10–15 |
 
 ### Day B
 
@@ -377,30 +338,26 @@ For advanced trainees limited to three days, I'd make the sessions more demandin
 | Lat Pulldown            |    3 × 8–12 |
 | Bulgarian Split Squat   |    3 × 8–12 |
 | Dumbbell Shoulder Press |    3 × 8–12 |
-| Dumbbell Bicep Curl     |    3 × 8–12 |
 
 ### Day C
 
 | Exercise               | Sets × Reps |
 | ---------------------- | ----------: |
 | Barbell Squat          |     3 × 5–8 |
-| Dumbbell Bench Press   |    3 × 8–12 |
+| Dumbbell Bench Press   |    4 × 8–12 |
 | Seated Cable Row       |    3 × 8–12 |
-| Leg Press              |   3 × 10–15 |
 | Leg Curl               |   3 × 10–15 |
 | Dumbbell Lateral Raise |   3 × 12–20 |
-| Hammer Curl            |   2 × 10–15 |
-| Triceps Pushdown       |   2 × 10–15 |
+
+That's still just five exercises, but an advanced user gets more sets per exercise.
 
 ---
 
-# 9. ADVANCED — 4 DAYS
+# ADVANCED — 4 DAYS
 
-### Upper / Lower ×2
+## Upper / Lower
 
-This is the **strength + hypertrophy** template.
-
-### Upper A — Strength Bias
+### Upper A
 
 | Exercise               | Sets × Reps |
 | ---------------------- | ----------: |
@@ -409,32 +366,28 @@ This is the **strength + hypertrophy** template.
 | Incline Dumbbell Press |    3 × 8–10 |
 | Lat Pulldown           |    3 × 8–12 |
 | Dumbbell Lateral Raise |   3 × 12–20 |
-| Triceps Pushdown       |   3 × 10–15 |
-| Dumbbell Bicep Curl    |    3 × 8–12 |
 
-### Lower A — Strength Bias
+### Lower A
 
-| Exercise            | Sets × Reps |
-| ------------------- | ----------: |
-| Barbell Squat       |     4 × 4–6 |
-| Romanian Deadlift   |     3 × 6–8 |
-| Leg Press           |    3 × 8–12 |
-| Leg Curl            |   3 × 10–15 |
-| Standing Calf Raise |   3 × 10–15 |
+| Exercise          | Sets × Reps |
+| ----------------- | ----------: |
+| Barbell Squat     |     4 × 4–6 |
+| Romanian Deadlift |     3 × 6–8 |
+| Leg Press         |    3 × 8–12 |
+| Leg Curl          |   3 × 10–15 |
+| Calf Raise        |   3 × 10–15 |
 
-### Upper B — Hypertrophy Bias
+### Upper B
 
-| Exercise                     | Sets × Reps |
-| ---------------------------- | ----------: |
-| Incline Dumbbell Bench Press |    4 × 6–10 |
-| Lat Pulldown                 |    4 × 8–12 |
-| Seated Cable Row             |    3 × 8–12 |
-| Dumbbell Shoulder Press      |    3 × 8–12 |
-| Dumbbell Lateral Raise       |   3 × 12–20 |
-| Hammer Curl                  |   3 × 10–15 |
-| Overhead Triceps Extension   |   3 × 10–15 |
+| Exercise                | Sets × Reps |
+| ----------------------- | ----------: |
+| Incline Dumbbell Press  |    4 × 6–10 |
+| Lat Pulldown            |    4 × 8–12 |
+| Seated Cable Row        |    3 × 8–12 |
+| Dumbbell Shoulder Press |    3 × 8–12 |
+| Dumbbell Lateral Raise  |   3 × 12–20 |
 
-### Lower B — Hypertrophy Bias
+### Lower B
 
 | Exercise              | Sets × Reps |
 | --------------------- | ----------: |
@@ -442,28 +395,25 @@ This is the **strength + hypertrophy** template.
 | Bulgarian Split Squat |    3 × 8–12 |
 | Leg Press             |   3 × 10–15 |
 | Leg Curl              |   3 × 10–15 |
-| Standing Calf Raise   |   4 × 12–20 |
+| Calf Raise            |   4 × 12–20 |
 
 ---
 
-# 10. ADVANCED — 5 DAYS
+# ADVANCED — 5 DAYS
 
-### PPL + Upper / Lower
+## PPL + Upper / Lower
 
-This is the highest-volume template and should be the "advanced 5-day" option.
+### Push
 
-### Day 1 — Push
+| Exercise                | Sets × Reps |
+| ----------------------- | ----------: |
+| Barbell Bench Press     |     4 × 4–6 |
+| Incline Dumbbell Press  |    3 × 6–10 |
+| Dumbbell Shoulder Press |    3 × 8–12 |
+| Dumbbell Lateral Raise  |   3 × 12–20 |
+| Triceps Pushdown        |   3 × 10–15 |
 
-| Exercise                   | Sets × Reps |
-| -------------------------- | ----------: |
-| Barbell Bench Press        |     4 × 4–6 |
-| Incline Dumbbell Press     |    3 × 6–10 |
-| Dumbbell Shoulder Press    |    3 × 8–10 |
-| Dumbbell Lateral Raise     |   4 × 12–20 |
-| Triceps Pushdown           |   3 × 10–15 |
-| Overhead Triceps Extension |   2 × 10–15 |
-
-### Day 2 — Pull
+### Pull
 
 | Exercise            | Sets × Reps |
 | ------------------- | ----------: |
@@ -471,199 +421,148 @@ This is the highest-volume template and should be the "advanced 5-day" option.
 | Barbell Row         |    3 × 6–10 |
 | Lat Pulldown        |    3 × 8–12 |
 | Seated Cable Row    |    3 × 8–12 |
-| Face Pull           |   2 × 12–20 |
 | Dumbbell Bicep Curl |    3 × 8–12 |
-| Hammer Curl         |   2 × 10–15 |
 
-### Day 3 — Legs
+### Legs
 
-| Exercise            | Sets × Reps |
-| ------------------- | ----------: |
-| Barbell Squat       |     4 × 4–6 |
-| Romanian Deadlift   |    3 × 6–10 |
-| Leg Press           |    3 × 8–12 |
-| Leg Curl            |   3 × 10–15 |
-| Standing Calf Raise |   4 × 10–15 |
+| Exercise          | Sets × Reps |
+| ----------------- | ----------: |
+| Barbell Squat     |     4 × 4–6 |
+| Romanian Deadlift |    3 × 6–10 |
+| Leg Press         |    3 × 8–12 |
+| Leg Curl          |   3 × 10–15 |
+| Calf Raise        |   4 × 10–15 |
 
-### Day 4 — Upper
+### Upper
 
-| Exercise                     | Sets × Reps |
-| ---------------------------- | ----------: |
-| Incline Dumbbell Bench Press |    3 × 8–10 |
-| Lat Pulldown                 |    3 × 8–12 |
-| Seated Cable Row             |    3 × 8–12 |
-| Dumbbell Shoulder Press      |    2 × 8–12 |
-| Dumbbell Lateral Raise       |   3 × 12–20 |
-| Triceps Pushdown             |   2 × 10–15 |
-| Dumbbell Bicep Curl          |   2 × 10–15 |
+| Exercise               | Sets × Reps |
+| ---------------------- | ----------: |
+| Incline Dumbbell Press |    3 × 8–10 |
+| Lat Pulldown           |    3 × 8–12 |
+| Seated Cable Row       |    3 × 8–12 |
+| Dumbbell Lateral Raise |   3 × 12–20 |
+| Hammer Curl            |   2 × 10–15 |
 
-### Day 5 — Lower
+### Lower
 
 | Exercise              | Sets × Reps |
 | --------------------- | ----------: |
 | Barbell Squat         |     3 × 6–8 |
 | Romanian Deadlift     |    3 × 8–10 |
 | Bulgarian Split Squat |    3 × 8–12 |
-| Leg Press             |   2 × 10–15 |
 | Leg Curl              |   3 × 10–15 |
-| Standing Calf Raise   |   4 × 12–20 |
+| Calf Raise            |   4 × 12–20 |
 
 ---
 
-# 11. One important programming rule for NextRep
+# Why I think this version is substantially better for NextRep
 
-I would **not make users think that every set must be taken to failure**.
+The key change is that we're no longer saying:
 
-A useful default would be:
+> "Every muscle needs its own exercise every workout."
 
-**Beginner**
+We're saying:
 
-* Compounds: ~2–3 reps in reserve
-* Isolation: ~1–2 RIR
+> **"Use a few high-value movements and accumulate enough quality work across the week."**
 
-**Intermediate**
+That's much closer to what the evidence supports.
 
-* Compounds: ~1–3 RIR
-* Isolation: ~1–2 RIR
+The 2026 ACSM review found that resistance training substantially improves strength and hypertrophy, and that **higher weekly volume is associated with greater hypertrophy**; however, it did not find consistent additional benefit from simply making programming more complex. ([PubMed][1])
 
-**Advanced**
+And the frequency literature gives an important product-design insight: when total weekly volume is matched, training a muscle more frequently doesn't magically create more growth. Frequency is therefore primarily a tool for **distributing the work**. ([PubMed][2])
 
-* Compounds: ~1–2 RIR
-* Isolation: ~0–2 RIR
+That is exactly why I'd keep NextRep workouts around:
 
-The literature does not support "failure on every set" as necessary for hypertrophy, and the latest ACSM review similarly found momentary failure was not consistently superior. ([PubMed][1])
+**Beginner:** ~8–12 working sets/session
+**Intermediate:** ~10–15
+**Advanced:** ~12–17
+
+rather than chasing seven exercises.
 
 ---
 
-# 12. Rep ranges should be treated as ranges, not fixed numbers
+# One more important change: don't make every set "direct"
 
-current UI already has things like:
+Suppose a user does:
 
-> `4 × 6–8`
+**Bench Press — 3 sets**
+**Incline Dumbbell Press — 3 sets**
+**Shoulder Press — 2 sets**
 
-That is what we have to keep.
-For example:
+That's already substantial stimulus for chest/front delts/triceps.
+
+You don't then necessarily need:
+
+**Chest Fly + Front Raise + Triceps Extension**
+
+just because those muscles don't have their own named exercise.
+
+This is where the previous plan became unnecessarily long.
+
+---
+
+# How I'd make these templates "actually show results"
+
+The template itself isn't enough. **Progression is the missing piece.**
+
+For every exercise, NextRep should use a simple **double-progression** rule:
+
+### Example
 
 **Bench Press — 3 × 6–8**
 
-means the user starts with a suitable load and progressively works toward 8 reps. Once they can exceed the prescribed range with good form, increase load.
+User starts:
 
-ACSM's earlier progression guidance recommends increasing load when the lifter can perform roughly 1–2 reps beyond the desired target, typically by around **2–10%**, depending on the exercise and trainee. ([PubMed][2])
+`70 kg → 8, 7, 6`
 
-That progression rule would fit extremely well into NextRep's analytics engine.
+Next sessions, they try to accumulate more reps:
 
----
+`70 kg → 8, 8, 7`
 
-# 13. Why we should change the current fixed plan
+then:
 
-the current plan is:
+`70 kg → 8, 8, 8`
 
-**Push → Pull → Legs → Upper**
+Once all prescribed sets reach the top of the range with good form, NextRep recommends increasing the load slightly and returning toward the lower end.
 
-and that's actually not bad as a workout itself.
+That is far more important to results than whether the template contains a sixth exercise.
 
-The problem is that it isn't a good **universal template**.
-
-For example, the current Push day gives a lot of chest/shoulder/triceps work in one session, while a beginner could do better with more frequent exposure and less session volume. Meanwhile, someone training five days could tolerate and benefit from substantially more weekly work.
-
-The evidence around frequency is nuanced: when weekly volume is equated, frequency by itself isn't a magical hypertrophy variable, but spreading adequate volume across the week is a very practical way to make the workload manageable. ([PubMed][3]) The 2026 ACSM guidance takes the practical position of training major muscle groups at least twice weekly. 
+ACSM's established progression guidance likewise recommends increasing load once a trainee can perform beyond the desired repetition target. ([PubMed][4])
 
 ---
 
-# 14. How I'd present this in the Template tab
+# One thing I would NOT do
 
-Instead of showing:
+I wouldn't market these as:
 
-**Templates**
+**"Beginner = 6 sets, Intermediate = 10 sets, Advanced = 15 sets."**
 
-then immediately listing the workouts, I'd make the top of the page a small selector:
+Experience isn't perfectly correlated with recoverability.
 
-**Experience**
-`Beginner   Intermediate   Advanced`
+Instead, experience should influence:
 
-**Days / Week**
-`3 days   4 days   5 days`
+**exercise complexity + volume tolerance + loading + progression sophistication**
 
-Then show the corresponding templates.
+while the app monitors the user's actual performance.
 
-For example:
+That would fit your existing NextRep architecture particularly well because your app already records **weight, reps, RPE and notes**, and your analytics engine already calculates volume, estimated 1RM, PRs and progression.  
 
-### Beginner · 4 Days
+That means the long-term version of NextRep can eventually say:
 
-**Upper / Lower**
+> **"Your current 4-day plan is working. Keep it."**
 
-`4 workouts · ~45–65 min`
+or
 
-**Upper A**
-Chest · Back · Shoulders · Arms
+> **"Your chest volume has stalled for 4 weeks. Add 1 set to your incline press."**
 
-**Lower A**
-Quads · Hamstrings · Glutes · Calves
+rather than endlessly giving users more exercises.
 
-**Upper B**
-Chest · Back · Shoulders · Arms
+## My final recommended defaults
 
-**Lower B**
-Quads · Hamstrings · Glutes · Calves
+For the template picker, I would put these three at the top:
 
-`Use This Template →`
+**Beginner + 3 days → Full Body A/B/C**
 
-That would make the template section feel like a **real program selection system**, rather than a collection of random routines.
+**Intermediate + 4 days → Upper / Lower**
 
----
-
-# 15. One thing I would add beyond experience level
-
-Eventually, NextRep should probably ask for:
-
-**Experience**
-
-* Beginner
-* Intermediate
-* Advanced
-
-**Training days**
-
-* 3
-* 4
-* 5
-
-**Primary goal**
-
-* Muscle Gain
-* Strength
-* General Fitness
-
-Then use the above templates as the **base programs** and slightly alter exercise selection, rep emphasis and volume.
-
-For example, the current ACSM position stand specifically distinguishes strength programming from hypertrophy: heavier loads around ≥80% 1RM with 2–3 sets are emphasized for strength, while higher weekly volume is emphasized for hypertrophy. ([PubMed][1])
-
-That means you don't actually need 30 completely unique plans. You can have a relatively compact, high-quality template library and generate goal-specific variations from it.
-
----
-
-## the recommendation for initial release
-
-Don't launch all nine templates with equal prominence.
-
-Make these the three **recommended defaults**:
-
-**Beginner → 3-Day Full Body**
-
-**Intermediate → 4-Day Upper/Lower**
-
-**Advanced → 5-Day PPL + Upper/Lower**
-
-Then expose all other combinations under **"More Templates"**.
-
-That gives a user a sensible default without taking away choice.
-
-One technical note: the exact 9 routines above are **my programming synthesis based on the evidence**, not routines copied from any single study. Research supports the general principles—progressive resistance training, sufficient weekly volume, appropriate frequency, exercise selection, and load management—but it doesn't prescribe "3 × 8–12 Lat Pulldown" as a uniquely optimal combination. 
-
-### Sources (give an i icon on top right of the template page to show this info in a popup - in short(with modern hyperlinks))
-
-The most important evidence I used here is the **2026 ACSM Position Stand**, which synthesizes 137 systematic reviews involving more than 30,000 participants; the weekly-volume meta-analysis; and systematic reviews examining training frequency, loading, exercise order and proximity to failure. ([PubMed][1])
-
-[1]: https://pubmed.ncbi.nlm.nih.gov/41843416/?utm_source=chatgpt.com "American College of Sports Medicine Position Stand. Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults: An Overview of Reviews - PubMed"
-[2]: https://pubmed.ncbi.nlm.nih.gov/11828249/?utm_source=chatgpt.com "American College of Sports Medicine position stand. Progression models in resistance training for healthy adults - PubMed"
-[3]: https://pubmed.ncbi.nlm.nih.gov/30558493/?utm_source=chatgpt.com "How many times per week should a muscle be trained to maximize muscle hypertrophy? A systematic review and meta-analysis of studies examining the effects of resistance training frequency - PubMed"
+**Advanced + 5 days → Push / Pull / Legs + Upper / Lower**

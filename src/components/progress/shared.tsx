@@ -25,13 +25,15 @@ export const TF_LABELS: Record<ProgressTimeframe, string> = {
 export function TimeframeChips({
   tf,
   onChange,
+  options = TIMEFRAMES,
 }: {
   tf: ProgressTimeframe;
   onChange: (t: ProgressTimeframe) => void;
+  options?: readonly ProgressTimeframe[];
 }) {
   return (
     <Row gap={8}>
-      {TIMEFRAMES.map((t) => (
+      {options.map((t) => (
         <Chip key={t} label={t} selected={tf === t} onPress={() => onChange(t)} />
       ))}
     </Row>
