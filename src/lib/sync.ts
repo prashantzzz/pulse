@@ -8,6 +8,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { usePulse } from '../store/useStore';
 import { SEED_PLANS } from '../data/seed';
+import { genUuid, isValidUuid } from './uuid';
 import type { BodyMeasurement, ExerciseSet, SetType, UserProfile, Workout, WorkoutExercise, WorkoutPlan } from '../types';
 
 interface RawSet {
@@ -220,10 +221,20 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
 
     // 6. Update local store state
     usePulse.setState((state) => {
+      // Merge plans by ID to ensure local plans and cloud plans are safely consolidated
+      const planMap = new Map<string, WorkoutPlan>();
+      for (const p of state.plans) {
+        if (p.id) planMap.set(p.id, p);
+      }
+      for (const cp of cloudPlans) {
+        if (cp.id) planMap.set(cp.id, cp);
+      }
+      const consolidatedPlans = Array.from(planMap.values());
+
       return {
         workouts: cloudWorkouts,
         measurements: cloudMeasurements,
-        plans: cloudPlans.length > 0 ? cloudPlans : (state.plans.length > 0 ? state.plans : SEED_PLANS),
+        plans: consolidatedPlans.length > 0 ? consolidatedPlans : (state.plans.length > 0 ? state.plans : SEED_PLANS),
         profile: userProfile ?? state.profile,
         onboarded: userProfile ? (userProfile.onboarded ?? state.onboarded) : state.onboarded,
       };
@@ -428,9 +439,10 @@ async function directPushMeasurementToCloud(userId: string, m: BodyMeasurement):
 async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
   try {
+    const validId = isValidUuid(plan.id) ? plan.id : genUuid();
     const { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
       .upsert({
-        id: plan.id.length === 36 ? plan.id : undefined, // only use id if valid uuid, otherwise auto-generate
+        id: validId,
         user_id: userId,
         name: plan.title,
         emoji: plan.emoji || '💪',
@@ -463,6 +475,8 @@ async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise
 
 async function directRemovePlanFromCloud(userId: string, planId: string): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
+  // If planId is not a valid UUID (e.g. legacy/local-only id), nothing exists in Supabase to delete
+  if (!isValidUuid(planId)) return true;
   try {
     const { error } = await (supabase.from('workout_plans') as any)
       .delete()

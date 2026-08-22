@@ -357,5 +357,33 @@ To enable Authentication with Supabase, configure your project in the [Supabase 
 5. Save changes.
 
 ---
-
+## Exercies missing animations:
+Machine Chest Press (machine-press)
+Decline Bench Press (decline-bench-press)
+Cable Chest Fly (cable-fly)
+Chest Dips (dips)
+Lat Pulldown (lat-pulldown)
+Resistance Band Pulldown (band-pulldown)
+Seated Cable Row (seated-cable-row)
+Face Pull (face-pull)
+Assisted Pull-Up (assisted-pullup)
+Straight-Arm Pulldown (straight-arm-pulldown)
+Back Extension (hyperextension)
+Machine Shoulder Press (machine-shoulder-press)
+Cable Lateral Raise (cable-lateral-raise)
+Upright Row (upright-row)
+Cable Curl (cable-curl)
+Concentration Curl (concentration-curl)
+Skull Crusher (skull-crusher)
+Close-Grip Bench Press (close-grip-bench-press)
+Triceps Kickback (triceps-kickback)
+Bulgarian Split Squat (bulgarian-split-squat)
+Calf Raise (calf-raise)
+Standing Calf Raise (standing-calf-raise)
+Seated Calf Raise (seated-calf-raise)
+Ab Wheel Rollout (ab-wheel)
+Cable Woodchopper (cable-woodchopper)
+Dead Bug (dead-bug)
+Jump Rope (jump-rope)
+Stair Climber (stair-climber)
 

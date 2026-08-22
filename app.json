@@ -38,9 +38,16 @@
           }
         }
       ],
+      "expo-build-properties",
+      {
+        "android": {
+          "enableMinifyInReleaseBuilds": true
+        }
+      },
       "expo-sharing",
       "expo-video",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": false,

@@ -94,18 +94,100 @@ function levelFor(inten: number): number | undefined {
   return Math.min(3, Math.max(1, Math.ceil(inten * 3)));
 }
 
-function buildData(side: Side, intensity: Record<string, number>, selected: MuscleGroup | null, strokeColor: string): ExtendedBodyPart[] {
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    return [
+      parseInt(clean[0] + clean[0], 16),
+      parseInt(clean[1] + clean[1], 16),
+      parseInt(clean[2] + clean[2], 16),
+    ];
+  }
+  return [
+    parseInt(clean.substring(0, 2), 16) || 0,
+    parseInt(clean.substring(2, 4), 16) || 0,
+    parseInt(clean.substring(4, 6), 16) || 0,
+  ];
+}
+
+function rgbaString(hex: string, alpha: number): string {
+  if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
+}
+
+/**
+ * Smooth breathing/pulsing animation hook (0.0 → 1.0 → 0.0) using a continuous sine wave.
+ * Throttled to ~30fps for buttery-smooth fade-in / fade-out with low CPU overhead.
+ */
+function usePulseAnimation(active: boolean, periodMs = 1800): number {
+  const [fraction, setFraction] = useState(1);
+
+  useEffect(() => {
+    if (!active) {
+      setFraction(1);
+      return;
+    }
+
+    let rafId: number;
+    const start = Date.now();
+    let lastTime = 0;
+
+    const tick = () => {
+      const now = Date.now();
+      if (now - lastTime >= 33) {
+        lastTime = now;
+        const elapsed = now - start;
+        // Harmonic ease-in-out breathing cycle smoothly oscillating between 0.0 and 1.0
+        const norm = (Math.sin((elapsed / periodMs) * 2 * Math.PI - Math.PI / 2) + 1) / 2;
+        setFraction(norm);
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [active, periodMs]);
+
+  return fraction;
+}
+
+function buildData(
+  side: Side,
+  intensity: Record<string, number>,
+  selected: MuscleGroup | null,
+  strokeColor: string,
+  pulseFraction = 1,
+  palette: [string, string, string] = [colors.zoneLow, colors.zoneMod, colors.zoneWell],
+): ExtendedBodyPart[] {
   const data: ExtendedBodyPart[] = [];
   // base entry for every part so the whole figure uses the dark body fill
   for (const slug of SIDE_SLUGS[side]) data.push({ slug });
   for (const [group, slugs] of SIDE_GROUPS[side]) {
-    const level = levelFor(intensity[group] ?? 0);
+    const rawIntensity = intensity[group] ?? 0;
+    const level = levelFor(rawIntensity);
     const isSel = group === selected;
     for (const slug of slugs) {
       if (isSel) {
-        const styles: BodyPartStyles = { stroke: strokeColor, strokeWidth: 1.6 };
-        if (level == null) styles.fill = colors.accentSoft;
-        data.push({ slug, ...(level != null ? { intensity: level } : {}), styles });
+        // Base color corresponding to current training volume or theme highlight
+        const baseColor =
+          level === 3 ? palette[2] : level === 2 ? palette[1] : level === 1 ? palette[0] : strokeColor;
+
+        // Smoothly interpolate fill alpha, glowing border stroke, and stroke width
+        const fillAlpha = 0.35 + 0.65 * pulseFraction;
+        const strokeAlpha = 0.25 + 0.65 * pulseFraction;
+        const strokeW = +(1.2 + 1.2 * pulseFraction).toFixed(1);
+
+        const styles: BodyPartStyles = {
+          stroke: rgbaString('#FFFFFF', strokeAlpha),
+          strokeWidth: strokeW,
+          fill: rgbaString(baseColor, fillAlpha),
+        };
+        data.push({
+          slug,
+          ...(level != null ? { intensity: level } : {}),
+          styles,
+        });
       } else if (level != null) {
         data.push({ slug, intensity: level });
       }
@@ -124,6 +206,7 @@ function FigurePanel({
   gender,
   palette = [colors.zoneLow, colors.zoneMod, colors.zoneWell] as [string, string, string],
   strokeColor = colors.accent,
+  pulseFraction = 1,
 }: {
   side: Side;
   label: string;
@@ -136,6 +219,7 @@ function FigurePanel({
   palette?: [string, string, string];
   /** stroke used for the selected muscle */
   strokeColor?: string;
+  pulseFraction?: number;
 }) {
   const [panelW, setPanelW] = useState(0);
   // fit the figure inside the panel without overflowing either dimension
@@ -145,7 +229,7 @@ function FigurePanel({
     <View style={styles.figure} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
       <View style={styles.figureInner}>
         <Body
-          data={buildData(side, intensity, selected, strokeColor)}
+          data={buildData(side, intensity, selected, strokeColor, pulseFraction, palette)}
           side={side}
           scale={scale}
           gender={gender}
@@ -181,6 +265,8 @@ export function MuscleMap({
 }) {
   const [local, setLocal] = useState<MuscleGroup | null>(null);
   const sel = selected ?? local;
+  const pulseFraction = usePulseAnimation(Boolean(sel), 1800);
+
   const pick = (m: MuscleGroup) => (onSelect ?? setLocal)(m);
   const press = (part: ExtendedBodyPart) => {
     if (!part.slug) return;
@@ -190,19 +276,19 @@ export function MuscleMap({
 
   return (
     <View style={{ flexDirection: 'row', height, gap: 8 }}>
-      <FigurePanel side="front" label="Front" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} />
-      <FigurePanel side="back" label="Back" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} />
+      <FigurePanel side="front" label="Front" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
+      <FigurePanel side="back" label="Back" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
     </View>
   );
 }
 
-/** deep → mid → light orange: primary target pulses between deep/mid, secondary stays light */
+/** deep → mid → light orange: primary target pulses smoothly between deep and mid orange */
 const TARGET_PALETTE: [string, string, string] = ['#FFC08A', '#FF9F43', '#F97316'];
 
 /**
  * Exercise-target view: shows which muscles an exercise works on the front and
- * back figures — primary target in deep orange (slow blinking), secondary
- * muscles in a lighter orange shade.
+ * back figures — primary target in deep orange (smooth breathing fade-in/fade-out glow),
+ * secondary muscles in a lighter orange shade.
  */
 export function MuscleTargetMap({
   primary,
@@ -215,20 +301,15 @@ export function MuscleTargetMap({
   height?: number;
   gender?: 'male' | 'female';
 }) {
-  // slow blink: the primary muscle alternates deep/mid orange every ~750 ms
-  const [pulse, setPulse] = useState(false);
-  useEffect(() => {
-    const t = setInterval(() => setPulse((p) => !p), 750);
-    return () => clearInterval(t);
-  }, []);
+  const pulseFraction = usePulseAnimation(true, 1800);
 
-  const intensity: Record<string, number> = { [primary]: pulse ? 1 : 0.5 };
+  const intensity: Record<string, number> = { [primary]: 0.4 + 0.6 * pulseFraction };
   for (const m of secondary) intensity[m] = 0.25;
 
   return (
     <View style={{ flexDirection: 'row', height, gap: 8 }}>
-      <FigurePanel side="front" label="Front" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} />
-      <FigurePanel side="back" label="Back" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} />
+      <FigurePanel side="front" label="Front" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} pulseFraction={pulseFraction} />
+      <FigurePanel side="back" label="Back" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} pulseFraction={pulseFraction} />
     </View>
   );
 }

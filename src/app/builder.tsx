@@ -23,6 +23,7 @@ import {
 } from '../data/exercises';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
+import { genUuid } from '../lib/uuid';
 import type { MuscleGroup, WorkoutPlan } from '../types';
 
 interface DraftExercise {
@@ -209,7 +210,7 @@ export default function BuilderScreen() {
 
     // Append as a new plan day to 'My Plans'
     const newPlan: WorkoutPlan = {
-      id: `plan-custom-${Date.now().toString(36)}`,
+      id: genUuid(),
       title: title.trim() || 'Custom Workout',
       emoji: '💪',
       muscles: uniqueMuscles.length > 0 ? uniqueMuscles : ['Chest', 'Back'],

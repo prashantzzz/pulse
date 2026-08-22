@@ -32,7 +32,7 @@ export function PlanCard({
   onEdit?: () => void;
 }) {
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
-  const duration = Math.round(plan.exercises.reduce((s, e) => s + e.sets * 3, 0) * 1.15 + 8);
+  const duration = Math.round(totalSets * 2.8 + plan.exercises.length * 3 + 8);
   const [open, setOpen] = useState(false);
   const openAnim = useAnimatedValue(0);
   const [contentH, setContentH] = useState(0);

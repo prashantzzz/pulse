@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import {
   Activity,
   Apple,
@@ -28,9 +27,10 @@ import {
   Weight,
   Zap,
 } from 'lucide-react-native';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
-import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -402,37 +402,99 @@ export function Screen({
               fy="0%">
               <Stop offset="0%" stopColor={colors.accent} stopOpacity="0.14" />
               <Stop offset="50%" stopColor={colors.accent} stopOpacity="0.04" />
-              <Stop offset="100%" stopColor={colors.bg} stopOpacity="0" />
+              <Stop offset="100%" stopColor={colors.accent} stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Rect width="100%" height="100%" fill={`url(#pulse-radial-glow-${accentKey})`} />
         </Svg>
 
-        {/* Scattered tasteful Lucide gym doodles */}
+        {/* Scattered mini Lucide gym doodles in a tasteful polka-dot scatter */}
         <View style={styles.doodleOverlay}>
-          <View style={[styles.doodleItem, { top: '5%', left: '8%', transform: [{ rotate: '-18deg' }] }]}>
-            <Dumbbell size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          {/* Row 1 */}
+          <View style={[styles.doodleItem, { top: '3%', left: '8%', transform: [{ rotate: '-15deg' }] }]}>
+            <Dumbbell size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '10%', right: '10%', transform: [{ rotate: '15deg' }] }]}>
-            <Zap size={22} color={colors.accent} strokeWidth={1.4} opacity={0.075} />
+          <View style={[styles.doodleItem, { top: '3%', left: '48%', transform: [{ rotate: '10deg' }] }]}>
+            <Zap size={19} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '22%', right: '8%', transform: [{ rotate: '-12deg' }] }]}>
-            <Flame size={23} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          <View style={[styles.doodleItem, { top: '3%', left: '88%', transform: [{ rotate: '-10deg' }] }]}>
+            <Flame size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '34%', left: '10%', transform: [{ rotate: '18deg' }] }]}>
-            <Activity size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+
+          {/* Row 2 (staggered) */}
+          <View style={[styles.doodleItem, { top: '14%', left: '28%', transform: [{ rotate: '15deg' }] }]}>
+            <Activity size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '48%', right: '12%', transform: [{ rotate: '-14deg' }] }]}>
-            <Weight size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          <View style={[styles.doodleItem, { top: '14%', left: '72%', transform: [{ rotate: '-12deg' }] }]}>
+            <Trophy size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '60%', left: '8%', transform: [{ rotate: '-20deg' }] }]}>
-            <Trophy size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+
+          {/* Row 3 */}
+          <View style={[styles.doodleItem, { top: '25%', left: '10%', transform: [{ rotate: '12deg' }] }]}>
+            <Weight size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '74%', right: '10%', transform: [{ rotate: '16deg' }] }]}>
-            <Footprints size={24} color={colors.accent} strokeWidth={1.4} opacity={0.08} />
+          <View style={[styles.doodleItem, { top: '25%', left: '50%', transform: [{ rotate: '-18deg' }] }]}>
+            <Dumbbell size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
-          <View style={[styles.doodleItem, { top: '88%', left: '12%', transform: [{ rotate: '12deg' }] }]}>
-            <Apple size={23} color={colors.accent} strokeWidth={1.4} opacity={0.075} />
+          <View style={[styles.doodleItem, { top: '25%', left: '90%', transform: [{ rotate: '14deg' }] }]}>
+            <Footprints size={21} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 4 (staggered) */}
+          <View style={[styles.doodleItem, { top: '36%', left: '30%', transform: [{ rotate: '-10deg' }] }]}>
+            <Apple size={19} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '36%', left: '70%', transform: [{ rotate: '15deg' }] }]}>
+            <Zap size={19} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 5 */}
+          <View style={[styles.doodleItem, { top: '47%', left: '12%', transform: [{ rotate: '12deg' }] }]}>
+            <Flame size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '47%', left: '52%', transform: [{ rotate: '-15deg' }] }]}>
+            <Activity size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '47%', left: '88%', transform: [{ rotate: '10deg' }] }]}>
+            <Weight size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 6 (staggered) */}
+          <View style={[styles.doodleItem, { top: '58%', left: '28%', transform: [{ rotate: '-12deg' }] }]}>
+            <Trophy size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '58%', left: '72%', transform: [{ rotate: '18deg' }] }]}>
+            <Dumbbell size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 7 */}
+          <View style={[styles.doodleItem, { top: '69%', left: '10%', transform: [{ rotate: '-10deg' }] }]}>
+            <Footprints size={21} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '69%', left: '50%', transform: [{ rotate: '12deg' }] }]}>
+            <Apple size={19} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '69%', left: '90%', transform: [{ rotate: '-15deg' }] }]}>
+            <Zap size={19} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 8 (staggered) */}
+          <View style={[styles.doodleItem, { top: '80%', left: '30%', transform: [{ rotate: '14deg' }] }]}>
+            <Flame size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '80%', left: '70%', transform: [{ rotate: '-12deg' }] }]}>
+            <Activity size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+
+          {/* Row 9 */}
+          <View style={[styles.doodleItem, { top: '91%', left: '12%', transform: [{ rotate: '12deg' }] }]}>
+            <Weight size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '91%', left: '52%', transform: [{ rotate: '-15deg' }] }]}>
+            <Trophy size={20} color={colors.accent} strokeWidth={1.6} />
+          </View>
+          <View style={[styles.doodleItem, { top: '91%', left: '88%', transform: [{ rotate: '10deg' }] }]}>
+            <Dumbbell size={20} color={colors.accent} strokeWidth={1.6} />
           </View>
         </View>
       </View>
@@ -769,5 +831,6 @@ const styles = StyleSheet.create({
   },
   doodleItem: {
     position: 'absolute',
+    opacity: 0.12,
   },
 });
