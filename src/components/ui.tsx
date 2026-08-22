@@ -295,30 +295,32 @@ export function Screen({
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
 
-  const swipeHandler = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (!onSwipeLeft && !onSwipeRight) return false;
-        const { dx, dy } = gestureState;
-        // Require dominant, deliberate horizontal swipe to change tab screens
-        // so inner swipeable cards (e.g. MediaCarousel, Segmented) are never hijacked
-        return Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 2.2;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx, vx } = gestureState;
-        const isFlick = Math.abs(vx) > 0.4;
-        const threshold = isFlick ? 32 : 55;
+  const swipeHandler = React.useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          if (!onSwipeLeft && !onSwipeRight) return false;
+          const { dx, dy } = gestureState;
+          // Require dominant, deliberate horizontal swipe to change tab screens
+          // so inner swipeable cards (e.g. MediaCarousel, Segmented) are never hijacked
+          return Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 2.2;
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const { dx, vx } = gestureState;
+          const isFlick = Math.abs(vx) > 0.4;
+          const threshold = isFlick ? 32 : 55;
 
-        if (dx < -threshold && onSwipeLeft) {
-          onSwipeLeft();
-        } else if (dx > threshold && onSwipeRight) {
-          onSwipeRight();
-        }
-      },
-      onPanResponderTerminationRequest: () => true,
-    })
-  ).current;
+          if (dx < -threshold && onSwipeLeft) {
+            onSwipeLeft();
+          } else if (dx > threshold && onSwipeRight) {
+            onSwipeRight();
+          }
+        },
+        onPanResponderTerminationRequest: () => true,
+      }),
+    [onSwipeLeft, onSwipeRight],
+  );
 
   return (
     <SafeAreaView

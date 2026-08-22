@@ -136,7 +136,7 @@ export default function SignupScreen() {
           <View style={styles.header}>
             <Image
               source={require('../../../assets/images/logo.png')}
-              style={{ width: 68, height: 68, borderRadius: 18 }}
+              style={{ width: 84, height: 84, borderRadius: 22 }}
               resizeMode="contain"
             />
             <T variant="h1" style={{ marginTop: 16 }}>

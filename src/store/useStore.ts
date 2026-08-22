@@ -76,6 +76,8 @@ interface PulseState {
   finishWorkout: () => Workout | null;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
+  /** Replace entire active workout plans set (e.g. when applying a template) */
+  setPlans: (plans: WorkoutPlan[]) => void;
   /** Replace an existing plan (edit via the builder) */
   updatePlan: (id: string, plan: WorkoutPlan) => void;
   /** Remove a plan (only the template — workout history is untouched) */
@@ -319,6 +321,8 @@ export const usePulse = create<PulseState>()(
           if (user) pushWorkoutToCloud(user.id, built).catch(() => {});
         }).catch(() => {});
       },
+
+      setPlans: (plans) => set({ plans }),
 
       updatePlan: (id, plan) =>
         set((s) => ({

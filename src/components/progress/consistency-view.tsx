@@ -1,4 +1,5 @@
-import { ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
 
 import { CalendarHeatmap, type HeatDay } from '../heatmap';
 import { ProgressRing } from '../ring';
@@ -7,16 +8,38 @@ import { Card, ProgressBar, Row } from '../ui';
 import { consistencyPct, currentStreak, dayKey, longestStreak, sessionsPerWeek, workoutDayKeys } from '../../lib/stats';
 import { spacing } from '../../theme';
 import type { Workout } from '../../types';
-import { SummaryCard } from './shared';
+import { SummaryCard, TF_LABELS, TimeframeChips, type ProgressTimeframe } from './shared';
 
-const HEAT_WEEKS = 12;
+const TF_HEAT_WEEKS: Record<ProgressTimeframe, number> = {
+  '7D': 1,
+  '1M': 4,
+  '3M': 12,
+  '6M': 26,
+  '1Y': 52,
+};
 
 /**
  * Consistency tab: streak stats plus a GitHub-style training heatmap where the
  * color intensity reflects daily volume, and a 28-day consistency score.
  */
-export function ConsistencyView({ workouts }: { workouts: Workout[] }) {
-  // heatmap grid: last 12 weeks, Mon..Sun columns, intensity = daily volume
+export function ConsistencyView({
+  workouts,
+  chartW,
+  tf,
+  onTimeframeChange,
+}: {
+  workouts: Workout[];
+  chartW?: number;
+  tf?: ProgressTimeframe;
+  onTimeframeChange?: (t: ProgressTimeframe) => void;
+}) {
+  const [localTf, setLocalTf] = useState<ProgressTimeframe>('3M');
+  const activeTf = tf ?? localTf;
+  const handleTfChange = onTimeframeChange ?? setLocalTf;
+
+  const heatWeeks = TF_HEAT_WEEKS[activeTf];
+
+  // heatmap grid: Mon..Sun columns, intensity = daily volume
   const keys = workoutDayKeys(workouts);
   const dayVols = new Map<string, number>();
   for (const w of workouts) {
@@ -36,7 +59,8 @@ export function ConsistencyView({ workouts }: { workouts: Workout[] }) {
   const now = new Date();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  for (let wi = HEAT_WEEKS - 1; wi >= 0; wi -= 1) {
+
+  for (let wi = heatWeeks - 1; wi >= 0; wi -= 1) {
     const weekStart = new Date(monday.getTime() - wi * 7 * 86400000);
     const days: HeatDay[] = [];
     for (let di = 0; di < 7; di += 1) {
@@ -46,8 +70,6 @@ export function ConsistencyView({ workouts }: { workouts: Workout[] }) {
     }
     weeksGrid.push(days);
   }
-
-  const monthLabels = weeksGrid.map((w) => new Date(w[0].date).toLocaleDateString('en-US', { month: 'short' }));
 
   const score = consistencyPct(workouts, 28);
 
@@ -59,15 +81,20 @@ export function ConsistencyView({ workouts }: { workouts: Workout[] }) {
         <SummaryCard label="Sessions/wk" value={`${sessionsPerWeek(workouts)}`} icon="calendar" flex1 />
       </Row>
 
+      <TimeframeChips tf={activeTf} onChange={handleTfChange} />
+
       <Card style={{ padding: spacing.lg }}>
-        <T variant="h3">Training Streak Map</T>
-        <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
-          Last {HEAT_WEEKS} weeks — intensity = daily volume
+        <Row align="space-between">
+          <T variant="h3">Training Streak Map</T>
+          <T variant="micro" accent style={{ fontSize: 11 }}>
+            {TF_LABELS[activeTf]}
+          </T>
+        </Row>
+        <T variant="small" dim style={{ fontSize: 12, marginTop: 2, marginBottom: spacing.md }}>
+          {heatWeeks === 1 ? 'This week' : `Last ${heatWeeks} weeks`} · Theme intensity = workout volume
         </T>
-        <View style={{ marginTop: spacing.md, overflow: 'hidden' }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <CalendarHeatmap weeks={weeksGrid} weekLabels={monthLabels} />
-          </ScrollView>
+        <View style={{ overflow: 'hidden' }}>
+          <CalendarHeatmap weeks={weeksGrid} timeframe={activeTf} cardWidth={chartW} />
         </View>
       </Card>
 
@@ -95,3 +122,4 @@ export function ConsistencyView({ workouts }: { workouts: Workout[] }) {
     </>
   );
 }
+

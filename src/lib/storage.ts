@@ -4,14 +4,29 @@ import { Platform } from 'react-native';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 /**
- * Convert base64 string to Uint8Array for binary upload across web and React Native.
+ * Zero-dependency base64 to Uint8Array decoder for cross-platform binary uploads.
  */
 function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = base64.replace(/=+$/, '');
+  const len = clean.length;
+  const bufferLength = Math.floor((len * 3) / 4);
+  const bytes = new Uint8Array(bufferLength);
+
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const enc1 = chars.indexOf(clean[i]);
+    const enc2 = chars.indexOf(clean[i + 1]);
+    const enc3 = chars.indexOf(clean[i + 2]);
+    const enc4 = chars.indexOf(clean[i + 3]);
+
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+
+    bytes[p++] = chr1;
+    if (enc3 !== -1 && p < bufferLength) bytes[p++] = chr2;
+    if (enc4 !== -1 && p < bufferLength) bytes[p++] = chr3;
   }
   return bytes;
 }
@@ -98,5 +113,21 @@ export async function uploadAvatarImage(userId: string, image: PickedImageResult
   } catch (err) {
     console.warn('Exception during avatar upload to Supabase:', err);
     return image.localUri;
+  }
+}
+
+/**
+ * Remove avatar file from Supabase storage if present.
+ */
+export async function removeAvatarImage(userId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return true;
+
+  try {
+    const fileName = `${userId}.jpg`;
+    await supabase.storage.from('avatars').remove([fileName]);
+    return true;
+  } catch (err) {
+    console.warn('Failed to remove avatar from storage:', err);
+    return false;
   }
 }

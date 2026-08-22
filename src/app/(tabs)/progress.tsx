@@ -37,8 +37,11 @@ export default function ProgressScreen() {
   const chartW = Math.min(width - 32, 600) - 32;
 
   // exercises for the picker sheet — exactly the ones the user's plans include
-  // (deduped, in plan order), so the dropdown never offers extras
-  const planExercises = [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))];
+  // (deduped, in plan order); falls back to core compounds when no plan is active yet
+  const planExercises =
+    plans.length > 0
+      ? [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))]
+      : ['bench-press', 'squat', 'deadlift', 'shoulder-press', 'barbell-row', 'lat-pulldown', 'romanian-deadlift', 'leg-press'];
 
   return (
     <Screen
@@ -76,7 +79,9 @@ export default function ProgressScreen() {
           />
         ) : null}
         {view === 'Volume' ? <VolumeView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} /> : null}
-        {view === 'Regularity' ? <ConsistencyView workouts={workouts} /> : null}
+        {view === 'Regularity' ? (
+          <ConsistencyView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} />
+        ) : null}
         {view === 'Body' ? <BodyView workouts={workouts} measurements={measurements} profile={profile} /> : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}
       </View>

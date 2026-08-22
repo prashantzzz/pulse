@@ -14,7 +14,7 @@ import { formatDuration } from '../../../lib/format';
 import { previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
-import { hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
+import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
 
 export default function ActiveWorkoutScreen() {
   useAccent();
@@ -128,9 +128,31 @@ export default function ActiveWorkoutScreen() {
             ) : null}
           </Row>
         </View>
-        <Pressable onPress={() => router.push('/gym-mode' as never)} style={styles.headerBtn} hitSlop={8}>
-          <Ionicons name="scan-outline" size={20} color={colors.textDim} />
-        </Pressable>
+        <Row gap={8}>
+          <Pressable
+            onPress={() => {
+              hapticsLight();
+              if (workout.paused) resumeActiveWorkout();
+              else pauseActiveWorkout();
+            }}
+            style={({ pressed }) => [
+              styles.headerBtn,
+              workout.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+              pressed && { opacity: 0.8 },
+            ]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={workout.paused ? 'Resume workout timer' : 'Pause workout timer'}>
+            <Ionicons
+              name={workout.paused ? 'play' : 'pause'}
+              size={18}
+              color={workout.paused ? colors.accent : colors.textDim}
+            />
+          </Pressable>
+          <Pressable onPress={() => router.push('/gym-mode' as never)} style={styles.headerBtn} hitSlop={8}>
+            <Ionicons name="scan-outline" size={20} color={colors.textDim} />
+          </Pressable>
+        </Row>
       </View>
 
       {/* progress */}
@@ -262,23 +284,11 @@ export default function ActiveWorkoutScreen() {
             {pct}%
           </T>
         </ProgressRing>
-        <Pressable
-          onPress={() => (workout.paused ? resumeActiveWorkout() : pauseActiveWorkout())}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={workout.paused ? 'Resume workout timer' : 'Pause workout timer'}
-          style={({ pressed }) => [
-            styles.pauseBtn,
-            workout.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-            pressed && { opacity: 0.8 },
-          ]}>
-          <Ionicons name={workout.paused ? 'play' : 'pause'} size={20} color={workout.paused ? colors.accent : colors.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginLeft: 10 }}>
           <T variant="bodySemi" style={{ fontSize: 14 }}>
             {doneSets} of {totalSets} sets
           </T>
-          <T variant="micro" muted>
+          <T variant="micro" muted style={{ marginTop: 2 }}>
             {workout.paused ? 'Paused' : `${formatDuration(elapsedSec)} elapsed`}
           </T>
         </View>

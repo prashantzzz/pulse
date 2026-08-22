@@ -8,13 +8,13 @@ import { useAnimatedValue } from '../../lib/useAnimatedValue';
 
 import { T } from '../../components/Text';
 import { Avatar } from '../../components/misc';
-import { Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
+import { Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { greetingFor } from '../../lib/greeting';
-import { currentStreak, detectPRs, formatCompact, nextMove, nextMoves, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
+import { currentStreak, detectPRs, formatCompact, nextMoves, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
 
 // rotate through the user's plans (editable in My Workouts) — module-level so
@@ -50,9 +50,6 @@ export default function HomeScreen() {
   const recentPrs = last ? [...detectPRs(last, workouts)].sort((a, b) => b.deltaPct - a.deltaPct) : [];
   const moves = nextMoves(workouts, plans, plan?.id);
 
-  // one primary recommendation — never a list; the hero's own plan is excluded
-  const move = plan ? nextMove(workouts, plans, plan.id) : null;
-
   // celebrate the PR with a mount pulse
   const pulse = useAnimatedValue(0);
   useEffect(() => {
@@ -82,7 +79,7 @@ export default function HomeScreen() {
           </T>
         </View>
         <Pressable onPress={() => router.push('/profile' as never)}>
-          <Avatar name={profile?.name ?? 'Athlete'} size={40} hue={90} showRing={streak > 0} />
+          <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
         </Pressable>
       </Row>
 
@@ -115,7 +112,33 @@ export default function HomeScreen() {
             }}
           />
         </View>
-      ) : null}
+      ) : (
+        <View style={{ marginTop: spacing.lg }}>
+          <Card gradient="charcoal" style={{ padding: spacing.lg, borderRadius: radius.xxl, borderWidth: 1, borderColor: `${colors.accent}33` }}>
+            <Row align="space-between" style={{ marginBottom: spacing.xs }}>
+              <Tag label="Get Started" color={colors.accent} bg={colors.accentSoft} />
+              <T variant="micro" muted>
+                3–5 Days / Week
+              </T>
+            </Row>
+            <T variant="h2" style={{ marginTop: 6 }}>
+              Choose a Workout Plan
+            </T>
+            <T variant="small" dim style={{ marginTop: 4, lineHeight: 18 }}>
+              Select an evidence-based routine from our template library, built on 2026 ACSM guidelines.
+            </T>
+            <Pressable
+              onPress={() => router.push('/workouts' as never)}
+              style={({ pressed }) => [styles.starterCta, pressed && { opacity: 0.9 }]}>
+              <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+              <T variant="bodySemi" style={{ color: colors.bg, fontSize: 14.5 }}>
+                Browse Workout Templates
+              </T>
+              <Ionicons name="arrow-forward" size={16} color={colors.bg} />
+            </Pressable>
+          </Card>
+        </View>
+      )}
 
       {/* quick summary */}
       <Section title="Quick Summary">
@@ -453,5 +476,14 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.surface3,
+  },
+  starterCta: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 999,
   },
 });

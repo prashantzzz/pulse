@@ -115,10 +115,10 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Image
               source={require('../../../assets/images/logo.png')}
-              style={{ width: 68, height: 68, borderRadius: 18 }}
+              style={{ width: 92, height: 92, borderRadius: 24 }}
               resizeMode="contain"
             />
-            <T variant="hero" style={{ marginTop: 14, fontSize: 30, letterSpacing: 1.5 }}>
+            <T variant="hero" style={{ marginTop: 16, fontSize: 32, letterSpacing: 1.5 }}>
               NextRep
             </T>
             <T variant="h2" style={{ marginTop: 8 }}>
