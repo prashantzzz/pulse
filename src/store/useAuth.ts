@@ -1,18 +1,12 @@
-/**
- * Auth state management for PULSE.
- *
- * Tracks the active Supabase session, authenticated user, and initialization status.
- * Interacts with `usePulse` to ensure local profile is hydrated on login.
- */
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { fetchProfile, signOut as authSignOut, syncGoogleProfile, type ProfileRow } from '../lib/auth';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { usePulse } from './useStore';
 import type { UserProfile } from '../types';
-
 import { syncUserDataFromCloud, flushOfflineSyncQueue } from '../lib/sync';
+import { dismissActiveWorkoutNotification } from '../lib/notifications';
 
 interface AuthState {
   session: Session | null;
@@ -39,11 +33,11 @@ function mapRowToUserProfile(row: ProfileRow): UserProfile {
     style: row.preferred_training_style ?? [],
     trainingAgeMonths: row.training_age_months ?? 0,
     onboarded: row.onboarded ?? false,
-    avatarUrl: row.avatar_url ?? undefined,
+    avatarUrl: row.avatar_url ? `${row.avatar_url}?t=${Date.now()}` : undefined,
   };
 }
 
-export const useAuth = create<AuthState>((set, get) => ({
+export const useAuth = create<AuthState>((set) => ({
   session: null,
   user: null,
   isLoading: true,
@@ -63,10 +57,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       const row = await fetchProfile(userId);
       if (row) {
         const localProfile = mapRowToUserProfile(row);
-        usePulse.setState((s) => ({
-          profile: s.profile ? { ...s.profile, ...localProfile } : localProfile,
-          onboarded: row.onboarded ?? s.onboarded,
-        }));
+        usePulse.setState({
+          profile: localProfile,
+          onboarded: row.onboarded ?? false,
+        });
         return row;
       }
     } catch (e) {
@@ -127,6 +121,10 @@ export const useAuth = create<AuthState>((set, get) => ({
         await syncGoogleProfile(user);
         await syncUserDataFromCloud(user.id);
         await flushOfflineSyncQueue();
+      } else if (event === 'SIGNED_OUT') {
+        dismissActiveWorkoutNotification().catch(() => {});
+        usePulse.getState().clearSessionCache();
+        AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
       }
     });
 
@@ -141,8 +139,13 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       await authSignOut();
     } finally {
-      // Clear friends list so a new user on the same device doesn't see stale friends
-      usePulse.getState().setFriends([]);
+      // 1. Clear any active workout notification
+      dismissActiveWorkoutNotification().catch(() => {});
+      // 2. Clear all local user session state and profile cache so the next user starts completely fresh
+      usePulse.getState().clearSessionCache();
+      // 3. Clear offline sync queue
+      AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
+      // 4. Reset auth state
       set({
         session: null,
         user: null,

@@ -1,42 +1,36 @@
-# NEXTREP
+# NextRep
 
-A dark, premium React Native fitness/gym companion: teach, track, analyze, motivate, and sync to the cloud.
+A dark, premium React Native fitness and gym companion: teach, track, analyze, motivate, and sync seamlessly to the cloud.
 
-NextRep is a **coach in your pocket**. It comes with a comprehensive exercise knowledge base
-(form guides, common mistakes, breathing cues, progression tips), bundled high-fidelity animated
-exercise media (HD clips + GIFs), workout logging with rest timers, deep
-progress analytics (strength trends, volume, regularity streaks, records), body measurements,
-CSV import/export, and seamless Supabase cloud synchronization.
+NextRep is a **coach in your pocket**. It comes with a comprehensive exercise knowledge base (form guides, common mistakes, breathing cues, progression tips), bundled high-fidelity animated exercise media (HD clips + GIFs), flexible workout template selection, custom workout builder, live workout notifications with quick actions, deep progress analytics (strength trends, volume, regularity streaks, records), body measurements, CSV import/export, and offline-first Supabase cloud synchronization.
 
 ---
 
 ## Key Features
 
-- **Exercise library** — Coached exercises searchable by muscle, equipment
-  and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
-- **Workout logging** — Start a plan or custom workout, log sets (weight/reps/RPE/notes),
-  automatic rest timers, quick gym-mode logging, and celebration summaries with PR detection.
-- **Workout builder** — Build custom workouts from the exercise library and save them to history & cloud.
-- **Progress analytics** — Estimated 1RM strength trends, volume by muscle, Regularity
-  heatmap and streaks, body measurements, BMI classification gauge, and a personal-records board.
-- **Friend Challenges & Leaderboards** — Challenge friends to weekly workout volume, streaks, or lift improvements via SMS/WhatsApp share links (`nextrep://challenge`), with live duels and cloud friendship sync.
-- **Supabase Cloud Sync** — Authenticate with Google OAuth or Email/Password, with automatic bidirectional synchronization for profiles, workouts, granular set logs, body measurements, and friend challenges.
-- **Offline-First Resilience** — Instant local state with Zustand and AsyncStorage; syncs to Supabase whenever online.
-- **CSV import / export** — Export/import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
-- **Accent theming** — The whole app re-themes live from 8 user-selectable accent colors (default: Mint).
+- **Exercise Library & Detail Guides** — Coached exercises searchable by muscle, equipment, and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
+- **Evidence-Based Templates & My Plans** — Select from structured workout routines (PPL, Upper/Lower, Full Body, Arnold Split) with expandable exercise previews, or edit and maintain your own routines in *My Plans*.
+- **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage.
+- **Active Workout & Live Notifications** — Start workouts with set logging (weight/reps/RPE/notes), automated rest timers, and sticky live notifications with `'Pause'` and `'Finish'` action buttons.
+- **Progress Analytics & Streaks** — Estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
+- **Friend Challenges & Social** — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
+- **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by an offline mutation queue and clean multi-account cache isolation.
+- **CSV Import / Export** — Export and import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
+- **Dynamic Theming & Ambient Background** — 8 live accent color palettes (default: Mint) with atmospheric radial glow and uncrowded Lucide gym doodles (`Dumbbell`, `Footprints`, `Activity`, `Zap`, `Trophy`, `Apple`, `Flame`, `Weight`).
 
 ---
 
 ## Tech Stack
 
-- **React Native 0.86** + **Expo SDK 57** (iOS, Android, and web)
+- **React Native 0.86** + **Expo SDK 57** (Android, iOS, and Web)
 - **TypeScript** (strict mode)
 - **expo-router** — File-based routing & navigation
-- **Zustand** — Global state with `AsyncStorage` persistence & Supabase cloud sync
-- **Supabase (PostgreSQL + Auth + RLS)** — Cloud database and authentication
-- **react-native-svg** — Charts, rings, anatomical muscle heatmaps, and figures
+- **Zustand** — Global state with `AsyncStorage` persistence & offline sync queue
+- **Supabase (PostgreSQL + Auth + RLS + Storage)** — Cloud database, authentication, and avatar storage
+- **react-native-svg** & **lucide-react-native** — Interactive charts, body heatmaps, and background doodle patterns
+- **expo-notifications** — Live workout status notifications with interactive action buttons
 - **expo-video / expo-image** — Bundled HD exercise clips (MP4) and animated GIFs
-- **jest-expo** — Unit tests for stats, csv, and auth engines
+- **jest-expo** — Unit test suite for stats, notifications, csv, templates, and account isolation
 
 ---
 
@@ -152,9 +146,9 @@ the moment the user switches accents.
 
 ## State Management
 
-- **Global (Zustand, persisted):** `workouts`, `measurements`, `favorites`,
-  `friends`, `profile`, `activeWorkout`, `accentKey`, onboarding flags.
-  Persisted to AsyncStorage under `pulse-store-v1` (see `partialize`).
+- **Global (Zustand, persisted):** `workouts`, `plans`, `measurements`, `favorites`,
+  `friends`, `profile`, `activeWorkout`, `accentKey`, and onboarding flags.
+  Persisted to AsyncStorage under `nextrep-store-v1` (see `partialize`).
 - **Local (useState):** UI state that belongs to one screen — filters,
   sheets, tabs, form drafts.
 - **Derived values are never stored.** Volume, PRs, streaks, progress
@@ -173,15 +167,14 @@ tabs in `src/app/(tabs)/_layout.tsx`).
 | Route | Screen |
 | --- | --- |
 | `/` | Splash → onboarding or home |
-| `/(tabs)/home`, `workouts`, `log`, `progress`, `profile` | Bottom tabs |
+| `/(tabs)/home`, `workouts`, `log`, `progress`, `profile` | Bottom tabs with smooth animated swipe gestures |
 | `/exercise/[id]` (+ `/form`) | Exercise detail / form guide |
-| `/workout/[id]` (+ `/log`, `/rest`, `/summary`) | Active workout flow |
+| `/workout/[id]` (+ `/log`, `/rest`, `/summary`) | Active workout flow + live status notification |
 | `/replay/[id]` | Past workout replay |
 | `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
 
 Pass **ids, not objects**, between screens (e.g. `/exercise/${id}`,
-`/workout/${id}`). The exercise picker and builder communicate via query params
-(`?add=<exerciseId>`).
+`/workout/${id}`).
 
 ---
 
@@ -216,9 +209,9 @@ Defined in `src/types.ts`:
 | `progressScore` | Balanced leaderboard score (0-100) |
 | `generateInsights` / `prRadar` | Auto-generated coaching insights |
 
-`lib/achievements.ts` computes all 17 badges; `lib/csv.ts` handles the
+`lib/achievements.ts` computes all badges; `lib/csv.ts` handles the
 tracker-format CSV round-trip, including fuzzy matching of imported exercise
-titles to the knowledge base.
+titles to the knowledge base; `lib/notifications.ts` manages interactive workout notifications.
 
 ---
 
@@ -229,11 +222,6 @@ titles to the knowledge base.
   every exercise id to a media file and declares its type (`video` | `gif`).
 - **`src/components/animation.tsx` renders it** with a priority of
   video > gif > built-in animated SVG stick figure (from `data/poses.ts`).
-
-**To add a new exercise animation:** drop the file into `assets/vital/`
-(mp4) or `assets/gifs/`, add one line to `ANIMATION_ASSETS` and one line to
-`EXERCISE_ANIMATIONS` in `src/data/exercise-animations.ts`. Nothing else
-changes.
 
 ---
 
@@ -251,253 +239,34 @@ Quality gates:
 
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
-npm run lint       # expo lint (must be 0 errors, 0 warnings)
-npm test           # jest — unit tests for lib/stats
-```
-
-No `.env` files are required — the app is fully offline with seeded demo data.
-Uses eas to build the APK
----
-
-## Development Guidelines
-
-1. **Screens are thin.** No business math in components — put it in
-   `src/lib/*` as a pure function and unit-test it.
-2. **Use the design system.** Import tokens from `src/theme` and primitives
-   from `components/ui.tsx` / `misc.tsx`. Never hardcode colors, spacing,
-   radii or font families.
-3. **Type everything.** Domain models live in `src/types.ts`; type screen
-   params and component props. No `any`.
-4. **`Animated.Value` creation** — use `useAnimatedValue(x)` from
-   `react-native`, not `useRef(new Animated.Value(x)).current` (the latter
-   fails the React Compiler lint rules).
-5. **Keep it simple.** Prefer a small local component over an abstraction.
-   Don't add global state for data that belongs to one screen.
-6. **Derive, don't store.** Recompute volume/PRs/streaks from `workouts[]`.
-
----
-
-## Adding a New Feature
-
-1. Add any domain types to `src/types.ts`.
-2. Add the business logic as a pure function in the matching `src/lib/*` file
-   (e.g. a new stat in `stats.ts`) and cover it with a focused unit test in
-   `src/lib/__tests__/`.
-3. Wire state through the store (`src/store/useStore.ts`) only if the data is
-   shared across screens; otherwise use local state.
-4. Create the screen under `src/app/` (file-based route) or add it to an
-   existing screen, composing the UI from `components/ui.tsx` primitives and
-   theme tokens.
-5. Run `npm run typecheck && npm run lint && npm test`.
-
----
-
-## Performance Considerations
-
-- **Per-tab computation:** the Progress screen only mounts the active tab's
-  view component, so heavy analytics run only for what's visible.
-- **Animation assets** are loaded on demand (`expo-image`/`expo-video`
-  lazy-load); the exercise library list shows lightweight muscle icons, not
-  full media.
-- **Lists** use plain `ScrollView`/`map` because data sets are small
-  (dozens of workouts / 38 exercises). If history grows large, switch the
-  big lists to `FlatList` with stable keys.
-- The ticking clock (`useNow`) stops its interval when no timer is mounted.
-- The React Compiler is enabled (`app.json` → `reactCompiler`), so prefer
-  idiomatic hooks over manual `useMemo`/`useCallback` micro-optimizations.
-
----
-
-## Known Limitations
-
-- Demo friends/leaderboard are static seed data — no real networking/backend.
-- Some analytics thresholds (e.g. calorie estimates) are rough heuristics.
-- Long workout histories render with `ScrollView` (fine at current data
-  sizes; see Performance Considerations).
-
----
-
-## Troubleshooting
-
-- **`npm install` fails on native modules** — use `npx expo install` for any
-  new Expo SDK packages so versions stay compatible.
-- **Web dev console noise about `collapsable` / SVG responder props** — these
-  are filtered in `src/app/_layout.tsx`; they are harmless RNW dev warnings.
-- **Exercise card shows a blank white box on some embedded webviews** — the
-  web renderer falls back to a canvas composite of the video
-  (`WebExerciseVideo` in `components/animation.tsx`); native is unaffected.
-- **First web load is slow** — Metro bundles on the first request; later
-  loads are cached.
-
----
-
-## Database Architecture
-
-PULSE uses **Supabase (PostgreSQL)** as the durable cloud data layer while
-remaining fully offline-friendly. The current app stores everything locally
-via Zustand + AsyncStorage; the cloud schema is designed for future sync,
-real accounts, social features and multi-device access.
-
-### Design Principles
-
-- **Authoritative data** — things the user explicitly created/logged go to
-  the database (workouts, measurements, plans, goals).
-- **Derived data** — things calculated from authoritative records (volume,
-  PRs, streaks, 1RM, progress scores) are computed at read time by
-  `src/lib/stats.ts`, **never stored in the DB**.
-- **UI-only state** — filters, sheet states, timer positions stay local.
-- **Append-oriented** — finished workouts are immutable; editable records
-  use last-write-wins.
-
-### Schema Overview
-
-```
-auth.users
-  └─ profiles (1:1)
-       ├─ workouts ── workout_exercises ── workout_sets
-       ├─ workout_plans ── workout_plan_exercises
-       ├─ body_measurements
-       ├─ user_favorite_exercises ── exercises (global)
-       ├─ manual_prs ── exercises (global)
-       ├─ user_goals
-       ├─ friendships (requester ↔ addressee)
-       └─ challenges ── challenge_participants
-
-exercises (global catalog, 83 entries)
-  └─ exercise_aliases (CSV import matching)
-```
-
-### Tables
-
-| Table | Owner | Purpose |
-| --- | --- | --- |
-| `profiles` | auth.users | Display name, avatar, goals, experience level |
-| `exercises` | global | Canonical exercise catalog (stable IDs for references) |
-| `exercise_aliases` | global | Alternative names for CSV import matching |
-| `workout_plans` | user | Reusable workout templates |
-| `workout_plan_exercises` | user | Exercises within a plan (ordered slots) |
-| `workouts` | user | Completed workout sessions (the historical record) |
-| `workout_exercises` | user | Exercises within a performed workout |
-| `workout_sets` | user | Individual sets: weight/reps/distance/duration/RPE |
-| `body_measurements` | user | Physical measurements over time |
-| `user_favorite_exercises` | user | Favorited exercise IDs |
-| `manual_prs` | user | Explicitly logged personal records |
-| `friendships` | social | Bidirectional friend relationships |
-| `challenges` | social | Multi-user challenges with start/end dates |
-| `challenge_participants` | social | Challenge membership |
-| `user_goals` | user | Personalized training goals |
-
-### What Is NOT Stored
-
-- **PRs** — detected from workout history by `detectPRs()` in `lib/stats.ts`
-- **Streaks** — computed by `currentStreak()` / `longestStreak()`
-- **Volume / 1RM** — computed by `workoutStats()` / `e1rm()`
-- **Leaderboard scores** — computed by `progressScore()` from workout data
-- **Achievement progress** — computed by `computeAchievements()`
-- **Insights** — computed by `generateInsights()`
-
-### Row Level Security (RLS)
-
-Every user-owned table enforces RLS:
-
-- **Private tables** (workouts, plans, measurements, goals, favorites, PRs):
-  users can only SELECT/INSERT/UPDATE/DELETE their own rows.
-- **Social tables** (friendships, challenge_participants): visible to both
-  parties. Challenge metadata is publicly readable for discovery.
-- **Global tables** (exercises, aliases): readable by all authenticated
-  users.
-- **Profiles**: readable by all (for leaderboard/social), updatable only by
-  the owner.
-
-### Indexes
-
-Key indexes support the primary query patterns:
-
-- `workouts(user_id, started_at DESC)` — user workout history
-- `workout_exercises(workout_id, order_index)` — exercises in a session
-- `workout_exercises(exercise_id)` — find sessions by exercise (PR detection)
-- `workout_sets(workout_exercise_id, set_index)` — sets in an exercise
-- `body_measurements(user_id, measured_at DESC)` — measurement history
-- `friendships(requester_id/addressee_id, status)` — social lookups
-- `challenge_participants(challenge_id)` — challenge members
-
----
-
-## Database Migrations
-
-All schema changes are managed via **Supabase CLI migrations** in the
-`supabase/migrations/` directory.
-
-### Migration Files
-
-| File | Description |
-| --- | --- |
-| `001_profiles` | Profile table + auth trigger |
-| `002_exercises` | Exercise catalog + enums + aliases |
-| `003_workout_plans` | Plans + plan exercises |
-| `004_workouts` | Workouts + exercises + sets |
-| `005_measurements` | Body measurements |
-| `006_favorites_prs` | Favorites + manual PRs |
-| `007_social` | Friendships + challenges |
-| `008_goals` | User goals |
-| `009_security_indexes` | RLS policies + indexes |
-| `010_seed_exercises` | Seed 83 exercises + 123 aliases |
-
-### Commands
-
-```bash
-# Create a new migration
-npx supabase migration new <migration_name>
-
-# Apply all pending migrations to a local database
-npx supabase db reset
-
-# Apply migrations to a linked remote project
-npx supabase db push
-
-# Inspect the local database
-npx supabase db diff
-
-# Generate TypeScript types from the schema
-npx supabase gen types typescript --local > src/lib/database.types.ts
-```
-
-### TypeScript Types
-
-Type-safe query definitions live in `src/lib/database.types.ts`.
-Regenerate after any schema change:
-
-```bash
-npx supabase gen types typescript --local > src/lib/database.types.ts
+npm run lint       # expo lint (must be 0 errors)
+npm test           # jest — unit tests
 ```
 
 ---
 
-## Local-First Integration Strategy
+## Database & Cloud Synchronization Architecture
 
-The cloud schema is designed to enable a gradual transition:
+NextRep uses **Supabase (PostgreSQL + Auth + Storage)** as its durable cloud backend while remaining completely offline-capable:
 
 ```
-Current (offline + identity):
-  UI → Zustand store / useAuth → AsyncStorage (offline-first)
-                                      └→ Supabase Auth & Profiles (cloud)
-
-Future (full cloud sync):
-  UI → Zustand store → Repository layer
-                         ├→ Local cache (AsyncStorage)
-                         └→ Supabase (cloud workouts/measurements)
+UI (Screens) ──► Zustand Store (usePulse / useAuth)
+                        │
+       ┌────────────────┴────────────────┐
+       ▼                                 ▼
+Local Cache (AsyncStorage)     Supabase Cloud Layer
+  ├─ nextrep-store-v1            ├─ profiles & avatar storage
+  └─ offline_sync_queue          ├─ workouts, exercises, sets
+                                 ├─ workout_plans & plan_exercises
+                                 └─ body_measurements & social
 ```
 
-1. **Phase 1** (Completed): Database schema, RLS policies, migrations, and TypeScript types.
-2. **Phase 2** (Completed): Supabase Authentication, Google OAuth, session persistence via AsyncStorage, and profile identity sync.
-3. **Phase 3** (Upcoming): Workout history sync (append-only, conflict-free).
-4. **Phase 4** (Upcoming): Real friends, challenges, and live cloud leaderboard.
+### Key Principles
 
----
-
-## Authentication Architecture
-
-PULSE uses Supabase Auth for user identity while maintaining an offline-first foundation:
+- **Authoritative data** — explicitly logged workouts, sets, measurements, plans, and profiles sync bidirectionally to Supabase.
+- **Derived data** — metrics like volume, PRs, streaks, 1RM, and progress scores are computed on-the-fly by `src/lib/stats.ts`, keeping the database normalized and lightweight.
+- **Offline Mutation Queue** — changes made offline are automatically queued in `@nextrep_offline_sync_queue` and flushed whenever network connectivity is re-established.
+- **Account Isolation** — signing out immediately clears local session state (`clearSessionCache()`), removes notifications, and clears the mutation queue, ensuring absolute privacy when switching accounts.
 
 ```
 Auth Provider (Email / Google)
@@ -533,7 +302,7 @@ Local Zustand Store (usePulse / useAuth)
 - **Sign Out**: Clears cloud session while keeping local workouts intact.
 
 ### 2. Google OAuth Flow
-- Uses Expo `WebBrowser.openAuthSessionAsync` with custom deep-link scheme `pulse://auth/callback`.
+- Uses Expo `WebBrowser.openAuthSessionAsync` with custom deep-link scheme `nextrep://auth/callback`.
 - On web, redirects to `${window.location.origin}/auth/callback`.
 - Extracts authorization code / session tokens, exchanges with Supabase, and hydrates the user's profile.
 
@@ -552,10 +321,10 @@ To enable Authentication with Supabase, configure your project in the [Supabase 
 1. Go to **Authentication** > **URL Configuration**.
 2. Set **Site URL** to:
    - Web development: `http://localhost:8081`
-   - Mobile: `pulse://`
+   - Mobile: `nextrep://`
 3. In **Redirect URLs**, add:
-   - `pulse://auth/callback`
-   - `pulse://auth/reset-password`
+   - `nextrep://auth/callback`
+   - `nextrep://auth/reset-password`
    - `http://localhost:8081/auth/callback`
    - `http://localhost:8081/auth/reset-password`
 
@@ -568,12 +337,12 @@ To enable Authentication with Supabase, configure your project in the [Supabase 
 2. Create or select a project.
 3. Go to **APIs & Services** > **OAuth consent screen**:
    - User Type: **External**
-   - Fill in App name ("PULSE"), user support email, and developer contact info.
+   - Fill in App name ("NextRep"), user support email, and developer contact info.
    - Add scope: `.../auth/userinfo.email`, `.../auth/userinfo.profile`.
 4. Go to **APIs & Services** > **Credentials**:
    - Click **Create Credentials** > **OAuth client ID**.
    - Application type: **Web application**.
-   - Name: `PULSE Supabase Web Client`.
+   - Name: `NextRep Supabase Web Client`.
    - **Authorized redirect URIs**: Add your Supabase project callback URL:
      ```
      https://<your-project-ref>.supabase.co/auth/v1/callback
@@ -589,12 +358,4 @@ To enable Authentication with Supabase, configure your project in the [Supabase 
 
 ---
 
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in your Supabase project keys:
-
-```bash
-EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-```
 

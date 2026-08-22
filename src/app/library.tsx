@@ -22,17 +22,17 @@ export default function LibraryScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [equipment, setEquipment] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<string[]>([]);
-  const [beginnerOnly, setBeginnerOnly] = useState(false);
 
-  const results = searchExercises({ query, muscles, equipment, difficulty, beginnerOnly });
-  const activeFilters = muscles.length + equipment.length + difficulty.length + (beginnerOnly ? 1 : 0);
+  const results = searchExercises({ query, muscles, equipment, difficulty });
+  const activeFilters = muscles.length + equipment.length + difficulty.length;
 
   const clearAll = () => {
     setMuscles([]);
     setEquipment([]);
     setDifficulty([]);
-    setBeginnerOnly(false);
   };
+
+  const filterableEquipment = EQUIPMENT_OPTIONS.filter((eq) => eq.toLowerCase() !== 'cable');
 
   return (
     <Screen>
@@ -68,7 +68,6 @@ export default function LibraryScreen() {
             onPress={() => setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [m]))}
           />
         ))}
-        <Chip label="Beginner friendly" icon="leaf-outline" selected={beginnerOnly} onPress={() => setBeginnerOnly((b) => !b)} />
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 40, gap: spacing.sm }}>
@@ -91,7 +90,7 @@ export default function LibraryScreen() {
             Equipment
           </T>
           <View style={styles.filterChips}>
-            {EQUIPMENT_OPTIONS.map((eq) => (
+            {filterableEquipment.map((eq) => (
               <Chip key={eq} label={eq} selected={equipment.includes(eq)} onPress={() => setEquipment((prev) => (prev.includes(eq) ? prev.filter((x) => x !== eq) : [...prev, eq]))} />
             ))}
           </View>
@@ -103,7 +102,6 @@ export default function LibraryScreen() {
               <Chip key={d} label={d} selected={difficulty.includes(d)} onPress={() => setDifficulty((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))} />
             ))}
           </View>
-          <Chip label="Beginner friendly only" icon="leaf-outline" selected={beginnerOnly} onPress={() => setBeginnerOnly((b) => !b)} />
           <Row style={{ marginTop: spacing.xl, gap: spacing.sm }}>
             <Pressable onPress={clearAll} style={styles.clearBtn}>
               <T variant="bodySemi" dim>

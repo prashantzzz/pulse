@@ -1,5 +1,5 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -20,7 +20,7 @@ import {
   type TemplateDay,
 } from '../../data/templates';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
+import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { Difficulty, WorkoutPlan } from '../../types';
 
 type ExperienceFilter = 'All' | Difficulty;
@@ -136,26 +136,6 @@ export default function WorkoutsScreen() {
             </View>
           ) : (
             <>
-              <Row align="space-between" style={styles.activePlanBar}>
-                <View style={{ flex: 1 }}>
-                  <T variant="label" accent>
-                    ACTIVE ROUTINE
-                  </T>
-                  <T variant="small" dim style={{ marginTop: 1 }}>
-                    {plans.length} workout day{plans.length > 1 ? 's' : ''} · tap to preview exercises
-                  </T>
-                </View>
-                <Pressable
-                  onPress={() => setTab('Templates')}
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.switchBtn, pressed && { opacity: 0.8 }]}>
-                  <T variant="smallSemi" accent style={{ fontSize: 12 }}>
-                    Change Template
-                  </T>
-                  <Ionicons name="swap-horizontal" size={14} color={colors.accent} />
-                </Pressable>
-              </Row>
-
               {plans.map((p) => (
                 <PlanCard
                   key={p.id}
@@ -167,7 +147,7 @@ export default function WorkoutsScreen() {
 
               <View style={{ marginTop: spacing.md }}>
                 <Button
-                  label="Add / Build New Workout Day"
+                  label="Add Custom Workout Day"
                   icon="create-outline"
                   variant="outline"
                   full
@@ -180,33 +160,6 @@ export default function WorkoutsScreen() {
       ) : (
         /* Tab: Templates */
         <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-          {/* Science banner with info trigger */}
-          <Pressable
-            onPress={() => setSourcesOpen(true)}
-            style={({ pressed }) => [styles.scienceBanner, pressed && { opacity: 0.9 }]}>
-            <LinearGradient
-              colors={[accentTint(colors.accent, 0.16), colors.surface2]}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[styles.scienceIconWrap, { backgroundColor: colors.accentSoft }]}>
-              <Ionicons name="sparkles" size={18} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <T variant="bodySemi" style={{ fontSize: 14 }}>
-                Evidence-Based Programming
-              </T>
-              <T variant="micro" dim style={{ marginTop: 2 }}>
-                Designed around the 2026 ACSM position stand & meta-analyses.
-              </T>
-            </View>
-            <Row gap={2} align="center">
-              <T variant="micro" accent style={{ fontWeight: '600' }}>
-                Sources
-              </T>
-              <Ionicons name="chevron-forward" size={14} color={colors.accent} />
-            </Row>
-          </Pressable>
-
           {/* Filter 1: Experience */}
           <View style={{ gap: 6 }}>
             <T variant="micro" dim style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
@@ -555,40 +508,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: colors.surface2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activePlanBar: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.borderBright,
-  },
-  switchBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
-  scienceBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.borderBright,
-    overflow: 'hidden',
-  },
-  scienceIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
