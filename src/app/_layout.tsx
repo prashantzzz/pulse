@@ -113,10 +113,10 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, segments, router]);
 
-  // apply the user's accent palette before rendering so every component (and
-  // re-render) reads the current colors; subscribed above so switching the
-  // accent re-renders the whole tree with the new palette
-  applyAccent(accentKey);
+  // apply the user's accent palette when it changes
+  useEffect(() => {
+    applyAccent(accentKey);
+  }, [accentKey]);
 
   if (!fontsLoaded || !hydrated) {
     return (

@@ -84,7 +84,15 @@ const accentListeners = new Set<() => void>();
 
 function notifyAccentChange(): void {
   accentVersion += 1;
-  accentListeners.forEach((l) => l());
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(() => {
+      accentListeners.forEach((l) => l());
+    });
+  } else {
+    setTimeout(() => {
+      accentListeners.forEach((l) => l());
+    }, 0);
+  }
 }
 
 /**
@@ -115,6 +123,7 @@ export function useAccent(): AccentKey {
 export function applyAccent(key: AccentKey): void {
   const p = ACCENTS[key];
   if (!p) return;
+  const isChanged = currentAccent !== key;
   currentAccent = key;
   colors.accent = p.accent;
   colors.accentDim = p.accentDim;
@@ -124,7 +133,9 @@ export function applyAccent(key: AccentKey): void {
   gradients.accent = [p.gradient[0], p.gradient[1]];
   gradients.accentVertical = [p.gradient[0], p.gradient[1]];
   gradients.hero = [accentTint(p.accent, 0.17), '#0A0B0D'];
-  notifyAccentChange();
+  if (isChanged) {
+    notifyAccentChange();
+  }
 }
 
 /**
