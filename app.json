@@ -25,7 +25,7 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
+        "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
@@ -38,16 +38,17 @@
           }
         }
       ],
-      "expo-build-properties",
-      {
-        "android": {
-          "enableMinifyInReleaseBuilds": true
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true
+          }
         }
-      },
+      ],
       "expo-sharing",
       "expo-video",
-      "expo-notifications",
-      "expo-build-properties"
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": false,
