@@ -48,6 +48,8 @@ export default function ProgressScreen() {
   return (
     <Screen
       scroll
+      onSwipeRight={() => router.push('/workouts' as never)}
+      onSwipeLeft={() => router.push('/profile' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>

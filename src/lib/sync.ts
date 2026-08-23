@@ -132,7 +132,18 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       .eq('user_id', userId)
       .order('measured_at', { ascending: true });
 
-    // 3. Fetch Workouts with nested Exercises and Sets
+    // 3. Fetch Favorites
+    const { data: favoritesData } = await (supabase.from('user_favorite_exercises') as any)
+      .select('exercise_id')
+      .eq('user_id', userId);
+
+    // 4. Fetch Manual PRs
+    const { data: prsData } = await (supabase.from('manual_prs') as any)
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    // 5. Fetch Workouts with nested Exercises and Sets
     const { data: workoutsData, error: workoutsErr } = await (supabase.from('workouts') as any)
       .select(`
         id,
@@ -163,7 +174,7 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       .eq('user_id', userId)
       .order('started_at', { ascending: false });
 
-    // 4. Fetch User Workout Plans
+    // 6. Fetch User Workout Plans
     const { data: plansData, error: plansErr } = await (supabase.from('workout_plans') as any)
       .select(`
         id,
@@ -184,11 +195,19 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       console.warn('Error fetching workout plans from cloud:', plansErr);
     }
 
-    // 5. Transform data
+    // 7. Transform data
     const cloudWorkouts: Workout[] = (workoutsData || []).map((w: unknown) => mapCloudWorkout(w as RawWorkout));
     const cloudMeasurements: BodyMeasurement[] = (measurementsData || []).map((m: unknown) =>
       mapCloudMeasurement(m as RawMeasurement),
     );
+    const cloudFavorites: string[] = (favoritesData || []).map((f: any) => f.exercise_id);
+    const cloudPRs: any[] = (prsData || []).map((p: any) => ({
+      id: p.id,
+      exerciseId: p.exercise_id,
+      weightKg: Number(p.weight_kg),
+      reps: Number(p.reps),
+      date: p.date,
+    }));
 
     const cloudPlans: WorkoutPlan[] = (plansData || []).map((p: any) => ({
       id: p.id,
@@ -204,22 +223,55 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         })),
     }));
 
+    // If cloud has 0 measurements but local state has initial measurements, push them to cloud
+    const localState = usePulse.getState();
+    if (cloudMeasurements.length === 0 && localState.measurements.length > 0) {
+      for (const m of localState.measurements) {
+        directPushMeasurementToCloud(userId, m).catch(() => {});
+      }
+    }
+    if (cloudFavorites.length === 0 && localState.favorites.length > 0) {
+      for (const fav of localState.favorites) {
+        directPushFavoriteToCloud(userId, fav).catch(() => {});
+      }
+    }
+    if (cloudPRs.length === 0 && localState.manualPRs.length > 0) {
+      for (const pr of localState.manualPRs) {
+        directPushManualPRToCloud(userId, pr).catch(() => {});
+      }
+    }
+
+    const effectiveMeasurements = cloudMeasurements.length > 0 ? cloudMeasurements : localState.measurements;
+    const effectiveFavorites = cloudFavorites.length > 0 ? cloudFavorites : localState.favorites;
+    const effectivePRs = cloudPRs.length > 0 ? cloudPRs : localState.manualPRs;
+
+    const latestWeight = effectiveMeasurements.length > 0
+      ? effectiveMeasurements[effectiveMeasurements.length - 1].weightKg
+      : (profileRow?.weight_kg != null ? Number(profileRow.weight_kg) : localState.profile?.weightKg);
+    const latestHeight = profileRow?.height_cm != null
+      ? Number(profileRow.height_cm)
+      : localState.profile?.heightCm;
+    const latestWeightUnit = (profileRow?.weight_unit as 'kg' | 'lbs') ?? localState.profile?.weightUnit ?? localState.weightUnit;
+
     const userProfile: UserProfile | null = profileRow
       ? {
-          name: profileRow.display_name ?? 'Athlete',
-          gender: (profileRow.gender as 'male' | 'female') ?? 'male',
-          goal: profileRow.goal ?? ['Build Muscle'],
-          experience: (profileRow.experience_level as 'Beginner' | 'Intermediate' | 'Advanced') ?? 'Intermediate',
-          frequencyPerWeek: profileRow.training_frequency ?? 4,
-          equipment: profileRow.equipment ?? [],
-          style: profileRow.preferred_training_style ?? [],
-          trainingAgeMonths: profileRow.training_age_months ?? 0,
-          onboarded: profileRow.onboarded ?? true,
-          avatarUrl: profileRow.avatar_url ? `${profileRow.avatar_url}?t=${Date.now()}` : undefined,
+          name: profileRow.display_name ?? localState.profile?.name ?? 'Athlete',
+          gender: (profileRow.gender as 'male' | 'female') ?? localState.profile?.gender ?? 'male',
+          goal: profileRow.goal ?? localState.profile?.goal ?? ['Build Muscle'],
+          experience: (profileRow.experience_level as 'Beginner' | 'Intermediate' | 'Advanced') ?? localState.profile?.experience ?? 'Intermediate',
+          frequencyPerWeek: profileRow.training_frequency ?? localState.profile?.frequencyPerWeek ?? 4,
+          equipment: profileRow.equipment ?? localState.profile?.equipment ?? [],
+          style: profileRow.preferred_training_style ?? localState.profile?.style ?? [],
+          trainingAgeMonths: profileRow.training_age_months ?? localState.profile?.trainingAgeMonths ?? 0,
+          onboarded: profileRow.onboarded ?? localState.profile?.onboarded ?? true,
+          avatarUrl: profileRow.avatar_url ? `${profileRow.avatar_url}?t=${Date.now()}` : localState.profile?.avatarUrl,
+          heightCm: latestHeight,
+          weightKg: latestWeight,
+          weightUnit: latestWeightUnit,
         }
-      : null;
+      : localState.profile;
 
-    // 6. Update local store state
+    // 8. Update local store state
     usePulse.setState((state) => {
       // Merge plans by ID to ensure local plans and cloud plans are safely consolidated
       const planMap = new Map<string, WorkoutPlan>();
@@ -232,11 +284,14 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       const consolidatedPlans = Array.from(planMap.values());
 
       return {
-        workouts: cloudWorkouts,
-        measurements: cloudMeasurements,
+        workouts: cloudWorkouts.length > 0 ? cloudWorkouts : state.workouts,
+        measurements: effectiveMeasurements,
         plans: consolidatedPlans.length > 0 ? consolidatedPlans : (state.plans.length > 0 ? state.plans : SEED_PLANS),
-        profile: userProfile ?? state.profile,
+        favorites: effectiveFavorites,
+        manualPRs: effectivePRs,
+        profile: userProfile,
         onboarded: userProfile ? (userProfile.onboarded ?? state.onboarded) : state.onboarded,
+        ...(latestWeightUnit ? { weightUnit: latestWeightUnit } : {}),
       };
     });
 
@@ -599,3 +654,78 @@ export async function wipeUserWorkoutsInCloud(userId: string): Promise<boolean> 
     return true;
   }
 }
+
+async function directPushFavoriteToCloud(userId: string, exerciseId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId || !exerciseId) return false;
+  try {
+    const { error } = await (supabase.from('user_favorite_exercises') as any).upsert({
+      user_id: userId,
+      exercise_id: exerciseId,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directRemoveFavoriteFromCloud(userId: string, exerciseId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId || !exerciseId) return false;
+  try {
+    const { error } = await (supabase.from('user_favorite_exercises') as any)
+      .delete()
+      .eq('user_id', userId)
+      .eq('exercise_id', exerciseId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directPushManualPRToCloud(userId: string, pr: any): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId || !pr) return false;
+  try {
+    const validId = isValidUuid(pr.id) ? pr.id : genUuid();
+    const { error } = await (supabase.from('manual_prs') as any).upsert({
+      id: validId,
+      user_id: userId,
+      exercise_id: pr.exerciseId,
+      weight_kg: pr.weightKg,
+      reps: pr.reps,
+      date: pr.date,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function directRemoveManualPRFromCloud(userId: string, prId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId || !prId) return false;
+  if (!isValidUuid(prId)) return true;
+  try {
+    const { error } = await (supabase.from('manual_prs') as any)
+      .delete()
+      .eq('id', prId)
+      .eq('user_id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function pushFavoriteToCloud(userId: string, exerciseId: string): Promise<boolean> {
+  return await directPushFavoriteToCloud(userId, exerciseId);
+}
+
+export async function removeFavoriteFromCloud(userId: string, exerciseId: string): Promise<boolean> {
+  return await directRemoveFavoriteFromCloud(userId, exerciseId);
+}
+
+export async function pushManualPRToCloud(userId: string, pr: any): Promise<boolean> {
+  return await directPushManualPRToCloud(userId, pr);
+}
+
+export async function removeManualPRFromCloud(userId: string, prId: string): Promise<boolean> {
+  return await directRemoveManualPRFromCloud(userId, prId);
+}
+

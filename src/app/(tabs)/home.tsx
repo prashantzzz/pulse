@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAnimatedValue } from '../../lib/useAnimatedValue';
 
 import { T } from '../../components/Text';
 import { Avatar } from '../../components/misc';
-import { Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
+import { Card, horizontalSwipeLockProps, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { greetingFor } from '../../lib/greeting';
@@ -66,6 +66,7 @@ export default function HomeScreen() {
   return (
     <Screen
       scroll
+      onSwipeLeft={() => router.push('/workouts' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <Row align="space-between" style={{ marginBottom: spacing.lg }}>
@@ -292,24 +293,42 @@ function NextMovesCarousel({
 }) {
   const [w, setW] = useState(0);
   const [page, setPage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   if (moves.length === 1) {
     return <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />;
   }
 
   return (
-    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+    <View
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      {...({ 'data-horizontal-scroll': 'true' } as any)}>
       {w > 0 ? (
         <ScrollView
+          ref={scrollRef}
           horizontal
           pagingEnabled
+          nestedScrollEnabled
           snapToInterval={w}
           snapToAlignment="start"
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
+          {...(horizontalSwipeLockProps as any)}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            if (w > 0) {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / w);
+              const clamped = Math.max(0, Math.min(moves.length - 1, idx));
+              if (clamped !== page) {
+                setPage(clamped);
+              }
+            }
+          }}
           onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / w);
-            setPage(Math.max(0, Math.min(moves.length - 1, idx)));
+            if (w > 0) {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / w);
+              setPage(Math.max(0, Math.min(moves.length - 1, idx)));
+            }
           }}>
           {moves.map((move, i) => (
             <View key={i} style={{ width: w, flexShrink: 0 }}>
@@ -323,11 +342,16 @@ function NextMovesCarousel({
       {moves.length > 1 ? (
         <Row gap={6} align="center" style={{ justifyContent: 'center', marginTop: 10 }}>
           {moves.map((_, i) => (
-            <View
+            <Pressable
               key={i}
-              style={[
+              onPress={() => {
+                setPage(i);
+                scrollRef.current?.scrollTo({ x: i * w, animated: true });
+              }}
+              style={({ pressed }) => [
                 styles.carouselDot,
                 i === page && { width: 18, backgroundColor: colors.accent },
+                pressed && { opacity: 0.7 },
               ]}
             />
           ))}

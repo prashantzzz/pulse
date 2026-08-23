@@ -75,6 +75,9 @@ export interface Database {
           training_age_months: number | null;
           equipment: string[];
           onboarded: boolean;
+          height_cm?: number | null;
+          weight_kg?: number | null;
+          weight_unit?: 'kg' | 'lbs' | null;
           created_at: string;
           updated_at: string;
         };

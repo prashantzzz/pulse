@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { T } from './Text';
+import { horizontalSwipeLockProps } from './ui';
 import { colors, radius, spacing } from '../theme';
 
 /**
@@ -64,7 +65,9 @@ export function MediaCarousel({
   };
 
   return (
-    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+    <View
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      {...({ 'data-horizontal-scroll': 'true' } as any)}>
       <View style={styles.viewport}>
         {w > 0 ? (
           <ScrollView
@@ -77,6 +80,7 @@ export function MediaCarousel({
             decelerationRate="fast"
             disableIntervalMomentum
             showsHorizontalScrollIndicator={false}
+            {...(horizontalSwipeLockProps as any)}
             onScroll={handleScroll}
             scrollEventThrottle={16}
             onScrollBeginDrag={handleScrollBeginDrag}

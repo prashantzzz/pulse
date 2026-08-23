@@ -149,4 +149,76 @@ describe('User Account Isolation & Cache Clearing on Logout', () => {
     expect(currentProfile?.name).toBe('User C');
     expect(currentProfile?.avatarUrl).toBeUndefined();
   });
+
+  it('should maintain recorded weight and measurements across store updates', () => {
+    // 1. User sets initial weight via onboarding or measurement
+    usePulse.getState().completeOnboarding({
+      name: 'Athlete X',
+      gender: 'male',
+      goal: ['Build Muscle'],
+      experience: 'Intermediate',
+      frequencyPerWeek: 4,
+      equipment: ['Barbell'],
+      style: ['Strength'],
+      trainingAgeMonths: 12,
+      onboarded: true,
+      heightCm: 180,
+      weightKg: 82.5,
+      weightUnit: 'kg',
+    });
+
+    usePulse.getState().addMeasurement({
+      id: 'm1',
+      date: '2026-08-20T10:00:00Z',
+      weightKg: 82.5,
+      bodyFatPct: 15,
+      chestCm: 104,
+      waistCm: 82,
+      bicepsCm: 38,
+    });
+
+    expect(usePulse.getState().profile?.weightKg).toBe(82.5);
+    expect(usePulse.getState().profile?.heightCm).toBe(180);
+    expect(usePulse.getState().measurements).toHaveLength(1);
+    expect(usePulse.getState().measurements[0].weightKg).toBe(82.5);
+
+    // 2. User logs a new measurement of 83.2 kg
+    usePulse.getState().addMeasurement({
+      id: 'm2',
+      date: '2026-08-24T10:00:00Z',
+      weightKg: 83.2,
+      bodyFatPct: 14.8,
+      chestCm: 105,
+      waistCm: 81.5,
+      bicepsCm: 38.5,
+    });
+
+    expect(usePulse.getState().profile?.weightKg).toBe(83.2);
+    expect(usePulse.getState().measurements).toHaveLength(2);
+    expect(usePulse.getState().measurements[1].weightKg).toBe(83.2);
+  });
+
+  it('should sync favorites and manual PRs in store', () => {
+    // Toggle favorite
+    usePulse.getState().toggleFavorite('bench-press');
+    expect(usePulse.getState().favorites).toContain('bench-press');
+
+    usePulse.getState().toggleFavorite('squat');
+    expect(usePulse.getState().favorites).toEqual(['bench-press', 'squat']);
+
+    usePulse.getState().toggleFavorite('bench-press');
+    expect(usePulse.getState().favorites).toEqual(['squat']);
+
+    // Manual PR
+    usePulse.getState().addManualPR({
+      exerciseId: 'bench-press',
+      weightKg: 100,
+      reps: 5,
+      date: '2026-08-24T10:00:00Z',
+    });
+
+    expect(usePulse.getState().manualPRs).toHaveLength(1);
+    expect(usePulse.getState().manualPRs[0].weightKg).toBe(100);
+    expect(usePulse.getState().manualPRs[0].exerciseId).toBe('bench-press');
+  });
 });

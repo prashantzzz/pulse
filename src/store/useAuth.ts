@@ -22,18 +22,21 @@ interface AuthState {
   syncUserData: (userId: string) => Promise<boolean>;
 }
 
-function mapRowToUserProfile(row: ProfileRow): UserProfile {
+function mapRowToUserProfile(row: ProfileRow, currentProfile?: UserProfile | null): UserProfile {
   return {
-    name: row.display_name ?? 'Athlete',
-    gender: (row.gender as 'male' | 'female') ?? 'male',
-    goal: row.goal ?? ['Build Muscle'],
-    experience: (row.experience_level as 'Beginner' | 'Intermediate' | 'Advanced') ?? 'Beginner',
-    frequencyPerWeek: row.training_frequency ?? 3,
-    equipment: row.equipment ?? [],
-    style: row.preferred_training_style ?? [],
-    trainingAgeMonths: row.training_age_months ?? 0,
-    onboarded: row.onboarded ?? false,
-    avatarUrl: row.avatar_url ? `${row.avatar_url}?t=${Date.now()}` : undefined,
+    name: row.display_name ?? currentProfile?.name ?? 'Athlete',
+    gender: (row.gender as 'male' | 'female') ?? currentProfile?.gender ?? 'male',
+    goal: row.goal ?? currentProfile?.goal ?? ['Build Muscle'],
+    experience: (row.experience_level as 'Beginner' | 'Intermediate' | 'Advanced') ?? currentProfile?.experience ?? 'Beginner',
+    frequencyPerWeek: row.training_frequency ?? currentProfile?.frequencyPerWeek ?? 3,
+    equipment: row.equipment ?? currentProfile?.equipment ?? [],
+    style: row.preferred_training_style ?? currentProfile?.style ?? [],
+    trainingAgeMonths: row.training_age_months ?? currentProfile?.trainingAgeMonths ?? 0,
+    onboarded: row.onboarded ?? currentProfile?.onboarded ?? false,
+    avatarUrl: row.avatar_url ? `${row.avatar_url}?t=${Date.now()}` : currentProfile?.avatarUrl,
+    heightCm: row.height_cm != null ? Number(row.height_cm) : currentProfile?.heightCm,
+    weightKg: row.weight_kg != null ? Number(row.weight_kg) : currentProfile?.weightKg,
+    weightUnit: (row.weight_unit as 'kg' | 'lbs') ?? currentProfile?.weightUnit,
   };
 }
 
@@ -56,10 +59,22 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       const row = await fetchProfile(userId);
       if (row) {
-        const localProfile = mapRowToUserProfile(row);
+        const state = usePulse.getState();
+        const currentProfile = state.profile;
+        const currentMeasurements = state.measurements;
+        const latestMeasurementWeight = currentMeasurements.length > 0
+          ? currentMeasurements[currentMeasurements.length - 1].weightKg
+          : undefined;
+
+        const localProfile = mapRowToUserProfile(row, currentProfile);
+        if (localProfile.weightKg == null && latestMeasurementWeight != null) {
+          localProfile.weightKg = latestMeasurementWeight;
+        }
+
         usePulse.setState({
           profile: localProfile,
-          onboarded: row.onboarded ?? false,
+          onboarded: row.onboarded ?? currentProfile?.onboarded ?? false,
+          ...(localProfile.weightUnit ? { weightUnit: localProfile.weightUnit } : {}),
         });
         return row;
       }

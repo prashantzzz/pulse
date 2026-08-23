@@ -32,7 +32,7 @@ export function TimeframeChips({
   options?: readonly ProgressTimeframe[];
 }) {
   return (
-    <Row gap={8}>
+    <Row gap={8} {...({ 'data-horizontal-scroll': 'true' } as any)}>
       {options.map((t) => (
         <Chip key={t} label={t} selected={tf === t} onPress={() => onChange(t)} />
       ))}

@@ -37,6 +37,34 @@ export interface PickedImageResult {
 }
 
 /**
+ * Prompt user to select an image from their gallery and return the raw URI.
+ */
+export async function pickRawAvatarImage(): Promise<string | null> {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      return null;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: Platform.OS !== 'web',
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (pickerResult.canceled || !pickerResult.assets?.[0]?.uri) {
+      return null;
+    }
+
+    return pickerResult.assets[0].uri;
+  } catch (err) {
+    console.warn('Failed to pick raw avatar image:', err);
+    return null;
+  }
+}
+
+/**
  * Prompt user to select an image from their gallery, crop to 1:1 square,
  * and resize to 400x400 with high-quality compression.
  */
@@ -49,7 +77,7 @@ export async function pickAndCropAvatar(): Promise<PickedImageResult | null> {
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: Platform.OS !== 'web',
       aspect: [1, 1],
       quality: 1,
     });

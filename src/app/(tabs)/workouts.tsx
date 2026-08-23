@@ -75,6 +75,8 @@ export default function WorkoutsScreen() {
   return (
     <Screen
       scroll
+      onSwipeRight={() => router.push('/home' as never)}
+      onSwipeLeft={() => router.push('/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* Header */}
       <Row align="space-between" style={{ marginBottom: spacing.md }}>

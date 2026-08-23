@@ -7,7 +7,12 @@ import { T } from '../components/Text';
 import { BottomSheet, EmptyState } from '../components/misc';
 import { ExerciseThumb } from '../components/muscle-icon';
 import { Chip, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
-import { EQUIPMENT_OPTIONS, MUSCLE_GROUPS, searchExercises } from '../data/exercises';
+import {
+  ANATOMY_LABEL_MAP,
+  ANATOMY_SLUGS,
+  EQUIPMENT_OPTIONS,
+  searchExercises,
+} from '../data/exercises';
 import type { Exercise } from '../types';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
@@ -18,26 +23,37 @@ export default function LibraryScreen() {
   const favorites = usePulse((s) => s.favorites);
   const toggleFavorite = usePulse((s) => s.toggleFavorite);
   const [query, setQuery] = useState('');
-  const [muscles, setMuscles] = useState<string[]>([]);
+  const [slugs, setSlugs] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [equipment, setEquipment] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<string[]>([]);
 
-  const results = searchExercises({ query, muscles, equipment, difficulty });
-  const activeFilters = muscles.length + equipment.length + difficulty.length;
+  const results = searchExercises({ query, slugs, equipment, difficulty });
+  const activeFilters = slugs.length + equipment.length + difficulty.length;
 
   const clearAll = () => {
-    setMuscles([]);
+    setSlugs([]);
     setEquipment([]);
     setDifficulty([]);
   };
 
   const filterableEquipment = EQUIPMENT_OPTIONS.filter((eq) => eq.toLowerCase() !== 'cable');
 
+  const toggleSlug = (slug: string) =>
+    setSlugs((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [slug]));
+
   return (
     <Screen>
-      <ScreenHeader title="Exercise Library" subtitle={`${results.length} exercises`} back right="options-outline" rightLabel="Filter exercises" onRight={() => setFilterOpen(true)} />
+      <ScreenHeader
+        title="Exercise Library"
+        subtitle={`${results.length} exercises`}
+        back
+        right="options-outline"
+        rightLabel="Filter exercises"
+        onRight={() => setFilterOpen(true)}
+      />
 
+      {/* Search bar */}
       <View style={styles.searchWrap}>
         <Icon name="search" size={18} color={colors.textMuted} />
         <TextInput
@@ -54,23 +70,28 @@ export default function LibraryScreen() {
         ) : null}
       </View>
 
+      {/* Anatomical muscle slug filter chips (same as body-map clickable muscles) */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ flexGrow: 0 }}
-        contentContainerStyle={[styles.pillRow, { alignItems: 'center' }]}>
-        <Chip label="All" selected={muscles.length === 0} onPress={() => setMuscles([])} />
-        {MUSCLE_GROUPS.map((m) => (
+        contentContainerStyle={[styles.pillRow, { alignItems: 'center' }]}
+        {...({ 'data-horizontal-scroll': 'true' } as any)}>
+        <Chip label="All" selected={slugs.length === 0} onPress={() => setSlugs([])} />
+        {ANATOMY_SLUGS.map((slug) => (
           <Chip
-            key={m}
-            label={m}
-            selected={muscles.includes(m)}
-            onPress={() => setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [m]))}
+            key={slug}
+            label={ANATOMY_LABEL_MAP[slug] ?? slug}
+            selected={slugs.includes(slug)}
+            onPress={() => toggleSlug(slug)}
           />
         ))}
       </ScrollView>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 40, gap: spacing.sm }}>
+      {/* Exercise list */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 40, gap: spacing.sm }}>
         {results.length === 0 ? (
           <EmptyState
             icon="search-outline"
@@ -80,10 +101,19 @@ export default function LibraryScreen() {
             onCta={clearAll}
           />
         ) : (
-          results.map((e) => <ExerciseRow key={e.id} exercise={e} fav={favorites.includes(e.id)} onFav={() => toggleFavorite(e.id)} onPress={() => router.push(`/exercise/${e.id}` as never)} />)
+          results.map((e) => (
+            <ExerciseRow
+              key={e.id}
+              exercise={e}
+              fav={favorites.includes(e.id)}
+              onFav={() => toggleFavorite(e.id)}
+              onPress={() => router.push(`/exercise/${e.id}` as never)}
+            />
+          ))
         )}
       </ScrollView>
 
+      {/* Filter bottom sheet (equipment + difficulty) */}
       <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} title="Filter">
         <ScrollView showsVerticalScrollIndicator={false}>
           <T variant="label" dim style={{ marginBottom: 10 }}>
@@ -91,7 +121,14 @@ export default function LibraryScreen() {
           </T>
           <View style={styles.filterChips}>
             {filterableEquipment.map((eq) => (
-              <Chip key={eq} label={eq} selected={equipment.includes(eq)} onPress={() => setEquipment((prev) => (prev.includes(eq) ? prev.filter((x) => x !== eq) : [...prev, eq]))} />
+              <Chip
+                key={eq}
+                label={eq}
+                selected={equipment.includes(eq)}
+                onPress={() =>
+                  setEquipment((prev) => (prev.includes(eq) ? prev.filter((x) => x !== eq) : [...prev, eq]))
+                }
+              />
             ))}
           </View>
           <T variant="label" dim style={{ marginTop: spacing.lg, marginBottom: 10 }}>
@@ -99,7 +136,14 @@ export default function LibraryScreen() {
           </T>
           <View style={styles.filterChips}>
             {['Beginner', 'Intermediate', 'Advanced'].map((d) => (
-              <Chip key={d} label={d} selected={difficulty.includes(d)} onPress={() => setDifficulty((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))} />
+              <Chip
+                key={d}
+                label={d}
+                selected={difficulty.includes(d)}
+                onPress={() =>
+                  setDifficulty((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))
+                }
+              />
             ))}
           </View>
           <Row style={{ marginTop: spacing.xl, gap: spacing.sm }}>
@@ -108,7 +152,9 @@ export default function LibraryScreen() {
                 Clear All
               </T>
             </Pressable>
-            <Pressable onPress={() => setFilterOpen(false)} style={[styles.applyBtn, { backgroundColor: colors.accent }]}>
+            <Pressable
+              onPress={() => setFilterOpen(false)}
+              style={[styles.applyBtn, { backgroundColor: colors.accent }]}>
               <T variant="bodySemi" style={{ color: colors.bg }}>
                 Apply Filters ({activeFilters})
               </T>
@@ -120,7 +166,17 @@ export default function LibraryScreen() {
   );
 }
 
-function ExerciseRow({ exercise, fav, onFav, onPress }: { exercise: Exercise; fav: boolean; onFav: () => void; onPress: () => void }) {
+function ExerciseRow({
+  exercise,
+  fav,
+  onFav,
+  onPress,
+}: {
+  exercise: Exercise;
+  fav: boolean;
+  onFav: () => void;
+  onPress: () => void;
+}) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}>
       <ExerciseThumb muscle={exercise.muscleGroup} size={54} />
@@ -136,7 +192,11 @@ function ExerciseRow({ exercise, fav, onFav, onPress }: { exercise: Exercise; fa
         </Row>
       </View>
       <Pressable onPress={onFav} hitSlop={8}>
-        <Ionicons name={fav ? 'bookmark' : 'bookmark-outline'} size={20} color={fav ? colors.accent : colors.textMuted} />
+        <Ionicons
+          name={fav ? 'bookmark' : 'bookmark-outline'}
+          size={20}
+          color={fav ? colors.accent : colors.textMuted}
+        />
       </Pressable>
     </Pressable>
   );
@@ -155,7 +215,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
   },
-  searchInput: { flex: 1, paddingVertical: 13, color: colors.text, fontSize: 15, fontFamily: 'Inter_400Regular' },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 13,
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+  },
   pillRow: { paddingHorizontal: spacing.lg, gap: 8, paddingBottom: spacing.md },
   row: {
     flexDirection: 'row',
