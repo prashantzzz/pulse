@@ -21,6 +21,8 @@ const VIEWS = ['Strength', 'Volume', 'Regularity', 'Body', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
 
+const TIMEFRAME_VIEWS: ProgressView[] = ['Strength', 'Volume', 'Regularity', 'Body'];
+
 export default function ProgressScreen() {
   useAccent();
   const router = useRouter();
@@ -46,8 +48,6 @@ export default function ProgressScreen() {
   return (
     <Screen
       scroll
-      onSwipeRight={() => router.push('/workouts' as never)}
-      onSwipeLeft={() => router.push('/profile' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
@@ -56,11 +56,13 @@ export default function ProgressScreen() {
             Insight on your gains
           </T>
         </View>
-        <View style={[progressStyles.periodBadge, { backgroundColor: colors.accentSoft }]}>
-          <T variant="smallMedium" accent style={{ fontSize: 12 }}>
-            {TF_LABELS[tf]}
-          </T>
-        </View>
+        {TIMEFRAME_VIEWS.includes(view) ? (
+          <View style={[progressStyles.periodBadge, { backgroundColor: colors.accentSoft }]}>
+            <T variant="smallMedium" accent style={{ fontSize: 12 }}>
+              {TF_LABELS[tf]}
+            </T>
+          </View>
+        ) : null}
       </Row>
 
       <Segmented options={VIEWS} value={view} onChange={setView} scrollable />
@@ -82,7 +84,15 @@ export default function ProgressScreen() {
         {view === 'Regularity' ? (
           <ConsistencyView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} />
         ) : null}
-        {view === 'Body' ? <BodyView workouts={workouts} measurements={measurements} profile={profile} /> : null}
+        {view === 'Body' ? (
+          <BodyView
+            workouts={workouts}
+            measurements={measurements}
+            profile={profile}
+            tf={tf}
+            onTimeframeChange={setTf}
+          />
+        ) : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}
       </View>
 

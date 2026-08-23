@@ -289,8 +289,6 @@ export function Screen({
   contentStyle,
   edges = ['top'],
   scrollProps,
-  onSwipeLeft,
-  onSwipeRight,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -298,8 +296,6 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
 }) {
   // re-render on accent change; the screen component itself also subscribes
   // (see useAccent) so its `children` elements are recreated with fresh colors
@@ -307,87 +303,10 @@ export function Screen({
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
 
-  const translateX = useAnimatedValue(0);
-
-  const swipeHandler = React.useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_, { dx, dy }) => {
-          if (!onSwipeLeft && !onSwipeRight) return false;
-          // Capture dominant horizontal drag
-          const isHorizontal = Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.5;
-          if (!isHorizontal) return false;
-          // Directional qualification
-          if (dx < 0 && !onSwipeLeft) return false;
-          if (dx > 0 && !onSwipeRight) return false;
-          return true;
-        },
-        onPanResponderMove: (_, { dx }) => {
-          // Apply rubberbanding when dragging into unswipable direction
-          if (dx < 0 && !onSwipeLeft) {
-            translateX.setValue(dx * 0.2);
-          } else if (dx > 0 && !onSwipeRight) {
-            translateX.setValue(dx * 0.2);
-          } else {
-            translateX.setValue(dx);
-          }
-        },
-        onPanResponderRelease: (_, { dx, vx }) => {
-          const isFlickLeft = dx < -35 && vx < -0.35;
-          const isFlickRight = dx > 35 && vx > 0.35;
-          const isDragLeft = dx < -75;
-          const isDragRight = dx > 75;
-
-          if ((isDragLeft || isFlickLeft) && onSwipeLeft) {
-            Animated.timing(translateX, {
-              toValue: -Dimensions.get('window').width * 0.8,
-              duration: 150,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: true,
-            }).start(() => {
-              onSwipeLeft();
-              translateX.setValue(0);
-            });
-          } else if ((isDragRight || isFlickRight) && onSwipeRight) {
-            Animated.timing(translateX, {
-              toValue: Dimensions.get('window').width * 0.8,
-              duration: 150,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: true,
-            }).start(() => {
-              onSwipeRight();
-              translateX.setValue(0);
-            });
-          } else {
-            Animated.spring(translateX, {
-              toValue: 0,
-              damping: 15,
-              stiffness: 220,
-              mass: 0.8,
-              useNativeDriver: true,
-            }).start();
-          }
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateX, {
-            toValue: 0,
-            damping: 15,
-            stiffness: 220,
-            mass: 0.8,
-            useNativeDriver: true,
-          }).start();
-        },
-        onPanResponderTerminationRequest: () => true,
-      }),
-    [onSwipeLeft, onSwipeRight, translateX],
-  );
-
   return (
     <SafeAreaView
       style={[styles.screen, style]}
-      edges={edges}
-      {...(onSwipeLeft || onSwipeRight ? swipeHandler.panHandlers : {})}>
+      edges={edges}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {/* Ambient Top Glow in selected Theme Color */}
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
@@ -498,19 +417,17 @@ export function Screen({
           </View>
         </View>
       </View>
-      <Animated.View style={[{ flex: 1, transform: [{ translateX }] }]}>
-        <Wrapper
-          {...(scrollProps ?? {})}
-          style={scroll ? undefined : styles.screenBody}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            { paddingBottom: insets.bottom + 40 },
-            scroll && styles.scrollContent,
-            contentStyle,
-          ]}>
-          {children}
-        </Wrapper>
-      </Animated.View>
+      <Wrapper
+        {...(scrollProps ?? {})}
+        style={scroll ? undefined : styles.screenBody}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          { paddingBottom: insets.bottom + 40 },
+          scroll && styles.scrollContent,
+          contentStyle,
+        ]}>
+        {children}
+      </Wrapper>
     </SafeAreaView>
   );
 }

@@ -39,10 +39,18 @@ export interface CloudChallenge {
   }[];
 }
 
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Persist an incoming invite (e.g. from SMS / deep link) so it survives login/onboarding.
+ * SECURITY: validates that fromUserId is a proper UUID before persisting.
  */
 export async function savePendingInvite(invite: PendingInvite): Promise<void> {
+  // Validate the fromUserId is a real UUID — prevents injection of arbitrary IDs
+  if (!UUID_PATTERN.test(invite.fromUserId)) {
+    console.warn('[Security] savePendingInvite: rejected invite with invalid fromUserId:', invite.fromUserId);
+    return;
+  }
   try {
     await AsyncStorage.setItem(PENDING_INVITE_KEY, JSON.stringify(invite));
   } catch (e) {

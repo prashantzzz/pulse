@@ -26,35 +26,40 @@ export function MediaCarousel({
   const [w, setW] = useState(0);
   const [index, setIndex] = useState(0);
   const ref = useRef<ScrollView>(null);
-  const lastIndex = useRef(0);
+  const isProgrammatic = useRef(false);
+  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartX = useRef(0);
 
   const goTo = (i: number) => {
     const next = Math.max(0, Math.min(pages.length - 1, i));
-    lastIndex.current = next;
+    isProgrammatic.current = true;
     setIndex(next);
     ref.current?.scrollTo({ x: next * w, animated: true });
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      isProgrammatic.current = false;
+    }, 400);
   };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (w <= 0) return;
+    if (w <= 0 || isProgrammatic.current) return;
     const offsetX = e.nativeEvent.contentOffset.x;
     const next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
     if (next !== index) {
-      lastIndex.current = next;
       setIndex(next);
     }
   };
 
   const handleScrollBeginDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    isProgrammatic.current = false;
     dragStartX.current = e.nativeEvent.contentOffset.x;
   };
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (w <= 0) return;
+    isProgrammatic.current = false;
     const offsetX = e.nativeEvent.contentOffset.x;
     const next = Math.max(0, Math.min(pages.length - 1, Math.round(offsetX / w)));
-    lastIndex.current = next;
     setIndex(next);
   };
 

@@ -1,4 +1,4 @@
-import type { Exercise } from '../types';
+import type { Exercise, MuscleSlug } from '../types';
 
 /**
  * PULSE exercise knowledge base.
@@ -31,7 +31,7 @@ function ex(input: ExInput): Exercise {
 export const EXERCISES: Exercise[] = [
   // ------------------------------------------------------------------ CHEST
   ex({
-    id: 'bench-press', name: 'Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'],
+    id: 'bench-press', name: 'Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'bench',
     about: 'The king of upper-body strength. A compound push that builds the chest, front delts and triceps simultaneously. No other movement packs as much muscle onto the torso.',
@@ -50,7 +50,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['dumbbell-bench-press', 'machine-press', 'push-up'],
   }),
   ex({
-    id: 'dumbbell-bench-press', name: 'Dumbbell Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'],
+    id: 'dumbbell-bench-press', name: 'Dumbbell Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'bench',
     about: 'A safer, more flexible cousin of the barbell press. Dumbbells allow a deeper stretch and correct left-right imbalances — a great chest builder for beginners and advanced lifters alike.',
@@ -69,7 +69,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bench-press', 'machine-press', 'push-up'],
   }),
   ex({
-    id: 'incline-bench-press', name: 'Incline Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps'],
+    id: 'incline-bench-press', name: 'Incline Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps'], targetSlugs: ['chest'], secondarySlugs: ['deltoids', 'triceps'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'bench',
     about: 'Targets the upper portion of the chest for a fuller, more balanced pec development. The ~30° incline shifts emphasis to the clavicular head and front delts.',
@@ -88,7 +88,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['dumbbell-bench-press', 'machine-press', 'push-up'],
   }),
   ex({
-    id: 'chest-fly', name: 'Chest Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'],
+    id: 'chest-fly', name: 'Chest Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['deltoids'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'fly',
     about: 'A pure chest isolation movement. The fly stretches the pecs through a wide arc with minimal triceps involvement — great for stretch-mediated growth.',
@@ -107,7 +107,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['cable-fly', 'machine-fly', 'bench-press'],
   }),
   ex({
-    id: 'machine-press', name: 'Machine Chest Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'],
+    id: 'machine-press', name: 'Machine Chest Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'press',
     about: 'A fixed-path chest press that is safe and simple to learn. Ideal for beginners building pressing strength or for finishers after heavy barbell work.',
@@ -125,7 +125,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bench-press', 'dumbbell-bench-press', 'push-up'],
   }),
   ex({
-    id: 'decline-bench-press', name: 'Decline Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'],
+    id: 'decline-bench-press', name: 'Decline Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['triceps'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'bench',
     about: 'A bench press on a slight decline that emphasizes the lower pecs while taking stress off the shoulders. A favorite accessory for lifters whose front delts take over on the flat press.',
@@ -144,7 +144,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bench-press', 'dips', 'dumbbell-bench-press'],
   }),
   ex({
-    id: 'cable-fly', name: 'Cable Chest Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'],
+    id: 'cable-fly', name: 'Cable Chest Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['deltoids'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'fly',
     about: 'The cable fly keeps constant tension on the pecs through the entire arc — including the squeeze at the top that dumbbells can\'t match. One of the best chest isolators for stretch and pump.',
@@ -163,7 +163,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['chest-fly', 'pec-deck', 'bench-press'],
   }),
   ex({
-    id: 'pec-deck', name: 'Pec Deck (Machine Fly)', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'],
+    id: 'pec-deck', name: 'Pec Deck (Machine Fly)', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['deltoids'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'fly',
     about: 'A seated machine fly that isolates the chest through a fixed path — beginner-friendly and shoulder-safe, with a hard squeeze at peak contraction that dumbbell flies can\'t replicate.',
@@ -182,7 +182,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['cable-fly', 'chest-fly', 'bench-press'],
   }),
   ex({
-    id: 'push-up', name: 'Push-Up', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders', 'Core'],
+    id: 'push-up', name: 'Push-Up', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders', 'Core'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'bench',
     about: 'The world\'s most accessible chest builder. Push-ups build pressing strength, core stability and triceps — anywhere, anytime, with zero equipment.',
@@ -201,7 +201,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bench-press', 'dumbbell-bench-press', 'dips'],
   }),
   ex({
-    id: 'dips', name: 'Chest Dips', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'],
+    id: 'dips', name: 'Chest Dips', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest', 'triceps'], secondarySlugs: ['deltoids'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'press',
     about: 'A heavy compound dip that loads the lower chest and triceps through a deep stretch. Leaning forward shifts the emphasis to the pecs — an elite upper-body mass builder.',
@@ -220,7 +220,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bench-press', 'push-up', 'decline-bench-press'],
   }),
   ex({
-    id: 'incline-dumbbell-bench-press', name: 'Incline Dumbbell Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps'],
+    id: 'incline-dumbbell-bench-press', name: 'Incline Dumbbell Bench Press', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps'], targetSlugs: ['chest'], secondarySlugs: ['deltoids', 'triceps'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'bench',
     about: 'An incline press with dumbbells that emphasizes the upper clavicular pecs while giving the shoulders full freedom of rotation. Corrects pressing imbalances and delivers a deeper pec stretch than barbells.',
@@ -239,7 +239,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['incline-bench-press', 'dumbbell-bench-press', 'push-up'],
   }),
   ex({
-    id: 'incline-dumbbell-fly', name: 'Incline Dumbbell Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'],
+    id: 'incline-dumbbell-fly', name: 'Incline Dumbbell Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['deltoids'],
     equipment: 'Dumbbell', difficulty: 'Intermediate', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'fly',
     about: 'An isolated stretch movement for the upper chest on an incline bench. Bypasses the triceps to place pure mechanical tension across the clavicular head.',
@@ -258,7 +258,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['chest-fly', 'cable-fly', 'pec-deck'],
   }),
   ex({
-    id: 'decline-push-up', name: 'Decline Push-Up', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps', 'Core'],
+    id: 'decline-push-up', name: 'Decline Push-Up', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders', 'Triceps', 'Core'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'bench',
     about: 'Elevating the feet on a bench or box shifts more of your bodyweight onto the upper chest and shoulders, increasing pressing intensity with zero equipment.',
@@ -278,7 +278,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // ----------------------------------------------------------------- BACK
   ex({
-    id: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'forearm'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'pulldown',
     about: 'The best gateway to pull-up strength. Pulldowns build the lats and upper back with adjustable load, making them perfect for lifters who cannot yet do pull-ups.',
@@ -297,7 +297,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['pull-up', 'band-pulldown', 'assisted-pullup'],
   }),
   ex({
-    id: 'pull-up', name: 'Pull-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders', 'Core'],
+    id: 'pull-up', name: 'Pull-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders', 'Core'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'forearm', 'abs', 'trapezius'],
     equipment: 'Bodyweight', difficulty: 'Advanced', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'pulldown',
     about: 'The ultimate test of relative upper-body strength. Pull-ups build a wide, powerful back and demand serious grip, lat and core engagement.',
@@ -316,7 +316,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lat-pulldown', 'band-pulldown', 'assisted-pullup'],
   }),
   ex({
-    id: 'band-pulldown', name: 'Resistance Band Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Biceps'],
+    id: 'band-pulldown', name: 'Resistance Band Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Biceps'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps'],
     equipment: 'Band', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Home', beginnerFriendly: true, animation: 'pulldown',
     about: 'A home-friendly lat builder using a band anchored overhead. Great when you lack a cable machine — the band offers increasing tension at the top of the pull.',
@@ -334,7 +334,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lat-pulldown', 'pull-up', 'assisted-pullup'],
   }),
   ex({
-    id: 'seated-cable-row', name: 'Seated Cable Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 'seated-cable-row', name: 'Seated Cable Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'trapezius', 'deltoids'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'row',
     about: 'A horizontal pull that thickens the mid-back and rear delts. The cable keeps constant tension, making it one of the most effective rowing variations.',
@@ -353,7 +353,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['dumbbell-row', 'barbell-row', 'machine-row'],
   }),
   ex({
-    id: 'dumbbell-row', name: 'Dumbbell Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 'dumbbell-row', name: 'Dumbbell Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'deltoids', 'obliques'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'row',
     about: 'A one-arm row that builds back thickness and fixes strength imbalances between sides. The supported position spares the lower back while allowing a huge range of motion.',
@@ -372,7 +372,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['seated-cable-row', 'barbell-row', 'machine-row'],
   }),
   ex({
-    id: 'barbell-row', name: 'Barbell Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders', 'Glutes'],
+    id: 'barbell-row', name: 'Barbell Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders', 'Glutes'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'lower-back', 'hamstring', 'trapezius'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'row',
     about: 'A heavy hinge-row that loads the entire posterior chain while building a thick back. One of the best mass builders for upper-body pulling strength.',
@@ -391,7 +391,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['dumbbell-row', 'seated-cable-row', 'machine-row'],
   }),
   ex({
-    id: 'face-pull', name: 'Face Pull', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'],
+    id: 'face-pull', name: 'Face Pull', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius', 'deltoids'], secondarySlugs: ['upper-back'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'row',
     about: 'The best shoulder-health exercise you can do. Face pulls strengthen the rear delts, rotator cuff and upper traps — the muscles that keep your shoulders happy under heavy pressing.',
@@ -410,7 +410,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['rear-delt-fly', 'band-face-pull'],
   }),
   ex({
-    id: 'machine-row', name: 'Machine Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps'],
+    id: 'machine-row', name: 'Machine Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'trapezius'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'row',
     about: 'A fixed-path row that isolates the mid-back without balance demands. Simple to load and ideal for high-volume back training.',
@@ -428,7 +428,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['seated-cable-row', 'dumbbell-row', 'barbell-row'],
   }),
   ex({
-    id: 'chin-up', name: 'Chin-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 'chin-up', name: 'Chin-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back', 'biceps'], secondarySlugs: ['forearm', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'pulldown',
     about: 'The pull-up\'s underhand cousin. The supinated grip lets the biceps assist more, making chin-ups slightly easier and a phenomenal addition to any pull day.',
@@ -447,7 +447,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['pull-up', 'lat-pulldown', 'assisted-pullup'],
   }),
   ex({
-    id: 'assisted-pullup', name: 'Assisted Pull-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 'assisted-pullup', name: 'Assisted Pull-Up', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'forearm'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'pulldown',
     about: 'The pull-up machine removes bodyweight so you can build lat strength progressively — the smartest path from zero pull-ups to your first unassisted set.',
@@ -466,7 +466,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['pull-up', 'chin-up', 'lat-pulldown'],
   }),
   ex({
-    id: 't-bar-row', name: 'T-Bar Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'],
+    id: 't-bar-row', name: 'T-Bar Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'trapezius', 'lower-back'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'row',
     about: 'A barbell row anchored at one end, allowing heavy loading in a stable position. The T-bar row packs serious mid-back thickness with less lower-back stress than a free barbell row.',
@@ -485,7 +485,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['barbell-row', 'seated-cable-row', 'machine-row'],
   }),
   ex({
-    id: 'straight-arm-pulldown', name: 'Straight-Arm Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Core'],
+    id: 'straight-arm-pulldown', name: 'Straight-Arm Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Core'], targetSlugs: ['upper-back'], secondarySlugs: ['triceps', 'abs'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'pulldown',
     about: 'An isolation move that fires the lats with straight arms — a great way to feel and fatigue the lats without biceps involvement. Perfect as a warm-up or finisher.',
@@ -504,7 +504,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lat-pulldown', 'pull-up', 'band-pulldown'],
   }),
   ex({
-    id: 'hyperextension', name: 'Back Extension', muscleGroup: 'Back', secondaryMuscles: ['Glutes', 'Hamstrings'],
+    id: 'hyperextension', name: 'Back Extension', muscleGroup: 'Back', secondaryMuscles: ['Glutes', 'Hamstrings'], targetSlugs: ['lower-back'], secondarySlugs: ['gluteal', 'hamstring'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'deadlift',
     about: 'A hip-hinge movement that builds the erector spinae, glutes and hamstrings — the support system for every heavy deadlift and squat. The best lower-back strengthener in the gym.',
@@ -523,7 +523,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['good-morning', 'romanian-deadlift', 'hyperextension'],
   }),
   ex({
-    id: 'shrug', name: 'Barbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'],
+    id: 'shrug', name: 'Barbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius'], secondarySlugs: ['forearm', 'neck'],
     equipment: 'Barbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'press',
     about: 'The direct builder for the upper traps — the muscles that carry the bar in deadlifts and give your shoulders that powerful slope. Simple, heavy, effective.',
@@ -542,7 +542,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['dumbbell-shrug', 'rack-pull', 'deadlift'],
   }),
   ex({
-    id: 'dumbbell-shrug', name: 'Dumbbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'],
+    id: 'dumbbell-shrug', name: 'Dumbbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius'], secondarySlugs: ['forearm', 'neck'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'press',
     about: 'Holding dumbbells at the sides allows a natural arm hang that aligns directly with the upper trapezius fibers, delivering targeted trap growth with zero bar interference.',
@@ -562,7 +562,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // -------------------------------------------------------------- SHOULDERS
   ex({
-    id: 'shoulder-press', name: 'Shoulder Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps', 'Core'],
+    id: 'shoulder-press', name: 'Shoulder Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps', 'Core'], targetSlugs: ['deltoids'], secondarySlugs: ['triceps', 'abs', 'trapezius'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'press',
     about: 'The foundation of shoulder size and overhead strength. Dumbbells allow a natural arc and are far safer overhead than a barbell for most lifters.',
@@ -581,7 +581,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['machine-press', 'arnold-press', 'push-press'],
   }),
   ex({
-    id: 'arnold-press', name: 'Arnold Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'],
+    id: 'arnold-press', name: 'Arnold Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'], targetSlugs: ['deltoids'], secondarySlugs: ['triceps', 'trapezius'],
     equipment: 'Dumbbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'press',
     about: 'A rotating shoulder press that hits all three delt heads in one movement. The twist from palms-in to palms-out keeps tension through the entire arc.',
@@ -600,7 +600,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['shoulder-press', 'machine-press', 'push-press'],
   }),
   ex({
-    id: 'lateral-raise', name: 'Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'],
+    id: 'lateral-raise', name: 'Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'raise',
     about: 'The essential side-delt builder that creates the "capped" shoulder look. A simple arm arc that demands light weights and perfect discipline.',
@@ -619,7 +619,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['cable-lateral-raise', 'machine-lateral-raise'],
   }),
   ex({
-    id: 'rear-delt-fly', name: 'Rear Delt Fly', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'],
+    id: 'rear-delt-fly', name: 'Rear Delt Fly', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius', 'upper-back'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'fly',
     about: 'An isolation movement for the rear delts — the muscle most lifters neglect. Strong rear delts improve posture and keep the shoulders balanced against pressing work.',
@@ -638,7 +638,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['face-pull', 'band-face-pull'],
   }),
   ex({
-    id: 'machine-shoulder-press', name: 'Machine Shoulder Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'],
+    id: 'machine-shoulder-press', name: 'Machine Shoulder Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'], targetSlugs: ['deltoids'], secondarySlugs: ['triceps'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'press',
     about: 'A fixed-path overhead press that lets you push heavy without balance or core demands. A safe, effective way to build shoulder size, especially for beginners.',
@@ -657,7 +657,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['shoulder-press', 'arnold-press', 'push-press'],
   }),
   ex({
-    id: 'cable-lateral-raise', name: 'Cable Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'],
+    id: 'cable-lateral-raise', name: 'Cable Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius'],
     equipment: 'Cable', difficulty: 'Intermediate', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'raise',
     about: 'A lateral raise with constant cable tension — the side delts stay loaded even at the bottom of the rep, where dumbbells go slack. The secret weapon for capped shoulders.',
@@ -676,9 +676,9 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lateral-raise', 'machine-lateral-raise', 'upright-row'],
   }),
   ex({
-    id: 'front-raise', name: 'Front Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Chest'],
+    id: 'front-raise', name: 'Dumbbell Front Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Chest'], targetSlugs: ['deltoids'], secondarySlugs: ['chest'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
-    location: 'Both', beginnerFriendly: true, animation: 'raise',
+    location: 'Both', beginnerFriendly: true, animation: 'raise', aliases: ['Front Raise'],
     about: 'A simple isolation lift for the front delts — the head that already works hard on presses. Great as a targeted finisher or to correct underdeveloped front shoulders.',
     steps: [
       ['Setup', 'Stand tall with dumbbells at your thighs, palms facing you.'],
@@ -695,7 +695,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lateral-raise', 'cable-lateral-raise', 'shoulder-press'],
   }),
   ex({
-    id: 'upright-row', name: 'Upright Row', muscleGroup: 'Shoulders', secondaryMuscles: ['Biceps', 'Back'],
+    id: 'upright-row', name: 'Upright Row', muscleGroup: 'Shoulders', secondaryMuscles: ['Biceps', 'Back'], targetSlugs: ['deltoids', 'trapezius'], secondarySlugs: ['biceps', 'forearm'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'curl',
     about: 'A vertical pull that builds the side and front delts plus the upper traps in one movement. Keep the bar path close and the elbows above the wrists to protect the shoulders.',
@@ -714,7 +714,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lateral-raise', 'front-raise', 'shrug'],
   }),
   ex({
-    id: 'plate-front-raise', name: 'Plate Front Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Chest', 'Core'],
+    id: 'plate-front-raise', name: 'Plate Front Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Chest', 'Core'], targetSlugs: ['deltoids'], secondarySlugs: ['chest', 'abs'],
     equipment: 'Plate', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'press',
     about: 'Gripping an Olympic weight plate with both hands provides a fixed, symmetrical grip that isolates the anterior deltoids and upper chest while engaging the core.',
@@ -734,7 +734,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // ------------------------------------------------------------------- ARMS
   ex({
-    id: 'bicep-curl', name: 'Bicep Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'bicep-curl', name: 'Bicep Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'curl',
     about: 'The classic arm-builder. Strict curls with controlled tempo build the biceps and forearm strength while sparing the shoulders from swinging load.',
@@ -753,7 +753,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['hammer-curl', 'incline-curl', 'cable-curl'],
   }),
   ex({
-    id: 'hammer-curl', name: 'Hammer Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'hammer-curl', name: 'Hammer Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps', 'forearm'], secondarySlugs: [],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'curl',
     about: 'A curl with a neutral grip that emphasizes the brachialis and forearms, adding thickness to the upper arm from every angle.',
@@ -772,7 +772,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'incline-curl', 'cable-curl'],
   }),
   ex({
-    id: 'incline-curl', name: 'Incline Dumbbell Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'incline-curl', name: 'Incline Dumbbell Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
     equipment: 'Dumbbell', difficulty: 'Intermediate', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'curl',
     about: 'An incline bench curl that places the biceps in a stretched position — the angle that drives the most growth. The bane of ego lifters, the gift of smart ones.',
@@ -791,7 +791,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'hammer-curl', 'cable-curl'],
   }),
   ex({
-    id: 'cable-curl', name: 'Cable Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'cable-curl', name: 'Cable Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'curl',
     about: 'A curl against a cable keeps constant tension on the biceps at the top — exactly where dumbbell curls relax. Ideal for chasing peak contraction and a brutal pump.',
@@ -810,7 +810,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'preacher-curl', 'incline-curl'],
   }),
   ex({
-    id: 'preacher-curl', name: 'Preacher Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'preacher-curl', name: 'Preacher Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
     equipment: 'Barbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'curl',
     about: 'The preacher bench locks your arms in front of you, removing any body English — the biceps must do all the work, especially through a deep, unforgiving stretch at the bottom.',
@@ -829,7 +829,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'incline-curl', 'cable-curl'],
   }),
   ex({
-    id: 'concentration-curl', name: 'Concentration Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'],
+    id: 'concentration-curl', name: 'Concentration Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'curl',
     about: 'A seated one-arm curl with the elbow braced against the inner thigh — total isolation that forces strict form. The classic “feel the muscle” movement for peak development.',
@@ -848,7 +848,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'hammer-curl', 'preacher-curl'],
   }),
   ex({
-    id: 'triceps-pushdown', name: 'Triceps Pushdown', muscleGroup: 'Triceps', secondaryMuscles: [],
+    id: 'triceps-pushdown', name: 'Triceps Pushdown', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'pushdown',
     about: 'The quickest way to add triceps size. Constant cable tension keeps the muscle loaded through the entire lockout, where the triceps work hardest.',
@@ -867,7 +867,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['overhead-extension', 'skull-crusher', 'dips'],
   }),
   ex({
-    id: 'overhead-extension', name: 'Overhead Triceps Extension', muscleGroup: 'Triceps', secondaryMuscles: [],
+    id: 'overhead-extension', name: 'Overhead Triceps Extension', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'pushdown',
     about: 'Targets the long head of the triceps — the part that gives the arm its horseshoe shape. Reaching overhead stretches the long head far more than pushdowns.',
@@ -886,7 +886,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['triceps-pushdown', 'skull-crusher', 'dips'],
   }),
   ex({
-    id: 'skull-crusher', name: 'Skull Crusher (Lying Triceps Extension)', muscleGroup: 'Triceps', secondaryMuscles: [],
+    id: 'skull-crusher', name: 'Skull Crusher (Lying Triceps Extension)', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'pushdown',
     about: 'A lying triceps extension that loads the long head through a deep stretch. Heavy, effective and humbling — the elbows stay pinned while the bar travels from forehead to lockout.',
@@ -905,7 +905,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['overhead-extension', 'triceps-pushdown', 'close-grip-bench-press'],
   }),
   ex({
-    id: 'close-grip-bench-press', name: 'Close-Grip Bench Press', muscleGroup: 'Triceps', secondaryMuscles: ['Chest', 'Shoulders'],
+    id: 'close-grip-bench-press', name: 'Close-Grip Bench Press', muscleGroup: 'Triceps', secondaryMuscles: ['Chest', 'Shoulders'], targetSlugs: ['triceps'], secondarySlugs: ['chest', 'deltoids'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: false, animation: 'bench',
     about: 'A bench press with a shoulder-width grip that shifts the load onto the triceps — a heavy compound that builds raw pressing power and lockout strength.',
@@ -924,7 +924,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['triceps-pushdown', 'dips', 'skull-crusher'],
   }),
   ex({
-    id: 'triceps-kickback', name: 'Triceps Kickback', muscleGroup: 'Triceps', secondaryMuscles: [],
+    id: 'triceps-kickback', name: 'Triceps Kickback', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: true, animation: 'pushdown',
     about: 'A strict one-arm extension with the upper arm parallel to the floor. The movement isolates the triceps behind the elbow — light weights, high reps, full control.',
@@ -943,7 +943,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['triceps-pushdown', 'overhead-extension', 'skull-crusher'],
   }),
   ex({
-    id: 'diamond-push-up', name: 'Diamond Push-Up', muscleGroup: 'Triceps', secondaryMuscles: ['Chest', 'Shoulders', 'Core'],
+    id: 'diamond-push-up', name: 'Diamond Push-Up', muscleGroup: 'Triceps', secondaryMuscles: ['Chest', 'Shoulders', 'Core'], targetSlugs: ['triceps'], secondarySlugs: ['chest', 'deltoids', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Compound', movement: 'Push', region: 'Upper',
     location: 'Both', beginnerFriendly: false, animation: 'bench',
     about: 'Placing thumbs and index fingers together in a diamond shape concentrates maximum loading onto all three heads of the triceps while demanding strong core stability.',
@@ -963,7 +963,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // ------------------------------------------------------------------- LEGS
   ex({
-    id: 'squat', name: 'Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'],
+    id: 'squat', name: 'Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'], targetSlugs: ['quadriceps', 'adductors'], secondarySlugs: ['gluteal', 'hamstring', 'abs', 'lower-back'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'squat',
     about: 'The undisputed king of lower-body exercises. The squat builds leg and glute size, core strength and full-body athleticism — no machine replicates its value.',
@@ -982,7 +982,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['goblet-squat', 'leg-press', 'hack-squat'],
   }),
   ex({
-    id: 'goblet-squat', name: 'Goblet Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'],
+    id: 'goblet-squat', name: 'Goblet Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'abs'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'squat',
     about: 'The best squat for learning the pattern. Holding a weight at your chest forces an upright torso, great depth and teaches the sit-back mechanics of a perfect squat.',
@@ -1001,7 +1001,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'leg-press', 'hack-squat'],
   }),
   ex({
-    id: 'romanian-deadlift', name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', secondaryMuscles: ['Glutes', 'Back'],
+    id: 'romanian-deadlift', name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', secondaryMuscles: ['Glutes', 'Back'], targetSlugs: ['hamstring', 'gluteal'], secondarySlugs: ['lower-back', 'forearm'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'deadlift',
     about: 'The premier hamstring and glute builder. The RDL trains the hip hinge with constant tension on the posterior chain — the key to strong pulls and injury-resistant hamstrings.',
@@ -1020,7 +1020,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['deadlift', 'hyperextension', 'leg-curl'],
   }),
   ex({
-    id: 'deadlift', name: 'Deadlift', muscleGroup: 'Back', secondaryMuscles: ['Hamstrings', 'Glutes', 'Core'],
+    id: 'deadlift', name: 'Deadlift', muscleGroup: 'Back', secondaryMuscles: ['Hamstrings', 'Glutes', 'Core'], targetSlugs: ['lower-back', 'gluteal', 'hamstring'], secondarySlugs: ['upper-back', 'trapezius', 'forearm', 'quadriceps', 'abs'],
     equipment: 'Barbell', difficulty: 'Advanced', type: 'Compound', movement: 'Legs', region: 'Full Body',
     location: 'Gym', beginnerFriendly: false, animation: 'deadlift',
     about: 'The ultimate full-body strength lift. The deadlift loads the entire posterior chain, grip, core and back — building raw strength that transfers to every other lift.',
@@ -1039,7 +1039,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['romanian-deadlift', 'trap-bar-deadlift', 'hyperextension'],
   }),
   ex({
-    id: 'leg-press', name: 'Leg Press', muscleGroup: 'Quads', secondaryMuscles: ['Glutes'],
+    id: 'leg-press', name: 'Leg Press', muscleGroup: 'Quads', secondaryMuscles: ['Glutes'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'adductors'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'squat',
     about: 'A machine squat that removes balance and back demands, allowing heavy quad and glute loading. Great for high-volume leg training and for lifters with back limitations.',
@@ -1058,7 +1058,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'goblet-squat', 'hack-squat'],
   }),
   ex({
-    id: 'leg-extension', name: 'Leg Extension', muscleGroup: 'Quads', secondaryMuscles: [],
+    id: 'leg-extension', name: 'Leg Extension', muscleGroup: 'Quads', secondaryMuscles: [], targetSlugs: ['quadriceps'], secondarySlugs: [],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'squat',
     about: 'A direct quad isolation that adds knee-strength and leg volume with minimal recovery cost. Perfect as a pre-exhaust before squats or a finisher after them.',
@@ -1077,7 +1077,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'goblet-squat', 'lunge'],
   }),
   ex({
-    id: 'leg-curl', name: 'Seated Leg Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'],
+    id: 'leg-curl', name: 'Seated Leg Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'], targetSlugs: ['hamstring'], secondarySlugs: ['calves'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'lunge',
     about: 'Direct hamstring isolation that balances all that quad work. Strong hamstrings protect the knees and improve your squat and deadlift.',
@@ -1096,7 +1096,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['romanian-deadlift', 'hyperextension'],
   }),
   ex({
-    id: 'lying-leg-curl', name: 'Lying Leg Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'],
+    id: 'lying-leg-curl', name: 'Lying Leg Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'], targetSlugs: ['hamstring'], secondarySlugs: ['calves'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'lunge',
     about: 'A prone hamstring curl that stretches the muscle at the start of each rep — a slightly different stimulus than the seated version, with more hip-extension bias from the long head.',
@@ -1115,7 +1115,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['leg-curl', 'romanian-deadlift', 'nordic-curl'],
   }),
   ex({
-    id: 'nordic-curl', name: 'Nordic Hamstring Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'],
+    id: 'nordic-curl', name: 'Nordic Hamstring Curl', muscleGroup: 'Hamstrings', secondaryMuscles: ['Calves'], targetSlugs: ['hamstring'], secondarySlugs: ['calves', 'gluteal'],
     equipment: 'Bodyweight', difficulty: 'Advanced', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: false, animation: 'lunge',
     about: 'The gold standard for hamstring strength and injury prevention. Anchored at the ankles, you lower your torso to the floor against your hamstrings — a brutal eccentric that bulletproofs the knee.',
@@ -1134,7 +1134,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lying-leg-curl', 'romanian-deadlift', 'good-morning'],
   }),
   ex({
-    id: 'good-morning', name: 'Good Morning', muscleGroup: 'Hamstrings', secondaryMuscles: ['Glutes', 'Back'],
+    id: 'good-morning', name: 'Good Morning', muscleGroup: 'Hamstrings', secondaryMuscles: ['Glutes', 'Back'], targetSlugs: ['hamstring', 'lower-back'], secondarySlugs: ['gluteal', 'abs'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'deadlift',
     about: 'A barbell hip hinge that loads the hamstrings, glutes and lower back through a deep stretch. An outstanding posterior-chain builder when performed with strict, patient form.',
@@ -1153,7 +1153,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['romanian-deadlift', 'hyperextension', 'nordic-curl'],
   }),
   ex({
-    id: 'calf-raise', name: 'Standing Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [],
+    id: 'calf-raise', name: 'Standing Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [], targetSlugs: ['calves'], secondarySlugs: ['tibialis'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'calf',
     about: 'The key to strong, visible calves. Calves respond to heavy loads and full range of motion — a deep stretch at the bottom and a hard squeeze at the top.',
@@ -1172,7 +1172,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['seated-calf-raise', 'single-leg-calf-raise'],
   }),
   ex({
-    id: 'seated-calf-raise', name: 'Seated Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [],
+    id: 'seated-calf-raise', name: 'Seated Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [], targetSlugs: ['calves'], secondarySlugs: ['tibialis'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'calf',
     about: 'With the knees bent, the seated calf raise targets the soleus — the deeper calf muscle that gives the lower leg thickness. Heavy weight and a deep stretch are the keys.',
@@ -1191,7 +1191,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['calf-raise', 'single-leg-calf-raise', 'leg-press-calf-raise'],
   }),
   ex({
-    id: 'single-leg-calf-raise', name: 'Single-Leg Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [],
+    id: 'single-leg-calf-raise', name: 'Single-Leg Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [], targetSlugs: ['calves'], secondarySlugs: ['tibialis'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'calf',
     about: 'One leg does all the work — doubling the load on each calf and exposing left-right imbalances. Doable anywhere with a step or a stair.',
@@ -1210,7 +1210,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['calf-raise', 'seated-calf-raise', 'leg-press-calf-raise'],
   }),
   ex({
-    id: 'leg-press-calf-raise', name: 'Leg Press Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [],
+    id: 'leg-press-calf-raise', name: 'Leg Press Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [], targetSlugs: ['calves'], secondarySlugs: ['tibialis'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'squat',
     about: 'Calf raises on the leg press allow you to load the calves with serious weight in a safe, seated position. A heavy, deep-stretch finisher for stubborn calves.',
@@ -1229,7 +1229,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['calf-raise', 'seated-calf-raise', 'single-leg-calf-raise'],
   }),
   ex({
-    id: 'lunge', name: 'Dumbbell Lunge', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'],
+    id: 'lunge', name: 'Dumbbell Lunge', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'hamstring', 'calves'],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'lunge',
     about: 'A unilateral leg builder that develops balance, hip stability and single-leg strength. Lunges correct imbalances that squats and presses miss.',
@@ -1248,7 +1248,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'goblet-squat', 'leg-press'],
   }),
   ex({
-    id: 'front-squat', name: 'Front Squat', muscleGroup: 'Quads', secondaryMuscles: ['Core', 'Glutes'],
+    id: 'front-squat', name: 'Front Squat', muscleGroup: 'Quads', secondaryMuscles: ['Core', 'Glutes'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'abs', 'upper-back'],
     equipment: 'Barbell', difficulty: 'Advanced', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'squat',
     about: 'A squat with the bar racked on the front delts that forces an upright torso — shifting more work onto the quads and core. The movement that makes back squats feel easy by comparison.',
@@ -1267,7 +1267,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'hack-squat', 'leg-press'],
   }),
   ex({
-    id: 'hack-squat', name: 'Hack Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes'],
+    id: 'hack-squat', name: 'Hack Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal'],
     equipment: 'Machine', difficulty: 'Beginner', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'squat',
     about: 'A machine squat on a fixed sled that removes balance while allowing heavy quad loading with a deep range of motion. A leg-day staple for bodybuilders and beginners alike.',
@@ -1286,7 +1286,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['squat', 'leg-press', 'front-squat'],
   }),
   ex({
-    id: 'bulgarian-split-squat', name: 'Bulgarian Split Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'],
+    id: 'bulgarian-split-squat', name: 'Bulgarian Split Squat', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'], targetSlugs: ['quadriceps', 'gluteal'], secondarySlugs: ['hamstring', 'adductors'],
     equipment: 'Dumbbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: false, animation: 'lunge',
     about: 'A rear-foot-elevated split squat that hammers one leg at a time — brutal for the quads, glutes and balance. The single best unilateral leg builder you can do.',
@@ -1305,7 +1305,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lunge', 'squat', 'goblet-squat'],
   }),
   ex({
-    id: 'hip-thrust', name: 'Barbell Hip Thrust', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Core'],
+    id: 'hip-thrust', name: 'Barbell Hip Thrust', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Core'], targetSlugs: ['gluteal'], secondarySlugs: ['hamstring', 'quadriceps', 'abs'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'deadlift',
     about: 'The most effective glute builder in the gym. The hip thrust trains the glutes through a full hip extension — the movement pattern they exist to perform.',
@@ -1324,7 +1324,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['glute-bridge', 'romanian-deadlift'],
   }),
   ex({
-    id: 'glute-bridge', name: 'Glute Bridge', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Core'],
+    id: 'glute-bridge', name: 'Glute Bridge', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Core'], targetSlugs: ['gluteal'], secondarySlugs: ['hamstring', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'deadlift',
     about: 'The simplest, safest way to teach the glutes to extend the hip. Floor bridges build the mind-muscle connection you need before graduating to loaded hip thrusts.',
@@ -1343,7 +1343,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['hip-thrust', 'cable-kickback', 'donkey-kick'],
   }),
   ex({
-    id: 'cable-kickback', name: 'Cable Glute Kickback', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings'],
+    id: 'cable-kickback', name: 'Cable Glute Kickback', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings'], targetSlugs: ['gluteal'], secondarySlugs: ['hamstring'],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'deadlift',
     about: 'An ankle-cuff cable movement that kicks the leg back against resistance — constant tension on the glutes with zero lower-back load. A favorite accessory for glute development.',
@@ -1362,7 +1362,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['glute-bridge', 'donkey-kick', 'hip-thrust'],
   }),
   ex({
-    id: 'sumo-deadlift', name: 'Sumo Deadlift', muscleGroup: 'Glutes', secondaryMuscles: ['Quads', 'Back'],
+    id: 'sumo-deadlift', name: 'Sumo Deadlift', muscleGroup: 'Glutes', secondaryMuscles: ['Quads', 'Back'], targetSlugs: ['gluteal', 'adductors'], secondarySlugs: ['hamstring', 'quadriceps', 'lower-back'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Full Body',
     location: 'Gym', beginnerFriendly: false, animation: 'deadlift',
     about: 'A wide-stance deadlift that shifts the emphasis from the lower back to the glutes, adductors and quads. Many lifters find the shorter bar path makes it the strongest pull variation.',
@@ -1381,7 +1381,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['deadlift', 'trap-bar-deadlift', 'hip-thrust'],
   }),
   ex({
-    id: 'donkey-kick', name: 'Donkey Kick', muscleGroup: 'Glutes', secondaryMuscles: ['Core'],
+    id: 'donkey-kick', name: 'Donkey Kick', muscleGroup: 'Glutes', secondaryMuscles: ['Core'], targetSlugs: ['gluteal'], secondarySlugs: ['hamstring', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'lunge',
     about: 'A four-point kneeling movement that kicks the heel toward the ceiling — a simple, joint-friendly way to fire the glutes and build the mind-muscle connection.',
@@ -1400,7 +1400,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['glute-bridge', 'cable-kickback', 'hip-thrust'],
   }),
   ex({
-    id: 'barbell-reverse-lunge', name: 'Barbell Reverse Lunge', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Hamstrings', 'Core'],
+    id: 'barbell-reverse-lunge', name: 'Barbell Reverse Lunge', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Hamstrings', 'Core'], targetSlugs: ['quadriceps', 'gluteal'], secondarySlugs: ['hamstring', 'calves'],
     equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Gym', beginnerFriendly: false, animation: 'lunge',
     about: 'Stepping backward into a lunge with a barbell across the upper traps places less sheer stress on the front knee than forward lunges, while heavily loading the quads, glutes, and hips.',
@@ -1419,7 +1419,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['lunge', 'bulgarian-split-squat', 'squat'],
   }),
   ex({
-    id: 'pistol-squat', name: 'Pistol Squat (Single-Leg Squat)', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core', 'Calves'],
+    id: 'pistol-squat', name: 'Pistol Squat (Single-Leg Squat)', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core', 'Calves'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'calves', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Advanced', type: 'Compound', movement: 'Legs', region: 'Lower',
     location: 'Both', beginnerFriendly: false, animation: 'squat',
     about: 'The ultimate bodyweight leg feat. Balancing on one foot with the other leg extended straight forward, you perform a full-depth squat demanding exceptional balance, ankle mobility, and single-leg power.',
@@ -1438,7 +1438,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bulgarian-split-squat', 'goblet-squat', 'lunge'],
   }),
   ex({
-    id: 'kettlebell-swing', name: 'Kettlebell Swing', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Back', 'Core'],
+    id: 'kettlebell-swing', name: 'Kettlebell Swing', muscleGroup: 'Glutes', secondaryMuscles: ['Hamstrings', 'Back', 'Core'], targetSlugs: ['gluteal', 'hamstring'], secondarySlugs: ['lower-back', 'deltoids', 'abs'],
     equipment: 'Kettlebell', difficulty: 'Intermediate', type: 'Compound', movement: 'Legs', region: 'Full Body',
     location: 'Both', beginnerFriendly: true, animation: 'deadlift',
     about: 'An explosive posterior chain hip hinge that builds athletic power, glute strength, and high-intensity cardiovascular conditioning simultaneously.',
@@ -1458,7 +1458,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // ------------------------------------------------------------------- CORE
   ex({
-    id: 'plank', name: 'Plank', muscleGroup: 'Core', secondaryMuscles: ['Shoulders'],
+    id: 'plank', name: 'Plank', muscleGroup: 'Core', secondaryMuscles: ['Shoulders'], targetSlugs: ['abs', 'obliques'], secondarySlugs: ['deltoids', 'gluteal'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'plank',
     about: 'The gold standard of core stability. The plank trains the entire trunk to resist extension — the foundation of heavy squats, deadlifts and presses.',
@@ -1477,7 +1477,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['crunch', 'russian-twist', 'hanging-raise'],
   }),
   ex({
-    id: 'crunch', name: 'Cable Crunch', muscleGroup: 'Core', secondaryMuscles: [],
+    id: 'crunch', name: 'Cable Crunch', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['abs'], secondarySlugs: [],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Gym', beginnerFriendly: true, animation: 'crunch',
     about: 'A weighted crunch that builds visible abs. The cable adds load to the spinal flexion pattern so the abs can grow like any other muscle.',
@@ -1496,7 +1496,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'russian-twist', 'hanging-raise'],
   }),
   ex({
-    id: 'russian-twist', name: 'Russian Twist', muscleGroup: 'Core', secondaryMuscles: [],
+    id: 'russian-twist', name: 'Russian Twist', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['obliques', 'abs'], secondarySlugs: [],
     equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'crunch',
     about: 'A rotational core exercise that strengthens the obliques — the muscles that stabilize rotation in every sport and daily movement.',
@@ -1515,7 +1515,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'crunch', 'hanging-raise'],
   }),
   ex({
-    id: 'hanging-leg-raise', name: 'Hanging Leg Raise', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Forearms'],
+    id: 'hanging-leg-raise', name: 'Hanging Leg Raise', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Forearms'], targetSlugs: ['abs'], secondarySlugs: ['forearm', 'obliques'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: false, animation: 'crunch',
     about: 'Hanging from a bar, you raise your legs without swinging — one of the hardest and most effective lower-ab builders there is, loading the core through full hip flexion.',
@@ -1534,7 +1534,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['crunch', 'dead-bug', 'bicycle-crunch'],
   }),
   ex({
-    id: 'side-plank', name: 'Side Plank', muscleGroup: 'Core', secondaryMuscles: ['Shoulders'],
+    id: 'side-plank', name: 'Side Plank', muscleGroup: 'Core', secondaryMuscles: ['Shoulders'], targetSlugs: ['obliques'], secondarySlugs: ['deltoids', 'abs'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'plank',
     about: 'The lateral core stabilizer — side planks build the obliques and quadratus lumborum that protect the spine during rotation and side-loading. The perfect partner to the front plank.',
@@ -1553,7 +1553,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'russian-twist', 'ab-wheel-rollout'],
   }),
   ex({
-    id: 'ab-wheel-rollout', name: 'Ab Wheel Rollout', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Back'],
+    id: 'ab-wheel-rollout', name: 'Ab Wheel Rollout', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Back'], targetSlugs: ['abs'], secondarySlugs: ['upper-back', 'deltoids', 'triceps'],
     equipment: 'Bodyweight', difficulty: 'Advanced', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: false, animation: 'plank',
     about: 'Roll out and the abs fight to keep your spine from collapsing — one of the hardest core exercises ever devised. Nothing teaches anti-extension like the wheel.',
@@ -1572,7 +1572,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'dead-bug', 'hanging-leg-raise'],
   }),
   ex({
-    id: 'dead-bug', name: 'Dead Bug', muscleGroup: 'Core', secondaryMuscles: [],
+    id: 'dead-bug', name: 'Dead Bug', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['abs'], secondarySlugs: ['obliques'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'crunch',
     about: 'A deceptively simple anti-extension exercise: lying on your back, you lower opposite arm and leg while keeping the lower back pressed to the floor. Rehab gold for the core.',
@@ -1591,7 +1591,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'hanging-leg-raise', 'bicycle-crunch'],
   }),
   ex({
-    id: 'mountain-climber', name: 'Mountain Climber', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Cardio'],
+    id: 'mountain-climber', name: 'Mountain Climber', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Cardio'], targetSlugs: ['abs'], secondarySlugs: ['deltoids', 'quadriceps'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Compound', movement: 'Core', region: 'Full Body',
     location: 'Both', beginnerFriendly: true, animation: 'run',
     about: 'A plank with running knees — the core holds a rigid bridge while your legs drive, spiking the heart rate. A conditioning staple that doubles as core work.',
@@ -1610,7 +1610,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['plank', 'burpees', 'treadmill-run'],
   }),
   ex({
-    id: 'bicycle-crunch', name: 'Bicycle Crunch', muscleGroup: 'Core', secondaryMuscles: [],
+    id: 'bicycle-crunch', name: 'Bicycle Crunch', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['obliques', 'abs'], secondarySlugs: [],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'crunch',
     about: 'The top-rated ab exercise in many studies — a rotating crunch that lights up the obliques and upper abs together. Slow, twisting reps beat fast, sloppy ones.',
@@ -1629,7 +1629,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['crunch', 'russian-twist', 'hanging-leg-raise'],
   }),
   ex({
-    id: 'sit-ups', name: 'Sit-Up', muscleGroup: 'Core', secondaryMuscles: [],
+    id: 'sit-ups', name: 'Sit-Up', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['abs'], secondarySlugs: ['obliques'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Isolation', movement: 'Core', region: 'Core',
     location: 'Both', beginnerFriendly: true, animation: 'crunch',
     about: 'A foundational core exercise that strengthens the rectus abdominis through spinal flexion and hip flexor engagement. Classic, simple, and effective.',
@@ -1649,7 +1649,7 @@ export const EXERCISES: Exercise[] = [
   }),
   // ----------------------------------------------------------------- CARDIO
   ex({
-    id: 'treadmill-run', name: 'Treadmill Run', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'],
+    id: 'treadmill-run', name: 'Treadmill Run', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'], targetSlugs: ['quadriceps', 'calves'], secondarySlugs: ['hamstring', 'gluteal'],
     equipment: 'Cardio', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Gym', beginnerFriendly: true, animation: 'run',
     about: 'Classic cardiovascular conditioning. Track distance and duration to build endurance, burn calories and support recovery between heavy lifting sessions.',
@@ -1668,7 +1668,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['cycling', 'rower', 'stair-climber'],
   }),
   ex({
-    id: 'cycling', name: 'Stationary Bike', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'],
+    id: 'cycling', name: 'Stationary Bike', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'], targetSlugs: ['quadriceps'], secondarySlugs: ['hamstring', 'calves', 'gluteal'],
     equipment: 'Cardio', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Lower',
     location: 'Both', beginnerFriendly: true, animation: 'run',
     about: 'Low-impact cardio that spares the joints while delivering serious conditioning. Ideal for recovery days and for adding volume without taxing the knees.',
@@ -1687,7 +1687,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['treadmill-run', 'rower', 'stair-climber'],
   }),
   ex({
-    id: 'rower', name: 'Rowing Machine', muscleGroup: 'Back', secondaryMuscles: ['Quads', 'Hamstrings', 'Cardio'],
+    id: 'rower', name: 'Rowing Machine', muscleGroup: 'Back', secondaryMuscles: ['Quads', 'Hamstrings', 'Cardio'], targetSlugs: ['upper-back'], secondarySlugs: ['quadriceps', 'hamstring', 'biceps', 'abs'],
     equipment: 'Cardio', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Gym', beginnerFriendly: true, animation: 'row',
     about: 'A full-body cardio machine that hits the legs, back and arms while elevating the heart rate. Rowing is the closest thing to a total-body workout on cardio equipment.',
@@ -1706,7 +1706,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['treadmill-run', 'cycling', 'stair-climber'],
   }),
   ex({
-    id: 'stair-climber', name: 'Stair Climber', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Glutes', 'Calves'],
+    id: 'stair-climber', name: 'Stair Climber', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Glutes', 'Calves'], targetSlugs: ['gluteal', 'quadriceps', 'calves'], secondarySlugs: ['hamstring'],
     equipment: 'Cardio', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Lower',
     location: 'Gym', beginnerFriendly: true, animation: 'run',
     about: 'A machine that never lies — every step is a weighted single-leg step-up. Stair climbing builds serious lower-body endurance and glute burn without any impact.',
@@ -1725,7 +1725,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['treadmill-run', 'cycling', 'elliptical'],
   }),
   ex({
-    id: 'elliptical', name: 'Elliptical Trainer', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'],
+    id: 'elliptical', name: 'Elliptical Trainer', muscleGroup: 'Cardio', secondaryMuscles: ['Quads', 'Hamstrings'], targetSlugs: ['quadriceps', 'gluteal'], secondarySlugs: ['hamstring', 'calves'],
     equipment: 'Cardio', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Both', beginnerFriendly: true, animation: 'run',
     about: 'Smooth, low-impact cardio that moves the legs in a gliding ellipse — gentle on the knees while still delivering a real conditioning stimulus. Great for recovery days.',
@@ -1744,7 +1744,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['treadmill-run', 'cycling', 'stair-climber'],
   }),
   ex({
-    id: 'jump-rope', name: 'Jump Rope', muscleGroup: 'Cardio', secondaryMuscles: ['Calves', 'Shoulders'],
+    id: 'jump-rope', name: 'Jump Rope', muscleGroup: 'Cardio', secondaryMuscles: ['Calves', 'Shoulders'], targetSlugs: ['calves'], secondarySlugs: ['deltoids', 'forearm'],
     equipment: 'Bodyweight', difficulty: 'Beginner', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Both', beginnerFriendly: true, animation: 'run',
     about: 'The most portable cardio on the planet — a jump rope delivers an elite conditioning workout in minutes, building calf strength, rhythm and coordination.',
@@ -1763,7 +1763,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['treadmill-run', 'burpees', 'cycling'],
   }),
   ex({
-    id: 'burpees', name: 'Burpee', muscleGroup: 'Cardio', secondaryMuscles: ['Chest', 'Quads', 'Core'],
+    id: 'burpees', name: 'Burpee', muscleGroup: 'Cardio', secondaryMuscles: ['Chest', 'Quads', 'Core'], targetSlugs: ['chest', 'quadriceps', 'abs'], secondarySlugs: ['deltoids', 'calves'],
     equipment: 'Bodyweight', difficulty: 'Intermediate', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Both', beginnerFriendly: false, animation: 'run',
     about: 'The total-body conditioning movement — squat, plank, push-up, jump. Nothing builds work capacity faster, and nothing humbles you more reliably.',
@@ -1782,7 +1782,7 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['jump-rope', 'mountain-climber', 'treadmill-run'],
   }),
   ex({
-    id: 'battle-ropes', name: 'Battle Ropes', muscleGroup: 'Cardio', secondaryMuscles: ['Shoulders', 'Back', 'Core'],
+    id: 'battle-ropes', name: 'Battle Ropes', muscleGroup: 'Cardio', secondaryMuscles: ['Shoulders', 'Back', 'Core'], targetSlugs: ['deltoids', 'forearm'], secondarySlugs: ['upper-back', 'abs'],
     equipment: 'Cardio', difficulty: 'Intermediate', type: 'Compound', movement: 'Cardio', region: 'Full Body',
     location: 'Gym', beginnerFriendly: false, animation: 'run',
     about: 'Heavy ropes slammed in waves build conditioning, grip and upper-body endurance simultaneously. Short, intense rounds are the name of the game.',
@@ -1895,6 +1895,45 @@ export const EXERCISE_ALIASES: Record<string, string[]> = {
 for (const [id, aliases] of Object.entries(EXERCISE_ALIASES)) {
   const e = EXERCISE_MAP[id];
   if (e) e.aliases = aliases;
+}
+
+/**
+ * Robust exercise resolver: looks up canonical id, case-insensitive keys,
+ * display names, and registered aliases. Ensures workouts from template plans,
+ * custom builder plans, ad-hoc logs, replays, and CSV imports all map seamlessly.
+ */
+export function resolveExercise(exerciseIdOrName: string | undefined | null): Exercise | undefined {
+  if (!exerciseIdOrName) return undefined;
+  // 1. Direct key lookup in map
+  if (EXERCISE_MAP[exerciseIdOrName]) return EXERCISE_MAP[exerciseIdOrName];
+
+  const norm = exerciseIdOrName.trim().toLowerCase();
+
+  // 2. Case-insensitive ID lookup
+  for (const [id, ex] of Object.entries(EXERCISE_MAP)) {
+    if (id.toLowerCase() === norm) return ex;
+  }
+
+  // 3. Exact name lookup
+  for (const ex of EXERCISES) {
+    if (ex.name.toLowerCase() === norm) return ex;
+  }
+
+  // 4. Aliases lookup
+  for (const [id, aliases] of Object.entries(EXERCISE_ALIASES)) {
+    if (aliases.some((a) => a.toLowerCase() === norm || norm.includes(a.toLowerCase()))) {
+      return EXERCISE_MAP[id];
+    }
+  }
+
+  // 5. Partial name substring match
+  for (const ex of EXERCISES) {
+    if (norm.includes(ex.name.toLowerCase()) || ex.name.toLowerCase().includes(norm)) {
+      return ex;
+    }
+  }
+
+  return undefined;
 }
 
 /**

@@ -124,7 +124,10 @@ export const useAuth = create<AuthState>((set) => ({
       } else if (event === 'SIGNED_OUT') {
         dismissActiveWorkoutNotification().catch(() => {});
         usePulse.getState().clearSessionCache();
+        // Clear offline sync queue and any pending deep-link invites so a
+        // crafted invite stored before login cannot affect the next user.
         AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
+        AsyncStorage.removeItem('@nextrep_pending_invite').catch(() => {});
       }
     });
 
@@ -143,8 +146,9 @@ export const useAuth = create<AuthState>((set) => ({
       dismissActiveWorkoutNotification().catch(() => {});
       // 2. Clear all local user session state and profile cache so the next user starts completely fresh
       usePulse.getState().clearSessionCache();
-      // 3. Clear offline sync queue
+      // 3. Clear offline sync queue and pending deep-link invites
       AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
+      AsyncStorage.removeItem('@nextrep_pending_invite').catch(() => {});
       // 4. Reset auth state
       set({
         session: null,

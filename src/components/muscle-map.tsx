@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import Body, { type BodyPartStyles, type ExtendedBodyPart, type Slug } from 'react-native-body-highlighter';
 
 import { colors } from '../theme';
-import type { MuscleGroup } from '../types';
+import type { Exercise, MuscleGroup, MuscleSlug } from '../types';
 import { T } from './Text';
 
 /**
@@ -156,6 +156,7 @@ function buildData(
   side: Side,
   intensity: Record<string, number>,
   selected: MuscleGroup | null,
+  selectedSlug: Slug | null,
   strokeColor: string,
   pulseFraction = 1,
   palette: [string, string, string] = [colors.zoneLow, colors.zoneMod, colors.zoneWell],
@@ -164,11 +165,17 @@ function buildData(
   // base entry for every part so the whole figure uses the dark body fill
   for (const slug of SIDE_SLUGS[side]) data.push({ slug });
   for (const [group, slugs] of SIDE_GROUPS[side]) {
-    const rawIntensity = intensity[group] ?? 0;
-    const level = levelFor(rawIntensity);
-    const isSel = group === selected;
+    const isGroupSel = group === selected;
+
     for (const slug of slugs) {
-      if (isSel) {
+      // Slug-level intensity with group-level fallback
+      const rawIntensity = intensity[slug] ?? intensity[group] ?? 0;
+      const level = levelFor(rawIntensity);
+
+      // Precise division: If a specific slug is selected, only that exact anatomical part blinks
+      const isSelectedPart = selectedSlug ? slug === selectedSlug : isGroupSel;
+
+      if (isSelectedPart) {
         // Base color corresponding to current training volume or theme highlight
         const baseColor =
           level === 3 ? palette[2] : level === 2 ? palette[1] : level === 1 ? palette[0] : strokeColor;
@@ -201,6 +208,7 @@ function FigurePanel({
   label,
   intensity,
   selected,
+  selectedSlug = null,
   onPress,
   height,
   gender,
@@ -212,6 +220,7 @@ function FigurePanel({
   label: string;
   intensity: Record<string, number>;
   selected: MuscleGroup | null;
+  selectedSlug?: Slug | null;
   onPress: (part: ExtendedBodyPart) => void;
   height: number;
   gender: 'male' | 'female';
@@ -229,7 +238,7 @@ function FigurePanel({
     <View style={styles.figure} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
       <View style={styles.figureInner}>
         <Body
-          data={buildData(side, intensity, selected, strokeColor, pulseFraction, palette)}
+          data={buildData(side, intensity, selected, selectedSlug, strokeColor, pulseFraction, palette)}
           side={side}
           scale={scale}
           gender={gender}
@@ -253,6 +262,8 @@ export function MuscleMap({
   height = 300,
   selected,
   onSelect,
+  selectedSlug,
+  onSelectSlug,
   gender = 'male',
 }: {
   /** muscle -> 0..1 training intensity */
@@ -260,30 +271,137 @@ export function MuscleMap({
   height?: number;
   selected?: MuscleGroup | null;
   onSelect?: (m: MuscleGroup) => void;
+  selectedSlug?: Slug | null;
+  onSelectSlug?: (slug: Slug, group: MuscleGroup) => void;
   /** body model — matches the user's profile gender */
   gender?: 'male' | 'female';
 }) {
-  const [local, setLocal] = useState<MuscleGroup | null>(null);
-  const sel = selected ?? local;
-  const pulseFraction = usePulseAnimation(Boolean(sel), 1800);
+  const [localGroup, setLocalGroup] = useState<MuscleGroup | null>(null);
+  const [localSlug, setLocalSlug] = useState<Slug | null>(null);
 
-  const pick = (m: MuscleGroup) => (onSelect ?? setLocal)(m);
+  const selGroup = selected ?? localGroup;
+  const selSlug = selectedSlug !== undefined ? selectedSlug : localSlug;
+
+  const pulseFraction = usePulseAnimation(Boolean(selGroup || selSlug), 1800);
+
   const press = (part: ExtendedBodyPart) => {
     if (!part.slug) return;
     const group = SLUG_TO_GROUP[part.slug];
-    if (group) pick(group);
+    setLocalSlug(part.slug);
+    if (group) {
+      setLocalGroup(group);
+      onSelect?.(group);
+      onSelectSlug?.(part.slug, group);
+    }
   };
 
   return (
     <View style={{ flexDirection: 'row', height, gap: 8 }}>
-      <FigurePanel side="front" label="Front" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
-      <FigurePanel side="back" label="Back" intensity={intensity} selected={sel} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
+      <FigurePanel side="front" label="Front" intensity={intensity} selected={selGroup} selectedSlug={selSlug} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
+      <FigurePanel side="back" label="Back" intensity={intensity} selected={selGroup} selectedSlug={selSlug} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
     </View>
   );
 }
 
 /** deep → mid → light orange: primary target pulses smoothly between deep and mid orange */
 const TARGET_PALETTE: [string, string, string] = ['#FFC08A', '#FF9F43', '#F97316'];
+
+const DEFAULT_GROUP_SLUGS: Record<MuscleGroup, { primary: Slug[]; secondary?: Slug[] }> = {
+  Chest: { primary: ['chest'] },
+  Back: { primary: ['upper-back'] },
+  Shoulders: { primary: ['deltoids'] },
+  Biceps: { primary: ['biceps'] },
+  Triceps: { primary: ['triceps'] },
+  Quads: { primary: ['quadriceps', 'adductors'] },
+  Hamstrings: { primary: ['hamstring'] },
+  Glutes: { primary: ['gluteal'] },
+  Calves: { primary: ['calves'] },
+  Core: { primary: ['abs', 'obliques'] },
+  Forearms: { primary: ['forearm'] },
+  Cardio: { primary: ['quadriceps', 'calves'] },
+};
+
+function buildTargetData(
+  side: Side,
+  targetSlugs: Slug[],
+  secondarySlugs: Slug[],
+  pulseFraction = 1,
+): ExtendedBodyPart[] {
+  const data: ExtendedBodyPart[] = [];
+  const sideSlugs = SIDE_SLUGS[side];
+  for (const slug of sideSlugs) {
+    if (targetSlugs.includes(slug)) {
+      // Primary target glowing with smooth breathing animation in vibrant orange
+      const fillAlpha = 0.35 + 0.65 * pulseFraction;
+      const strokeAlpha = 0.3 + 0.7 * pulseFraction;
+      const strokeW = +(1.3 + 1.2 * pulseFraction).toFixed(1);
+      data.push({
+        slug,
+        styles: {
+          stroke: rgbaString('#FFFFFF', strokeAlpha),
+          strokeWidth: strokeW,
+          fill: rgbaString('#F97316', fillAlpha),
+        },
+      });
+    } else if (secondarySlugs.includes(slug)) {
+      // Secondary muscle: subtle lighter amber highlight without heavy pulse
+      data.push({
+        slug,
+        styles: {
+          stroke: 'rgba(255, 192, 138, 0.45)',
+          strokeWidth: 1.2,
+          fill: 'rgba(255, 159, 67, 0.45)',
+        },
+      });
+    } else {
+      // Dark baseline anatomy
+      data.push({ slug });
+    }
+  }
+  return data;
+}
+
+function TargetFigurePanel({
+  side,
+  label,
+  targetSlugs,
+  secondarySlugs,
+  height,
+  gender,
+  pulseFraction = 1,
+}: {
+  side: Side;
+  label: string;
+  targetSlugs: Slug[];
+  secondarySlugs: Slug[];
+  height: number;
+  gender: 'male' | 'female';
+  pulseFraction?: number;
+}) {
+  const [panelW, setPanelW] = useState(0);
+  const scale = panelW > 0 ? Math.min(height / VIEW_H, (panelW - 16) / VIEW_W) : height / VIEW_H;
+
+  return (
+    <View style={styles.figure} onLayout={(e) => setPanelW(e.nativeEvent.layout.width)}>
+      <View style={styles.figureInner}>
+        <Body
+          data={buildTargetData(side, targetSlugs, secondarySlugs, pulseFraction)}
+          side={side}
+          scale={scale}
+          gender={gender}
+          border={colors.borderBright}
+          defaultFill={BODY_FILL}
+          defaultStroke="rgba(255,255,255,0.10)"
+          defaultStrokeWidth={1}
+          colors={TARGET_PALETTE}
+        />
+      </View>
+      <T variant="micro" muted style={styles.label}>
+        {label}
+      </T>
+    </View>
+  );
+}
 
 /**
  * Exercise-target view: shows which muscles an exercise works on the front and
@@ -293,23 +411,54 @@ const TARGET_PALETTE: [string, string, string] = ['#FFC08A', '#FF9F43', '#F97316
 export function MuscleTargetMap({
   primary,
   secondary = [],
+  targetSlugs,
+  secondarySlugs,
+  exercise,
   height = 240,
   gender = 'male',
 }: {
-  primary: MuscleGroup;
+  primary?: MuscleGroup;
   secondary?: MuscleGroup[];
+  targetSlugs?: Slug[];
+  secondarySlugs?: Slug[];
+  exercise?: Exercise;
   height?: number;
   gender?: 'male' | 'female';
 }) {
   const pulseFraction = usePulseAnimation(true, 1800);
 
-  const intensity: Record<string, number> = { [primary]: 0.4 + 0.6 * pulseFraction };
-  for (const m of secondary) intensity[m] = 0.25;
+  const resolvedPrimaryGroup = exercise?.muscleGroup ?? primary ?? 'Chest';
+  const resolvedSecondaryGroups = exercise?.secondaryMuscles ?? secondary;
+
+  const resolvedTargets: Slug[] =
+    targetSlugs ??
+    ((exercise?.targetSlugs as unknown as Slug[]) || DEFAULT_GROUP_SLUGS[resolvedPrimaryGroup]?.primary || []);
+
+  const resolvedSecondaries: Slug[] =
+    secondarySlugs ??
+    ((exercise?.secondarySlugs as unknown as Slug[]) ||
+      resolvedSecondaryGroups.flatMap((g) => (DEFAULT_GROUP_SLUGS[g]?.primary || []) as Slug[]));
 
   return (
     <View style={{ flexDirection: 'row', height, gap: 8 }}>
-      <FigurePanel side="front" label="Front" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} pulseFraction={pulseFraction} />
-      <FigurePanel side="back" label="Back" intensity={intensity} selected={primary} onPress={() => undefined} height={height} gender={gender} palette={TARGET_PALETTE} strokeColor={TARGET_PALETTE[2]} pulseFraction={pulseFraction} />
+      <TargetFigurePanel
+        side="front"
+        label="Front"
+        targetSlugs={resolvedTargets}
+        secondarySlugs={resolvedSecondaries}
+        height={height}
+        gender={gender}
+        pulseFraction={pulseFraction}
+      />
+      <TargetFigurePanel
+        side="back"
+        label="Back"
+        targetSlugs={resolvedTargets}
+        secondarySlugs={resolvedSecondaries}
+        height={height}
+        gender={gender}
+        pulseFraction={pulseFraction}
+      />
     </View>
   );
 }
@@ -340,5 +489,5 @@ const styles = StyleSheet.create({
   // front/back panels look like clean, frameless body models
   figure: { flex: 1, position: 'relative' },
   figureInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  label: { position: 'absolute', bottom: 4, alignSelf: 'center', left: 0, right: 0, textAlign: 'center' },
+  label: { position: 'absolute', bottom: -10, alignSelf: 'center', left: 0, right: 0, textAlign: 'center' },
 });
