@@ -190,7 +190,7 @@ Configure your project in the [Supabase Dashboard](https://supabase.com/dashboar
 1. Go to **Authentication** → **Providers** → **Email**.
 2. Ensure **Email provider** is toggled **ON**.
 3. Enable **Confirm email** (recommended for production).
-4. Set minimum password length to **8 or more** characters.
+4. Set minimum password length to **8** characters.
 
 ### 2. Configure Redirect URLs
 1. Go to **Authentication** → **URL Configuration**.
@@ -210,7 +210,7 @@ Configure your project in the [Supabase Dashboard](https://supabase.com/dashboar
 
 ## Environment Setup
 
-Create a `.env` file at the project root (never commit this file):
+Created a `.env` file at the project root (never commit this file):
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
@@ -248,9 +248,13 @@ npm test           # jest — unit + security regression tests
 npx supabase db push   # apply all pending migrations to the remote project
 ```
 
+```bash
+eas build -p android --profile preview #build apk
+```
+
 Migrations live in `supabase/migrations/` and are applied in timestamp order. They are idempotent — safe to re-run.
 
-## Exercises Missing Animations (22 Total)
+## Exercises Missing Animations (16 Total)
 
 These exercises currently do not have a dedicated `.mp4` video animation in `assets/vital/` and cleanly render the interactive anatomical muscle target heatmap instead:
 
@@ -258,28 +262,22 @@ These exercises currently do not have a dedicated `.mp4` video animation in `ass
 - **Straight-Arm Pulldown** (`straight-arm-pulldown`)
 - **Barbell Shrug** (`shrug`)
 
-### Arms (Biceps & Triceps)
+### Arms (Triceps)
 - **Close-Grip Bench Press** (`close-grip-bench-press`)
-- **Triceps Kickback** (`triceps-kickback`)
 
 ### Legs, Glutes & Calves
 - **Hack Squat** (`hack-squat`)
-- **Lying Leg Curl** (`lying-leg-curl`)
 - **Nordic Hamstring Curl** (`nordic-curl`)
 - **Glute Bridge** (`glute-bridge`)
 - **Cable Glute Kickback** (`cable-kickback`)
 - **Donkey Kick** (`donkey-kick`)
-- **Seated Calf Raise** (`seated-calf-raise`)
 - **Single-Leg Calf Raise** (`single-leg-calf-raise`)
 - **Leg Press Calf Raise** (`leg-press-calf-raise`)
 
 ### Core & Cardio
-- **Cable Crunch** (`crunch`)
 - **Ab Wheel Rollout** (`ab-wheel-rollout`)
 - **Dead Bug** (`dead-bug`)
 - **Mountain Climber** (`mountain-climber`)
-- **Bicycle Crunch** (`bicycle-crunch`)
 - **Elliptical Trainer** (`elliptical`)
 - **Jump Rope** (`jump-rope`)
-- **Burpee** (`burpees`)
 - **Battle Ropes** (`battle-ropes`)

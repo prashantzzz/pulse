@@ -2,7 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { pushMeasurementToCloud, pushWorkoutToCloud, wipeUserWorkoutsInCloud, pushPlanToCloud, pushAllPlansToCloud, removePlanFromCloud, flushOfflineSyncQueue } from '../lib/sync';
+import {
+  pushMeasurementToCloud,
+  pushWorkoutToCloud,
+  wipeUserWorkoutsInCloud,
+  pushPlanToCloud,
+  pushAllPlansToCloud,
+  removePlanFromCloud,
+  pushFavoriteToCloud,
+  removeFavoriteFromCloud,
+  pushManualPRToCloud,
+  removeManualPRFromCloud,
+  flushOfflineSyncQueue,
+} from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { SEED_PLANS } from '../data/seed';
 import { applyAccent, type AccentKey } from '../theme';
@@ -134,11 +146,24 @@ export const usePulse = create<PulseState>()(
       },
 
       toggleFavorite: (exerciseId) =>
-        set((s) => ({
-          favorites: s.favorites.includes(exerciseId)
+        set((s) => {
+          const isFav = s.favorites.includes(exerciseId);
+          const nextFavs = isFav
             ? s.favorites.filter((f) => f !== exerciseId)
-            : [...s.favorites, exerciseId],
-        })),
+            : [...s.favorites, exerciseId];
+
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              if (isFav) {
+                removeFavoriteFromCloud(user.id, exerciseId).catch(() => {});
+              } else {
+                pushFavoriteToCloud(user.id, exerciseId).catch(() => {});
+              }
+            }
+          }).catch(() => {});
+
+          return { favorites: nextFavs };
+        }),
 
       setProfile: (p) => {
         set((s) => {
@@ -351,19 +376,39 @@ export const usePulse = create<PulseState>()(
       },
 
       addMeasurement: (m) => {
-        set((s) => ({ measurements: [...s.measurements, m] }));
+        set((s) => ({
+          measurements: [...s.measurements, m],
+          profile: s.profile ? { ...s.profile, weightKg: m.weightKg } : s.profile,
+        }));
         supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) pushMeasurementToCloud(user.id, m).catch(() => {});
+          if (user) {
+            pushMeasurementToCloud(user.id, m).catch(() => {});
+            const cur = get().profile;
+            if (cur) {
+              import('../lib/auth').then(({ upsertProfile }) => {
+                upsertProfile(user.id, { ...cur, weightKg: m.weightKg }).catch(() => {});
+              });
+            }
+          }
         }).catch(() => {});
       },
 
-      addManualPR: (pr) =>
+      addManualPR: (pr) => {
+        const item: ManualPR = { id: genId('pr'), ...pr };
         set((s) => ({
-          manualPRs: [{ id: genId('pr'), ...pr }, ...s.manualPRs],
-        })),
+          manualPRs: [item, ...s.manualPRs],
+        }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushManualPRToCloud(user.id, item).catch(() => {});
+        }).catch(() => {});
+      },
 
-      removeManualPR: (id) =>
-        set((s) => ({ manualPRs: s.manualPRs.filter((p) => p.id !== id) })),
+      removeManualPR: (id) => {
+        set((s) => ({ manualPRs: s.manualPRs.filter((p) => p.id !== id) }));
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) removeManualPRFromCloud(user.id, id).catch(() => {});
+        }).catch(() => {});
+      },
 
       importWorkouts: (imported) =>
         set((s) => {

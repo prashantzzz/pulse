@@ -1963,6 +1963,7 @@ export const DIFFICULTY_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'] as co
 export function searchExercises(opts: {
   query?: string;
   muscles?: string[];
+  slugs?: string[];        // filter by targetSlugs / secondarySlugs (muscle-map slug level)
   equipment?: string[];
   difficulty?: string[];
   type?: string[];
@@ -1975,6 +1976,11 @@ export function searchExercises(opts: {
   return EXERCISES.filter((e) => {
     if (q && !(e.name.toLowerCase().includes(q) || e.muscleGroup.toLowerCase().includes(q) || (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)))) return false;
     if (opts.muscles?.length && !opts.muscles.includes(e.muscleGroup)) return false;
+    if (opts.slugs?.length) {
+      // Match if any of the requested slugs appears in targetSlugs OR secondarySlugs
+      const allSlugs = [...(e.targetSlugs ?? []), ...(e.secondarySlugs ?? [])];
+      if (!opts.slugs.some((s) => allSlugs.includes(s as any))) return false;
+    }
     if (opts.equipment?.length && !opts.equipment.includes(e.equipment)) return false;
     if (opts.difficulty?.length && !opts.difficulty.includes(e.difficulty)) return false;
     if (opts.type?.length && !opts.type.includes(e.type)) return false;
@@ -1985,3 +1991,55 @@ export function searchExercises(opts: {
     return true;
   });
 }
+
+/**
+ * Returns all exercises that target a specific muscle slug (as primary or secondary).
+ */
+export function exercisesForSlug(slug: string): Exercise[] {
+  return EXERCISES.filter((e) =>
+    (e.targetSlugs ?? []).includes(slug as any) ||
+    (e.secondarySlugs ?? []).includes(slug as any)
+  );
+}
+
+/**
+ * The 14 anatomical muscle slugs that are clickable on the body heatmap,
+ * ordered for display.
+ */
+export const ANATOMY_SLUGS = [
+  'chest',
+  'upper-back',
+  'lower-back',
+  'trapezius',
+  'deltoids',
+  'biceps',
+  'triceps',
+  'abs',
+  'obliques',
+  'forearm',
+  'quadriceps',
+  'adductors',
+  'hamstring',
+  'gluteal',
+  'calves',
+] as const;
+
+/** Human-readable display label for each anatomy slug, shared between library and body-view. */
+export const ANATOMY_LABEL_MAP: Record<string, string> = {
+  chest: 'Chest',
+  'upper-back': 'Upper Back',
+  'lower-back': 'Lower Back',
+  trapezius: 'Trapezius',
+  deltoids: 'Shoulders',
+  biceps: 'Biceps',
+  triceps: 'Triceps',
+  abs: 'Abs',
+  obliques: 'Obliques',
+  forearm: 'Forearms',
+  quadriceps: 'Quads',
+  adductors: 'Adductors',
+  hamstring: 'Hamstrings',
+  gluteal: 'Glutes',
+  calves: 'Calves',
+};
+

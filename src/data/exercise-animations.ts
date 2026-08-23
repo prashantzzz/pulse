@@ -62,6 +62,7 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'triceps-pushdown-cable': { source: require('../../assets/vital/triceps-pushdown-cable.mp4'), type: 'video' },
   'skull-crusher': { source: require('../../assets/vital/skull-crusher.mp4'), type: 'video' },
   'dumbbell-overhead-triceps-extension': { source: require('../../assets/vital/dumbbell-overhead-triceps-extension.mp4'), type: 'video' },
+  'triceps-kickback': { source: require('../../assets/vital/triceps-kickback.mp4'), type: 'video' },
 
   // ── Legs / Lower Body ──
   'barbell-back-squat': { source: require('../../assets/vital/barbell-back-squat.mp4'), type: 'video' },
@@ -70,6 +71,7 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'leg-press-machine': { source: require('../../assets/vital/leg-press-machine.mp4'), type: 'video' },
   'leg-extension-machine': { source: require('../../assets/vital/leg-extension-machine.mp4'), type: 'video' },
   'seated-leg-curl-machine': { source: require('../../assets/vital/seated-leg-curl-machine.mp4'), type: 'video' },
+  'lying-leg-curl': { source: require('../../assets/vital/lying-leg-curl.mp4'), type: 'video' },
   'barbell-deadlift': { source: require('../../assets/vital/barbell-deadlift.mp4'), type: 'video' },
   'barbell-romanian-deadlift': { source: require('../../assets/vital/barbell-romanian-deadlift.mp4'), type: 'video' },
   'barbell-deadlift-sumo': { source: require('../../assets/vital/barbell-deadlift-sumo.mp4'), type: 'video' },
@@ -79,6 +81,7 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'barbell-reverse-lunges': { source: require('../../assets/vital/barbell-reverse-lunges.mp4'), type: 'video' },
   'dumbbell-bulgarian-split-squat': { source: require('../../assets/vital/dumbbell-bulgarian-split-squat.mp4'), type: 'video' },
   'standing-calf-raise': { source: require('../../assets/vital/standing-calf-raise.mp4'), type: 'video' },
+  'seated-calf-raise': { source: require('../../assets/vital/seated-calf-raise.mp4'), type: 'video' },
   'pistol-squat': { source: require('../../assets/vital/pistol-squat.mp4'), type: 'video' },
   'kettlebell-swing': { source: require('../../assets/vital/kettlebell-swing.mp4'), type: 'video' },
 
@@ -87,11 +90,14 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'side-plank': { source: require('../../assets/vital/side-plank.mp4'), type: 'video' },
   'plate-russian-twist': { source: require('../../assets/vital/plate-russian-twist.mp4'), type: 'video' },
   'hanging-leg-raises': { source: require('../../assets/vital/hanging-leg-raises.mp4'), type: 'video' },
+  'cable-crunch': { source: require('../../assets/vital/cable-crunch.mp4'), type: 'video' },
+  'bicycle-crunch': { source: require('../../assets/vital/bicycle-crunch.mp4'), type: 'video' },
   'sit-ups': { source: require('../../assets/vital/sit-ups.mp4'), type: 'video' },
   'treadmill-run': { source: require('../../assets/vital/treadmill-run.mp4'), type: 'video' },
   'stationary-bike-cycling': { source: require('../../assets/vital/stationary-bike-cycling.mp4'), type: 'video' },
   'rowing-machine': { source: require('../../assets/vital/rowing-machine.mp4'), type: 'video' },
   'stair-climber': { source: require('../../assets/vital/stair-climber.mp4'), type: 'video' },
+  'burpee': { source: require('../../assets/vital/burpee.mp4'), type: 'video' },
 };
 
 /**
@@ -153,6 +159,7 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'triceps-pushdown': 'triceps-pushdown-cable',
   'skull-crusher': 'skull-crusher',
   'overhead-extension': 'dumbbell-overhead-triceps-extension',
+  'triceps-kickback': 'triceps-kickback',
 
   // ── Legs / Lower Body ──
   'squat': 'barbell-back-squat',
@@ -161,6 +168,7 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'leg-press': 'leg-press-machine',
   'leg-extension': 'leg-extension-machine',
   'leg-curl': 'seated-leg-curl-machine',
+  'lying-leg-curl': 'lying-leg-curl',
   'deadlift': 'barbell-deadlift',
   'romanian-deadlift': 'barbell-romanian-deadlift',
   'sumo-deadlift': 'barbell-deadlift-sumo',
@@ -170,6 +178,7 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'barbell-reverse-lunge': 'barbell-reverse-lunges',
   'bulgarian-split-squat': 'dumbbell-bulgarian-split-squat',
   'calf-raise': 'standing-calf-raise',
+  'seated-calf-raise': 'seated-calf-raise',
   'pistol-squat': 'pistol-squat',
   'kettlebell-swing': 'kettlebell-swing',
 
@@ -178,11 +187,14 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'side-plank': 'side-plank',
   'russian-twist': 'plate-russian-twist',
   'hanging-leg-raise': 'hanging-leg-raises',
+  'crunch': 'cable-crunch',
+  'bicycle-crunch': 'bicycle-crunch',
   'sit-ups': 'sit-ups',
   'treadmill-run': 'treadmill-run',
   'cycling': 'stationary-bike-cycling',
   'rower': 'rowing-machine',
   'stair-climber': 'stair-climber',
+  'burpees': 'burpee',
 };
 
 /**

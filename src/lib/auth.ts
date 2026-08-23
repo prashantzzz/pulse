@@ -324,6 +324,9 @@ export async function upsertProfile(
       training_age_months: profile.trainingAgeMonths ?? 0,
       equipment: profile.equipment ?? [],
       onboarded: profile.onboarded ?? false,
+      height_cm: profile.heightCm ?? null,
+      weight_kg: profile.weightKg ?? null,
+      weight_unit: profile.weightUnit ?? null,
     };
 
     const { data, error } = await supabase

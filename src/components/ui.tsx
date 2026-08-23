@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Animated,
   Dimensions,
   Easing,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -176,6 +177,32 @@ export function Chip({
 }
 
 // ---------------------------------------------------------------------------
+// Horizontal gesture lock for nested carousels and horizontal scrollables
+// Prevents screen-level tab swipe responders from intercepting inner carousel swipes
+// ---------------------------------------------------------------------------
+
+let isInnerHorizontalActive = false;
+
+export function setInnerHorizontalActive(active: boolean) {
+  isInnerHorizontalActive = active;
+}
+
+export function isInnerHorizontalSwiping() {
+  return isInnerHorizontalActive;
+}
+
+export const horizontalSwipeLockProps = {
+  onTouchStart: () => setInnerHorizontalActive(true),
+  onTouchEnd: () => setInnerHorizontalActive(false),
+  onTouchCancel: () => setInnerHorizontalActive(false),
+  onScrollBeginDrag: () => setInnerHorizontalActive(true),
+  onScrollEndDrag: () => setInnerHorizontalActive(false),
+  onMomentumScrollBegin: () => setInnerHorizontalActive(true),
+  onMomentumScrollEnd: () => setInnerHorizontalActive(false),
+  'data-horizontal-scroll': 'true',
+};
+
+// ---------------------------------------------------------------------------
 // Segmented control
 // ---------------------------------------------------------------------------
 
@@ -194,11 +221,14 @@ export function Segmented<T extends string>({
 }) {
   if (scrollable || options.length > 4) {
     return (
-      <View style={{ marginHorizontal: -spacing.md, paddingHorizontal: spacing.md }}>
+      <View
+        style={{ marginHorizontal: -spacing.md, paddingHorizontal: spacing.md }}
+        {...({ 'data-horizontal-scroll': 'true' } as any)}>
         <ScrollView
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
+          {...(horizontalSwipeLockProps as any)}
           contentContainerStyle={[styles.segmentedScroll, style]}>
           {options.map((opt) => {
             const active = opt === value;
@@ -289,6 +319,8 @@ export function Screen({
   contentStyle,
   edges = ['top'],
   scrollProps,
+  onSwipeLeft,
+  onSwipeRight,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -296,6 +328,8 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }) {
   // re-render on accent change; the screen component itself also subscribes
   // (see useAccent) so its `children` elements are recreated with fresh colors
@@ -303,10 +337,109 @@ export function Screen({
   const insets = useSafeAreaInsets();
   const Wrapper = scroll ? ScrollView : View;
 
+  // Swipe gesture detection (Native + Web)
+  // Configured to NEVER hijack touches from nested horizontal scrollviews or vertical scrolls
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (isInnerHorizontalActive) return false;
+        if (!onSwipeLeft && !onSwipeRight) return false;
+        // Require clear horizontal motion (>50px, 2.2x greater than dy, noticeable velocity)
+        const isHorizontal = Math.abs(g.dx) > 50 && Math.abs(g.dx) > Math.abs(g.dy) * 2.2;
+        const hasVelocity = Math.abs(g.vx) > 0.2 || Math.abs(g.dx) > 90;
+        return isHorizontal && hasVelocity;
+      },
+      onPanResponderTerminationRequest: () => true,
+      onPanResponderRelease: (_, g) => {
+        if (isInnerHorizontalActive) return;
+        const dx = g.dx;
+        const vx = g.vx;
+        if (dx < -50 && (vx < -0.2 || dx < -90)) {
+          if (onSwipeLeft) {
+            hapticsLight();
+            onSwipeLeft();
+          }
+        } else if (dx > 50 && (vx > 0.2 || dx > 90)) {
+          if (onSwipeRight) {
+            hapticsLight();
+            onSwipeRight();
+          }
+        }
+      },
+    })
+  ).current;
+
+  // Web-specific touch event handlers with DOM tree hierarchy inspection
+  const touchStartRef = useRef<{ x: number; y: number; t: number; isHorizontalChild: boolean } | null>(null);
+
+  const isInsideHorizontalElement = (target: HTMLElement | null): boolean => {
+    let el: HTMLElement | null = target;
+    while (el) {
+      if (
+        el.getAttribute?.('data-horizontal-scroll') === 'true' ||
+        el.classList?.contains?.('horizontal-scroll') ||
+        el.getAttribute?.('role') === 'tablist' ||
+        (el.scrollWidth > el.clientWidth &&
+          typeof window !== 'undefined' &&
+          (window.getComputedStyle(el).overflowX === 'scroll' || window.getComputedStyle(el).overflowX === 'auto'))
+      ) {
+        return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  };
+
+  const handleWebTouchStart = (e: any) => {
+    if (Platform.OS !== 'web' || (!onSwipeLeft && !onSwipeRight)) return;
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    const target = e.target as HTMLElement;
+    const isHorizontalChild = isInnerHorizontalActive || isInsideHorizontalElement(target);
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, t: Date.now(), isHorizontalChild };
+  };
+
+  const handleWebTouchEnd = (e: any) => {
+    if (Platform.OS !== 'web' || (!onSwipeLeft && !onSwipeRight)) return;
+    const start = touchStartRef.current;
+    if (!start || start.isHorizontalChild || isInnerHorizontalActive) return;
+    const touch = e.changedTouches?.[0];
+    if (!touch) return;
+    const target = e.target as HTMLElement;
+    if (isInsideHorizontalElement(target)) return;
+
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const dt = Date.now() - start.t;
+    touchStartRef.current = null;
+
+    if (dt < 600 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 2) {
+      if (dx < 0 && onSwipeLeft) {
+        hapticsLight();
+        onSwipeLeft();
+      } else if (dx > 0 && onSwipeRight) {
+        hapticsLight();
+        onSwipeRight();
+      }
+    }
+  };
+
+  const panHandlers = onSwipeLeft || onSwipeRight ? swipeResponder.panHandlers : {};
+
   return (
     <SafeAreaView
       style={[styles.screen, style]}
-      edges={edges}>
+      edges={edges}
+      {...panHandlers}
+      {...(Platform.OS === 'web' && (onSwipeLeft || onSwipeRight)
+        ? {
+            onTouchStart: handleWebTouchStart,
+            onTouchEnd: handleWebTouchEnd,
+          }
+        : {})}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {/* Ambient Top Glow in selected Theme Color */}
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>

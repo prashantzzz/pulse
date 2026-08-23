@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
@@ -15,7 +15,8 @@ import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
 import { hapticsLight, hapticsSuccess, hapticsWarning } from '../../lib/haptics';
-import { pickAndCropAvatar, removeAvatarImage, uploadAvatarImage } from '../../lib/storage';
+import { pickAndCropAvatar, pickRawAvatarImage, removeAvatarImage, uploadAvatarImage, type PickedImageResult } from '../../lib/storage';
+import { AvatarCropModal } from '../../components/avatar-crop-modal';
 
 export default function ProfileScreen() {
   useAccent();
@@ -30,12 +31,9 @@ export default function ProfileScreen() {
 
   const [uploading, setUploading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [cropImageUri, setCropImageUri] = useState<string | null>(null);
 
-  const handlePickAvatar = async () => {
-    hapticsLight();
-    const picked = await pickAndCropAvatar();
-    if (!picked) return;
-
+  const handleSaveCroppedAvatar = async (picked: PickedImageResult) => {
     setUploading(true);
     try {
       const avatarUrl = await uploadAvatarImage(user?.id || 'me', picked);
@@ -47,6 +45,21 @@ export default function ProfileScreen() {
       toast('Could not update avatar.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    hapticsLight();
+    if (Platform.OS === 'web') {
+      const rawUri = await pickRawAvatarImage();
+      if (rawUri) {
+        setCropImageUri(rawUri);
+      }
+    } else {
+      const picked = await pickAndCropAvatar();
+      if (picked) {
+        await handleSaveCroppedAvatar(picked);
+      }
     }
   };
 
@@ -81,16 +94,17 @@ export default function ProfileScreen() {
 
   const latestWeight = measurements.length > 0
     ? measurements[measurements.length - 1].weightKg
-    : (profile?.weightKg ?? 68);
-  const height = profile?.heightCm ?? 175;
-  const heightM = height / 100;
-  const userBmi = heightM > 0.5 && latestWeight > 20
+    : (profile?.weightKg ?? null);
+  const height = profile?.heightCm ?? null;
+  const heightM = height ? height / 100 : null;
+  const userBmi = heightM && heightM > 0.5 && latestWeight && latestWeight > 20
     ? Math.round((latestWeight / (heightM * heightM)) * 10) / 10
     : null;
 
   return (
     <Screen
       scroll
+      onSwipeRight={() => router.push('/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <View style={styles.headerCard}>
@@ -182,7 +196,9 @@ export default function ProfileScreen() {
               <View style={{ alignItems: 'flex-end' }}>
                 <T variant="micro" muted>CURRENT WEIGHT</T>
                 <T variant="bodySemi" style={{ marginTop: 2 }}>
-                  {weightUnit === 'lbs' ? `${Math.round(latestWeight * 2.20462)} lbs` : `${latestWeight.toFixed(1)} kg`}
+                  {latestWeight != null
+                    ? (weightUnit === 'lbs' ? `${Math.round(latestWeight * 2.20462)} lbs` : `${latestWeight.toFixed(1)} kg`)
+                    : '—'}
                 </T>
               </View>
             </Row>
@@ -211,7 +227,9 @@ export default function ProfileScreen() {
               <View>
                 <T variant="micro" muted>RECORDED HEIGHT</T>
                 <T variant="smallSemi" style={{ marginTop: 2 }}>
-                  {height} cm ({Math.floor(height / 30.48)}&apos;{Math.round((height % 30.48) / 2.54)}&quot;)
+                  {height != null
+                    ? `${height} cm (${Math.floor(height / 30.48)}'${Math.round((height % 30.48) / 2.54)}")`
+                    : '—'}
                 </T>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -423,6 +441,14 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Interactive Avatar Crop Modal for Web & In-App Cropping */}
+      <AvatarCropModal
+        visible={!!cropImageUri}
+        imageUri={cropImageUri}
+        onCrop={handleSaveCroppedAvatar}
+        onClose={() => setCropImageUri(null)}
+      />
     </Screen>
   );
 }
