@@ -194,7 +194,7 @@ export default function SettingsScreen() {
                 <T variant="micro" muted>
                   {isAuthenticated
                     ? isSupabaseConfigured
-                      ? 'Supabase Cloud Connected'
+                      ? 'Cloud sync active'
                       : 'Logged in (Local Session)'
                     : 'Not signed in'}
                 </T>

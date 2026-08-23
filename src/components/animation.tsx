@@ -1,6 +1,6 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 
 import { getExerciseAnimation } from '../data/exercise-animations';
 import { MuscleTargetMap } from './muscle-map';
@@ -16,6 +16,7 @@ function ExerciseVideo({ source }: { source: number }) {
   const player = useVideoPlayer(source, (p) => {
     p.loop = true;
     p.muted = true;
+    p.staysActiveInBackground = true;
   });
 
   // Start playback as soon as the source is ready. Calling play() before the
@@ -30,6 +31,32 @@ function ExerciseVideo({ source }: { source: number }) {
     });
     player.play();
     return () => sub.remove();
+  }, [player]);
+
+  // Keep playback running seamlessly when switching between apps or web tabs
+  useEffect(() => {
+    const appSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        player.play();
+      }
+    });
+
+    let handleVisibility: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      handleVisibility = () => {
+        if (!document.hidden) {
+          player.play();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    return () => {
+      appSub.remove();
+      if (handleVisibility) {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+    };
   }, [player]);
 
   // Important: give the view an explicit 100%×100% box. On web, a replaced
@@ -58,8 +85,9 @@ function ExerciseVideo({ source }: { source: number }) {
 
 /**
  * Web-only video surface: a hidden VideoView drives playback while a canvas
- * overlay (absolutely positioned, opaque white fill, contain-fit) shows the
- * frames. The canvas is what the user sees — identical to the native card.
+ * overlay paints every frame. Scaled strictly by height so both upper and
+ * bottom ends of square and landscape footage are fully visible, with left
+ * and right adjusting automatically over the matching studio background.
  */
 function WebExerciseVideo({ player }: { player: ReturnType<typeof useVideoPlayer> }) {
   const hostRef = useRef<View>(null);
@@ -91,12 +119,12 @@ function WebExerciseVideo({ player }: { player: ReturnType<typeof useVideoPlayer
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, cw, ch);
       if (!video.videoWidth || !video.videoHeight) return;
-      // contain-fit: scale the square footage to the card, centered, with the
-      // white studio background filling the letterbox bars
-      const s = Math.min(cw / video.videoWidth, ch / video.videoHeight);
+      // Fit strictly by height: both upper and bottom ends of the video are fully
+      // visible and aligned (height = ch), with width adjusting automatically
+      const s = ch / video.videoHeight;
       const w = video.videoWidth * s;
-      const h = video.videoHeight * s;
-      ctx.drawImage(video, (cw - w) / 2, (ch - h) / 2, w, h);
+      const h = ch;
+      ctx.drawImage(video, (cw - w) / 2, 0, w, h);
     };
     raf = requestAnimationFrame(draw);
 
@@ -124,7 +152,7 @@ function WebExerciseVideo({ player }: { player: ReturnType<typeof useVideoPlayer
 function MuscleFallback({ exercise, height, gender }: { exercise: Exercise; height: number; gender: 'male' | 'female' }) {
   return (
     <View style={[StyleSheet.absoluteFill, styles.muscleFallbackCard]}>
-      <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={height - 28} gender={gender} />
+      <MuscleTargetMap exercise={exercise} primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={height - 28} gender={gender} />
     </View>
   );
 }

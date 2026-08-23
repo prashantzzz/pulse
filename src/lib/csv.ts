@@ -379,12 +379,57 @@ function genId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${idCounter}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Security constants — limits to prevent DoS and injection
+// ---------------------------------------------------------------------------
+
+/** Maximum CSV file size accepted (5 MB) */
+export const CSV_MAX_BYTES = 5 * 1024 * 1024;
+/** Maximum number of data rows parsed */
+export const CSV_MAX_ROWS = 10_000;
+/** Maximum characters allowed in any single field */
+const FIELD_MAX_LEN = 2_000;
+/** Maximum characters for title/exercise name fields */
+const NAME_MAX_LEN = 200;
+
+/**
+ * Strip characters that cause CSV injection when opened in spreadsheet software.
+ * Leading =, +, -, @, tab, carriage-return are the classic formula triggers.
+ */
+function sanitizeCsvField(value: string): string {
+  if (!value) return value;
+  // Remove leading formula-injection characters
+  return value.replace(/^[=+\-@\t\r]+/, '').trim();
+}
+
 /** Parse a tracker CSV into NextRep workouts. */
-export function parseWorkoutsCsv(text: string): CsvImportResult {
+export function parseWorkoutsCsv(text: string, options?: { maxBytes?: number }): CsvImportResult {
+  // ── SECURITY: File size guard ────────────────────────────────────────────
+  const maxBytes = options?.maxBytes ?? CSV_MAX_BYTES;
+  if (text.length > maxBytes) {
+    return {
+      workouts: [],
+      skipped: 0,
+      newExercises: [],
+      error: `File too large. Maximum allowed size is ${Math.round(maxBytes / 1024 / 1024)} MB. Please split your file and import in batches.`,
+    };
+  }
+
   const rows = splitCsv(text);
   if (rows.length < 2) {
     return { workouts: [], skipped: rows.length, newExercises: [], error: 'The uploaded file is empty or does not contain data rows.' };
   }
+
+  // ── SECURITY: Row count guard ────────────────────────────────────────────
+  if (rows.length > CSV_MAX_ROWS + 1) {
+    return {
+      workouts: [],
+      skipped: 0,
+      newExercises: [],
+      error: `Too many rows (${rows.length - 1}). Maximum is ${CSV_MAX_ROWS} data rows per import. Please split your file and import in batches.`,
+    };
+  }
+
   const idx = headerToIndex(rows[0]);
   const hasTitle = idx['title'] !== undefined || idx['workout_title'] !== undefined;
   const hasStart = idx['start_time'] !== undefined || idx['start'] !== undefined || idx['date'] !== undefined;
@@ -407,28 +452,45 @@ export function parseWorkoutsCsv(text: string): CsvImportResult {
     return '';
   };
 
+  // ── SECURITY: Field length sanitization helper ────────────────────────────
+  const safeField = (raw: string, maxLen = FIELD_MAX_LEN): string =>
+    sanitizeCsvField(raw.slice(0, maxLen));
+
+  // ── SECURITY: Numeric bounds validation ───────────────────────────────────
+  function boundedNum(v: string, min: number, max: number): number | null {
+    const t = (v ?? '').trim();
+    if (t === '') return null;
+    const n = Number(t.replace(',', '.'));
+    if (Number.isNaN(n)) return null;
+    if (n < min || n > max) return null;  // silently discard out-of-range values
+    return n;
+  }
+
   const newExercises = new Set<string>();
   const workouts: Workout[] = [];
   const orderMap = new Map<string, number>();
   let skipped = 0;
 
   for (const row of rows.slice(1)) {
-    const title = get(row, ['title', 'workout_title']);
-    const startRaw = get(row, ['start_time', 'start']);
-    const endRaw = get(row, ['end_time', 'end']);
+    const title = safeField(get(row, ['title', 'workout_title']), NAME_MAX_LEN);
+    const startRaw = safeField(get(row, ['start_time', 'start']), 50);
+    const endRaw = safeField(get(row, ['end_time', 'end']), 50);
     const start = parseCsvDate(startRaw);
     const end = parseCsvDate(endRaw);
-    const exerciseTitle = get(row, ['exercise_title', 'exercise', 'exercise_name', 'name']);
-    const setTypeRaw = get(row, ['set_type', 'type']);
+    const exerciseTitle = safeField(get(row, ['exercise_title', 'exercise', 'exercise_name', 'name']), NAME_MAX_LEN);
+    const setTypeRaw = safeField(get(row, ['set_type', 'type']), 20);
     const setType = SET_TYPE_FROM_CSV[setTypeRaw.toLowerCase()] ?? 'working';
-    const weight = num(get(row, ['weight_kg', 'weight']));
-    const reps = num(get(row, ['reps', 'repetitions', 'rep']));
-    const distance = num(get(row, ['distance_km', 'distance']));
-    const duration = num(get(row, ['duration_seconds', 'duration_sec', 'duration']));
-    const rpe = num(get(row, ['rpe', 'rpe_optional']));
-    const setNotes = get(row, ['notes', 'set_notes']);
-    const exerciseNotes = get(row, ['exercise_notes']);
-    const supersetRaw = get(row, ['superset_id', 'superset']);
+
+    // ── SECURITY: Bounded numeric parsing (reject out-of-range values) ────
+    const weight = boundedNum(get(row, ['weight_kg', 'weight']), 0, 1500);
+    const reps = boundedNum(get(row, ['reps', 'repetitions', 'rep']), 0, 9999);
+    const distance = boundedNum(get(row, ['distance_km', 'distance']), 0, 100_000);
+    const duration = boundedNum(get(row, ['duration_seconds', 'duration_sec', 'duration']), 0, 86_400);
+    const rpe = boundedNum(get(row, ['rpe', 'rpe_optional']), 0, 10);
+
+    const setNotes = safeField(get(row, ['notes', 'set_notes']), 1000);
+    const exerciseNotes = safeField(get(row, ['exercise_notes']), 1000);
+    const supersetRaw = safeField(get(row, ['superset_id', 'superset']), 50);
 
     if (!title || !start) {
       skipped++;
@@ -441,7 +503,7 @@ export function parseWorkoutsCsv(text: string): CsvImportResult {
       w = {
         id: genId('w'),
         title,
-        description: get(row, ['description', 'desc']),
+        description: safeField(get(row, ['description', 'desc']), 1000),
         startTime: start,
         endTime: end ?? start,
         exercises: [],
@@ -469,7 +531,7 @@ export function parseWorkoutsCsv(text: string): CsvImportResult {
     }
 
     // Reference files use 0-based set_index; tolerate 1-based too.
-    let setIndex = num(get(row, ['set_index', 'set']));
+    let setIndex = boundedNum(get(row, ['set_index', 'set']), -1, 9999);
     if (setIndex === null) {
       setIndex = we.sets.length + 1;
     } else if (setIndex <= 0) {
@@ -487,7 +549,7 @@ export function parseWorkoutsCsv(text: string): CsvImportResult {
       durationSec: duration,
       rpe,
       notes: setNotes || null,
-      supersetId: supersetRaw ? `${w.id}-${supersetRaw}` : null,
+      supersetId: supersetRaw ? `${w.id}-${supersetRaw.slice(0, 36)}` : null,
       completed,
       completedAt: completed ? (end ?? start) : null,
     };

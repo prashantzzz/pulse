@@ -80,13 +80,13 @@ export default function ExerciseDetailScreen() {
               pages={[
                 <ExerciseAnimation key="anim" exercise={exercise} height={240} gender={profile?.gender ?? 'male'} />,
                 <View key="muscles" style={styles.muscleCard}>
-                  <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
+                  <MuscleTargetMap exercise={exercise} primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
                 </View>,
               ]}
             />
           ) : (
             <View style={styles.muscleCard}>
-              <MuscleTargetMap primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
+              <MuscleTargetMap exercise={exercise} primary={exercise.muscleGroup} secondary={exercise.secondaryMuscles} height={205} gender={profile?.gender ?? 'male'} />
             </View>
           )}
 
@@ -146,7 +146,7 @@ export default function ExerciseDetailScreen() {
           </Section>
 
           <Section title="Perfect Your Form">
-            <Card onPress={() => router.push(`/exercise/${exercise.id}/form` as never)} style={{ padding: spacing.md }}>
+            <Card style={{ padding: spacing.md }}>
               <View style={{ gap: spacing.sm }}>
                 {exercise.steps.map((s, i) => (
                   <Row key={i} gap={12}>
@@ -166,12 +166,6 @@ export default function ExerciseDetailScreen() {
                   </Row>
                 ))}
               </View>
-              <Row align="space-between" style={{ marginTop: spacing.md }}>
-                <T variant="smallMedium" accent style={{ fontSize: 13 }}>
-                  Open form guide
-                </T>
-                <Ionicons name="chevron-forward" size={16} color={colors.accent} />
-              </Row>
             </Card>
           </Section>
 
@@ -271,16 +265,6 @@ export default function ExerciseDetailScreen() {
               <T variant="bodySemi">Add to a custom workout</T>
               <T variant="small" dim style={{ fontSize: 12 }}>
                 Open the builder with {exercise.name} pre-added
-              </T>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-          <Pressable onPress={() => router.push(`/exercise/${exercise.id}/form` as never)} style={styles.sheetOption}>
-            <Icon name="walk-outline" size={22} color={colors.accent} />
-            <View style={{ flex: 1 }}>
-              <T variant="bodySemi">Study the form guide</T>
-              <T variant="small" dim style={{ fontSize: 12 }}>
-                Setup · Movement · Contraction · Return
               </T>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

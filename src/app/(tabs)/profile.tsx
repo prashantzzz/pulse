@@ -91,7 +91,6 @@ export default function ProfileScreen() {
   return (
     <Screen
       scroll
-      onSwipeRight={() => router.push('/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <View style={styles.headerCard}>

@@ -7,6 +7,7 @@ import {
   detectPlateaus,
   detectPRs,
   e1rm,
+  getTrainingEfficiency,
   longestStreak,
   nextMove,
   plateauForExercise,
@@ -14,6 +15,8 @@ import {
   progressScore,
   setVolume,
   strengthProgression,
+  volumeByMuscle,
+  volumeBySlug,
   warmupSets,
   workoutRepeatSpecs,
   workoutStats,
@@ -617,3 +620,65 @@ describe('nextMove', () => {
     expect(nextMove(workouts, PLANS)).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Muscle & Anatomical Slug Volume Tracking & Training Efficiency
+// ---------------------------------------------------------------------------
+
+describe('volumeByMuscle and volumeBySlug', () => {
+  it('correctly maps template plans, custom builder plans, ad-hoc logs, and alias names', () => {
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Pull Session',
+        exercises: [
+          // Canonical ID: Upper Back / Lats
+          makeWorkoutExercise('lat-pulldown', [
+            makeSet({ weightKg: 60, reps: 10, completed: true }),
+            makeSet({ weightKg: 60, reps: 10, completed: true }),
+          ]),
+          // Alias / Name match: Trapezius
+          makeWorkoutExercise('db shrug', [
+            makeSet({ weightKg: 30, reps: 12, completed: true }),
+            makeSet({ weightKg: 30, reps: 12, completed: true }),
+          ]),
+          // Lower Back
+          makeWorkoutExercise('hyperextension', [
+            makeSet({ weightKg: 10, reps: 15, completed: true }),
+          ]),
+        ],
+      }),
+    ];
+
+    const byGroup = volumeByMuscle(workouts);
+    const backGroup = byGroup.find((g) => g.muscle === 'Back');
+    expect(backGroup).toBeDefined();
+    expect(backGroup!.sets).toBe(5); // 2 + 2 + 1
+
+    const bySlug = volumeBySlug(workouts);
+    const upperBack = bySlug.find((s) => s.slug === 'upper-back');
+    const traps = bySlug.find((s) => s.slug === 'trapezius');
+    const lowerBack = bySlug.find((s) => s.slug === 'lower-back');
+
+    expect(upperBack).toBeDefined();
+    expect(upperBack!.sets).toBe(2);
+    expect(upperBack!.volume).toBe(1200);
+
+    expect(traps).toBeDefined();
+    expect(traps!.sets).toBe(2);
+    expect(traps!.volume).toBe(720);
+
+    expect(lowerBack).toBeDefined();
+    expect(lowerBack!.sets).toBe(1);
+    expect(lowerBack!.volume).toBe(150);
+  });
+
+  it('calculates training efficiency accurately based on weekly set volume', () => {
+    expect(getTrainingEfficiency(8)).toEqual({ status: 'Well Trained', intensity: 1.0, level: 3 });
+    expect(getTrainingEfficiency(6)).toEqual({ status: 'Well Trained', intensity: 1.0, level: 3 });
+    expect(getTrainingEfficiency(4.5)).toEqual({ status: 'Moderate', intensity: 0.5, level: 2 });
+    expect(getTrainingEfficiency(3)).toEqual({ status: 'Moderate', intensity: 0.5, level: 2 });
+    expect(getTrainingEfficiency(1.5)).toEqual({ status: 'Undertrained', intensity: 0.25, level: 1 });
+    expect(getTrainingEfficiency(0)).toEqual({ status: 'Undertrained', intensity: 0.25, level: 1 });
+  });
+});
+

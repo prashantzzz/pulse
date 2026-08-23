@@ -283,7 +283,7 @@ export async function enqueueOfflineMutation(mutation: OfflineMutation): Promise
   queue.push(mutation);
   await saveOfflineQueue(queue);
   // Attempt to immediately process if online
-  flushOfflineSyncQueue().catch(() => {});
+  await flushOfflineSyncQueue().catch(() => {});
 }
 
 let isFlushing = false;
@@ -293,6 +293,19 @@ export async function flushOfflineSyncQueue(): Promise<boolean> {
   isFlushing = true;
 
   try {
+    // ── SECURITY: Validate current authenticated user ──────────────────────
+    // Every queued mutation MUST belong to the currently signed-in user.
+    // This prevents cross-user mutation replay: mutations queued by User A
+    // must NOT be executed under User B's session.
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser?.id) {
+      // No authenticated user — do not process any queued mutations.
+      isFlushing = false;
+      return false;
+    }
+    const currentUserId = currentUser.id;
+    // ──────────────────────────────────────────────────────────────────────
+
     const queue = await getOfflineQueue();
     if (queue.length === 0) {
       isFlushing = false;
@@ -302,6 +315,17 @@ export async function flushOfflineSyncQueue(): Promise<boolean> {
     const remaining: OfflineMutation[] = [];
 
     for (const item of queue) {
+      // ── SECURITY: Reject any mutation that does not belong to the
+      // currently authenticated user. These are stale/cross-user items.
+      if (item.userId !== currentUserId) {
+        console.warn(
+          '[Security] Discarding offline mutation: userId mismatch.',
+          `Queue item userId=${item.userId}, current session userId=${currentUserId}. Mutation type=${item.type}`
+        );
+        // Drop silently — do NOT add to remaining (discard the item).
+        continue;
+      }
+
       let success = false;
       try {
         if (item.type === 'upsert_workout') {

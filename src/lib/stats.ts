@@ -1,6 +1,6 @@
-import { EXERCISE_MAP } from '../data/exercises';
+import { EXERCISE_MAP, resolveExercise } from '../data/exercises';
 import { roundToPlateStep } from './plates';
-import type { ExerciseSet, MuscleGroup, PR, Workout, WorkoutPlan, WorkoutStats } from '../types';
+import type { ExerciseSet, MuscleGroup, MuscleSlug, PR, Workout, WorkoutPlan, WorkoutStats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Basic set / workout metrics
@@ -243,12 +243,43 @@ export function totalVolume(workouts: Workout[]): number {
   return Math.round(workouts.reduce((sum, w) => sum + workoutStats(w).volumeKg, 0));
 }
 
+export const GROUP_TO_SLUGS: Record<MuscleGroup, MuscleSlug[]> = {
+  Chest: ['chest'],
+  Back: ['upper-back', 'trapezius', 'lower-back'],
+  Shoulders: ['deltoids'],
+  Biceps: ['biceps'],
+  Triceps: ['triceps'],
+  Quads: ['quadriceps', 'adductors'],
+  Hamstrings: ['hamstring'],
+  Glutes: ['gluteal'],
+  Calves: ['calves'],
+  Core: ['abs', 'obliques'],
+  Forearms: ['forearm'],
+  Cardio: [],
+};
+
+export type TrainingStatus = 'Well Trained' | 'Moderate' | 'Undertrained';
+
+export function getTrainingEfficiency(weeklySets: number): {
+  status: TrainingStatus;
+  intensity: number;
+  level: number;
+} {
+  if (weeklySets >= 6) {
+    return { status: 'Well Trained', intensity: 1.0, level: 3 };
+  }
+  if (weeklySets >= 3) {
+    return { status: 'Moderate', intensity: 0.5, level: 2 };
+  }
+  return { status: 'Undertrained', intensity: 0.25, level: 1 };
+}
+
 export function volumeByMuscle(workouts: Workout[], days?: number): { muscle: MuscleGroup; volume: number; sets: number }[] {
   const list = days ? workoutsInLastDays(workouts, days) : workouts;
   const map = new Map<MuscleGroup, { volume: number; sets: number }>();
   for (const w of list) {
     for (const we of w.exercises) {
-      const ex = EXERCISE_MAP[we.exerciseId];
+      const ex = resolveExercise(we.exerciseId);
       if (!ex) continue;
       let exVol = 0;
       let sets = 0;
@@ -271,6 +302,57 @@ export function volumeByMuscle(workouts: Workout[], days?: number): { muscle: Mu
   }
   return [...map.entries()]
     .map(([muscle, v]) => ({ muscle, volume: Math.round(v.volume), sets: v.sets }))
+    .sort((a, b) => b.volume - a.volume);
+}
+
+export function volumeBySlug(
+  workouts: Workout[],
+  days?: number,
+): { slug: MuscleSlug; volume: number; sets: number }[] {
+  const list = days ? workoutsInLastDays(workouts, days) : workouts;
+  const map = new Map<MuscleSlug, { volume: number; sets: number }>();
+  for (const w of list) {
+    for (const we of w.exercises) {
+      const ex = resolveExercise(we.exerciseId);
+      if (!ex) continue;
+      let exVol = 0;
+      let sets = 0;
+      for (const s of we.sets) {
+        if (!s.completed) continue;
+        exVol += setVolume(s);
+        sets += 1;
+      }
+      if (sets === 0) continue;
+
+      const targets: MuscleSlug[] =
+        ex.targetSlugs && ex.targetSlugs.length > 0
+          ? ex.targetSlugs
+          : (GROUP_TO_SLUGS[ex.muscleGroup] || []);
+
+      const secondaries: MuscleSlug[] =
+        ex.secondarySlugs && ex.secondarySlugs.length > 0
+          ? ex.secondarySlugs
+          : (ex.secondaryMuscles.flatMap((m) => GROUP_TO_SLUGS[m] || []));
+
+      const targetShare = targets.length > 0 ? exVol / targets.length : exVol;
+      for (const slug of targets) {
+        const entry = map.get(slug) ?? { volume: 0, sets: 0 };
+        entry.volume += targetShare;
+        entry.sets += sets;
+        map.set(slug, entry);
+      }
+
+      const secShare = secondaries.length > 0 ? (exVol * 0.5) / secondaries.length : exVol * 0.5;
+      for (const slug of secondaries) {
+        const entry = map.get(slug) ?? { volume: 0, sets: 0 };
+        entry.volume += secShare;
+        entry.sets += Math.round(sets * 0.5);
+        map.set(slug, entry);
+      }
+    }
+  }
+  return [...map.entries()]
+    .map(([slug, v]) => ({ slug, volume: Math.round(v.volume), sets: v.sets }))
     .sort((a, b) => b.volume - a.volume);
 }
 

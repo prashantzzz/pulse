@@ -357,7 +357,7 @@ export default function BuilderScreen() {
             <View>
               <T variant="h3">Exercise Library</T>
               <T variant="micro" dim style={{ marginTop: 1 }}>
-                Tap row for exercise detail · tap + Add to include in workout
+                Tap row for exercise detail
               </T>
             </View>
             <Pressable

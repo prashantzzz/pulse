@@ -61,20 +61,56 @@ export default function ChallengeScreen() {
   // Check incoming invite params or stored pending invite
   useEffect(() => {
     async function checkInvites() {
-      if (params.from && params.from !== user?.id) {
+      // ── SECURITY: Validate all deep link parameters ──────────────────────
+      // The nextrep://challenge?from=...&cid=... URL can be crafted by any
+      // attacker. Validate params before trusting them.
+
+      const rawFrom = params.from ?? '';
+      const rawCid = params.cid ?? '';
+      const rawName = (params.name ?? '').trim().slice(0, 50);          // max 50 chars
+      const rawTitle = (params.title ?? '').trim().slice(0, 200);       // max 200 chars
+      const rawType = params.type ?? '';
+
+      // UUID v4 pattern validation
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const fromIsValid = uuidPattern.test(rawFrom);
+      const cidIsValid = rawCid === '' || uuidPattern.test(rawCid);
+
+      // Allowed challenge types (must match DB enum)
+      const allowedTypes = ['most_workouts', 'longest_streak', 'strength_improvement', 'goal_completion'];
+      const typeIsValid = rawType === '' || allowedTypes.includes(rawType);
+
+      if (rawFrom && !fromIsValid) {
+        // Silently ignore malformed deep links — don't toast or alert
+        return;
+      }
+
+      if (!cidIsValid || !typeIsValid) {
+        return;
+      }
+
+      // Sanitize display strings — strip control characters and HTML-like content
+      const sanitize = (s: string) => s.replace(/[<>"'`\x00-\x1F\x7F]/g, '').trim();
+      const safeName = sanitize(rawName) || 'A friend';
+      const safeTitle = sanitize(rawTitle) || 'Most workouts this week';
+      const safeType = typeIsValid && rawType ? rawType : 'most_workouts';
+      const safeCid = cidIsValid && rawCid ? rawCid : undefined;
+
+      if (fromIsValid && rawFrom !== user?.id) {
         const inv: PendingInvite = {
-          fromUserId: params.from,
-          fromName: params.name || 'A friend',
-          challengeTitle: params.title || 'Most workouts this week',
-          challengeType: params.type || 'most_workouts',
-          challengeId: params.cid,
+          fromUserId: rawFrom,
+          fromName: safeName,
+          challengeTitle: safeTitle,
+          challengeType: safeType,
+          challengeId: safeCid,
           timestamp: Date.now(),
         };
         await savePendingInvite(inv);
         setIncomingInvite(inv);
-      } else {
+      } else if (!rawFrom) {
+        // No deep link params — check for a previously stored invite
         const stored = await getPendingInvite();
-        if (stored && stored.fromUserId !== user?.id) {
+        if (stored && stored.fromUserId !== user?.id && uuidPattern.test(stored.fromUserId)) {
           setIncomingInvite(stored);
         }
       }

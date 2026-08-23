@@ -28,6 +28,25 @@ export type MuscleGroup =
   | 'Forearms'
   | 'Cardio';
 
+export type MuscleSlug =
+  | 'chest'
+  | 'upper-back'
+  | 'lower-back'
+  | 'trapezius'
+  | 'deltoids'
+  | 'biceps'
+  | 'triceps'
+  | 'abs'
+  | 'obliques'
+  | 'forearm'
+  | 'quadriceps'
+  | 'adductors'
+  | 'hamstring'
+  | 'gluteal'
+  | 'calves'
+  | 'neck'
+  | 'tibialis';
+
 export type Equipment =
   | 'Barbell'
   | 'Dumbbell'
@@ -72,6 +91,8 @@ export interface Exercise {
   name: string;
   muscleGroup: MuscleGroup;
   secondaryMuscles: MuscleGroup[];
+  targetSlugs?: MuscleSlug[];
+  secondarySlugs?: MuscleSlug[];
   equipment: Equipment;
   difficulty: Difficulty;
   type: 'Compound' | 'Isolation';

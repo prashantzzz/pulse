@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type KeyboardEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -112,6 +114,7 @@ export function BottomSheet({
 }) {
   const insets = useSafeAreaInsets();
   const slide = useAnimatedValue(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -119,6 +122,23 @@ export function BottomSheet({
       Animated.spring(slide, { toValue: 1, useNativeDriver: true, damping: 20, stiffness: 260 }).start();
     }
   }, [visible, slide]);
+
+  useEffect(() => {
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardOffset(e.endCoordinates.height);
+    };
+    const onHide = () => {
+      setKeyboardOffset(0);
+    };
+
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', onShow);
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -129,8 +149,8 @@ export function BottomSheet({
         <Animated.View
           style={[
             styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, 24) },
-            height ? { height } : { maxHeight: '85%' },
+            { paddingBottom: Math.max(insets.bottom, 24) + (Platform.OS === 'android' ? keyboardOffset : 0) },
+            height ? { height } : { maxHeight: '88%' },
             Platform.OS === 'web' && { boxShadow: `0 12px 32px rgba(0,0,0,0.55), 0 0 24px ${colors.accent}1F` },
             { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] },
           ]}>
@@ -140,7 +160,12 @@ export function BottomSheet({
               {title}
             </T>
           ) : null}
-          <View style={{ padding: spacing.lg }}>{children}</View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ padding: spacing.lg }}>
+            {children}
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
