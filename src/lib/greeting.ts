@@ -73,3 +73,12 @@ export function greetingFor(d: Date = new Date()): Greeting {
   const dayNum = Math.floor(d.getTime() / 86400000);
   return { heading: g.heading, sub: g.lines[dailyIndex(dayNum, g.lines.length)] };
 }
+
+/** Extracts the user's first name for a concise, personal home greeting. */
+export function formatGreetingName(fullName?: string | null): string {
+  if (!fullName) return 'Athlete';
+  const trimmed = fullName.trim();
+  if (!trimmed) return 'Athlete';
+  return trimmed.split(/\s+/)[0];
+}
+

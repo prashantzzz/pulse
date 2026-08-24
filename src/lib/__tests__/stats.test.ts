@@ -7,8 +7,11 @@ import {
   detectPlateaus,
   detectPRs,
   e1rm,
+  calculatePlanSimilarity,
+  getSmartTodayPlan,
   getTrainingEfficiency,
   longestStreak,
+  matchWorkoutToPlanIndex,
   nextMove,
   plateauForExercise,
   previousSet,
@@ -672,6 +675,57 @@ describe('volumeByMuscle and volumeBySlug', () => {
     expect(lowerBack!.volume).toBe(150);
   });
 
+  it('allocates secondary fractional volume (50%) and sets to secondary muscles like Core, Triceps, and Shoulders', () => {
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Full Body Compound Session',
+        exercises: [
+          // Bench Press: Primary Chest (100%), Secondary Triceps (50%), Shoulders (50%)
+          makeWorkoutExercise('bench-press', [
+            makeSet({ weightKg: 100, reps: 10, completed: true }), // 1,000 kg
+            makeSet({ weightKg: 100, reps: 10, completed: true }), // 1,000 kg
+          ]),
+          // Squat: Primary Quads (100%), Secondary Glutes (50%), Core (50%)
+          makeWorkoutExercise('squat', [
+            makeSet({ weightKg: 120, reps: 10, completed: true }), // 1,200 kg
+            makeSet({ weightKg: 120, reps: 10, completed: true }), // 1,200 kg
+          ]),
+        ],
+      }),
+    ];
+
+    const byGroup = volumeByMuscle(workouts);
+    const chest = byGroup.find((g) => g.muscle === 'Chest');
+    const quads = byGroup.find((g) => g.muscle === 'Quads');
+    const triceps = byGroup.find((g) => g.muscle === 'Triceps');
+    const shoulders = byGroup.find((g) => g.muscle === 'Shoulders');
+    const core = byGroup.find((g) => g.muscle === 'Core');
+    const glutes = byGroup.find((g) => g.muscle === 'Glutes');
+
+    // Primary: 100% volume & sets
+    expect(chest?.volume).toBe(2000);
+    expect(chest?.sets).toBe(2);
+    expect(quads?.volume).toBe(2400);
+    expect(quads?.sets).toBe(2);
+
+    // Secondary: 50% volume & sets
+    expect(triceps?.volume).toBe(1000);
+    expect(triceps?.sets).toBe(1);
+    expect(shoulders?.volume).toBe(1000);
+    expect(shoulders?.sets).toBe(1);
+    expect(core?.volume).toBe(1200);
+    expect(core?.sets).toBe(1);
+    expect(glutes?.volume).toBe(1200);
+    expect(glutes?.sets).toBe(1);
+
+    // Slug-level: check that anatomical abs received secondary volume from Squats
+    const bySlug = volumeBySlug(workouts);
+    const absSlug = bySlug.find((s) => s.slug === 'abs');
+    expect(absSlug).toBeDefined();
+    expect(absSlug!.volume).toBeGreaterThan(0);
+    expect(absSlug!.sets).toBeGreaterThan(0);
+  });
+
   it('calculates training efficiency accurately based on weekly set volume', () => {
     expect(getTrainingEfficiency(8)).toEqual({ status: 'Well Trained', intensity: 1.0, level: 3 });
     expect(getTrainingEfficiency(6)).toEqual({ status: 'Well Trained', intensity: 1.0, level: 3 });
@@ -681,4 +735,229 @@ describe('volumeByMuscle and volumeBySlug', () => {
     expect(getTrainingEfficiency(0)).toEqual({ status: 'Undertrained', intensity: 0.25, level: 1 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Smart Next-Workout Recommendation Engine Tests
+// ---------------------------------------------------------------------------
+
+describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
+  const samplePlans: WorkoutPlan[] = [
+    {
+      id: 'plan-push',
+      title: 'Push Power',
+      muscles: ['Chest', 'Triceps', 'Shoulders'],
+      emoji: '💪',
+      exercises: [
+        { exerciseId: 'bench-press', sets: 3, targetReps: '8-10' },
+        { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '10-12' },
+        { exerciseId: 'triceps-pushdown', sets: 3, targetReps: '12-15' },
+      ],
+    },
+    {
+      id: 'plan-pull',
+      title: 'Pull Hypertrophy',
+      muscles: ['Back', 'Biceps'],
+      emoji: '⚡',
+      exercises: [
+        { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-10' },
+        { exerciseId: 'dumbbell-row', sets: 3, targetReps: '10-12' },
+        { exerciseId: 'bicep-curl', sets: 3, targetReps: '12-15' },
+      ],
+    },
+    {
+      id: 'plan-legs',
+      title: 'Legs & Calves',
+      muscles: ['Quads', 'Hamstrings', 'Calves'],
+      emoji: '🦵',
+      exercises: [
+        { exerciseId: 'squat', sets: 4, targetReps: '6-8' },
+        { exerciseId: 'standing-calf-raise', sets: 4, targetReps: '12-15' },
+      ],
+    },
+  ];
+
+  it('returns NO_PLANS when user has no plans created', () => {
+    const result = getSmartTodayPlan([], []);
+    expect(result.state).toBe('NO_PLANS');
+  });
+
+  it('prioritizes IN_PROGRESS state when an active workout is currently running', () => {
+    const active = makeWorkout({ id: 'active-1', title: 'Active Push' });
+    const result = getSmartTodayPlan([], samplePlans, active);
+    expect(result.state).toBe('IN_PROGRESS');
+    expect(result.activeWorkout?.id).toBe('active-1');
+  });
+
+  it('returns Day 1 (Push) when user has 0 prior workouts in history', () => {
+    const result = getSmartTodayPlan([], samplePlans);
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-push');
+  });
+
+  it('advances to Day 2 (Pull) after Day 1 (Push) even when user takes 3 rest days', () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Push Power',
+        startTime: threeDaysAgo,
+        endTime: threeDaysAgo,
+        exercises: [
+          makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, samplePlans);
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-pull'); // Day 2, not skipped!
+  });
+
+  it('accurately identifies COMPLETED_TODAY when user logged a workout earlier today', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Push Power',
+        startTime: twoHoursAgo,
+        endTime: twoHoursAgo,
+        exercises: [
+          makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, samplePlans);
+    expect(result.state).toBe('COMPLETED_TODAY');
+    expect(result.completedWorkout?.title).toBe('Push Power');
+    expect(result.nextUpPlan?.id).toBe('plan-pull'); // Previews tomorrow's session
+  });
+
+  it('resolves arbitrary custom plan names (e.g. "My Custom Alpha") via 3-tier exercise and muscle matching', () => {
+    const customPlans: WorkoutPlan[] = [
+      {
+        id: 'cp-1',
+        title: 'My Custom Alpha',
+        muscles: ['Chest', 'Triceps', 'Shoulders'],
+        emoji: '🔥',
+        exercises: [
+          { exerciseId: 'bench-press', sets: 3, targetReps: '10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '10' },
+        ],
+      },
+      {
+        id: 'cp-2',
+        title: 'Session Destroyer',
+        muscles: ['Back', 'Biceps'],
+        emoji: '⚡',
+        exercises: [
+          { exerciseId: 'lat-pulldown', sets: 3, targetReps: '10' },
+          { exerciseId: 'bicep-curl', sets: 3, targetReps: '10' },
+        ],
+      },
+    ];
+
+    // User logs an ad-hoc session with a random title "Gym with Alex" containing bench and incline DB press
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Gym with Alex',
+        startTime: twoDaysAgo,
+        endTime: twoDaysAgo,
+        exercises: [
+          makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })]),
+          makeWorkoutExercise('incline-dumbbell-bench-press', [makeSet({ weightKg: 28, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const matchedIdx = matchWorkoutToPlanIndex(workouts[0], customPlans);
+    expect(matchedIdx).toBe(0); // Matched to 'My Custom Alpha' via exercise overlap!
+
+    const result = getSmartTodayPlan(workouts, customPlans);
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('cp-2'); // Recommends 'Session Destroyer' next!
+  });
+
+  it('restarts from Day 1 after a long layoff (> 14 days inactivity)', () => {
+    const twentyDaysAgo = new Date(Date.now() - 20 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Pull Hypertrophy', // Day 2 was done 20 days ago
+        startTime: twentyDaysAgo,
+        endTime: twentyDaysAgo,
+        exercises: [
+          makeWorkoutExercise('lat-pulldown', [makeSet({ weightKg: 70, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, samplePlans);
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-push'); // Resets to Day 1!
+    expect(result.isLongLayoff).toBe(true);
+  });
+
+  it('handles two-a-day workouts by correctly pointing to the sequence after the latest completed session', () => {
+    const morning = new Date(Date.now() - 6 * 3600000).toISOString();
+    const afternoon = new Date(Date.now() - 1 * 3600000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        id: 'w-afternoon',
+        title: 'Pull Hypertrophy', // Day 2
+        startTime: afternoon,
+        endTime: afternoon,
+        exercises: [makeWorkoutExercise('lat-pulldown', [makeSet({ weightKg: 70, reps: 10, completed: true })])],
+      }),
+      makeWorkout({
+        id: 'w-morning',
+        title: 'Push Power', // Day 1
+        startTime: morning,
+        endTime: morning,
+        exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })])],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, samplePlans);
+    expect(result.state).toBe('COMPLETED_TODAY');
+    expect(result.completedWorkout?.id).toBe('w-afternoon');
+    expect(result.nextUpPlan?.id).toBe('plan-legs'); // Day 3 (Legs) up next!
+  });
+
+  it('allows manual swap override even if a workout was completed today', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Push Power',
+        startTime: twoHoursAgo,
+        endTime: twoHoursAgo,
+        exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })])],
+      }),
+    ];
+
+    // User explicitly overrides by selecting 'plan-legs'
+    const result = getSmartTodayPlan(workouts, samplePlans, null, 'plan-legs');
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-legs');
+  });
+
+  it('safely falls back to Day 1 when previous workout is completely unrecognised (similarity < 0.25)', () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Random Outdoor Run',
+        startTime: threeDaysAgo,
+        endTime: threeDaysAgo,
+        exercises: [], // empty exercises, no match to strength plans
+      }),
+    ];
+
+    const matchedIdx = matchWorkoutToPlanIndex(workouts[0], samplePlans);
+    expect(matchedIdx).toBe(-1); // below confidence threshold
+
+    const result = getSmartTodayPlan(workouts, samplePlans);
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-push'); // Falls back cleanly to Day 1
+  });
+});
+
+
 

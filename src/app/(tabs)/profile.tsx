@@ -7,7 +7,7 @@ import { ActivityIndicator, Modal, Platform, Pressable, StyleSheet, View } from 
 import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
 import { AchievementBadge, Avatar, toast } from '../../components/misc';
-import { Button, Card, Icon, ProgressBar, Row, Screen, Section } from '../../components/ui';
+import { Button, Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
@@ -342,39 +342,45 @@ export default function ProfileScreen() {
       {/* social */}
       <Section title="Social" style={{ marginBottom: 20 }}>
         <Card style={{ padding: spacing.md }}>
-          <Row align="space-between" style={{ paddingVertical: 6 }}>
-            <Row gap={12}>
-              <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
-                <Icon name="podium-outline" size={16} color={colors.accent} />
-              </View>
-              <T variant="bodySemi">Leaderboard</T>
+          <Pressable onPress={() => router.push('/leaderboard' as never)}>
+            <Row align="space-between" style={{ paddingVertical: 6 }}>
+              <Row gap={12}>
+                <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
+                  <Icon name="podium-outline" size={16} color={colors.accent} />
+                </View>
+                <T variant="bodySemi">Leaderboard</T>
+              </Row>
+              <Row gap={8}>
+                <Tag label="Soon" color={colors.accent} bg={colors.accentSoft} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Row>
             </Row>
-            <Pressable onPress={() => router.push('/leaderboard' as never)}>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </Row>
-          <Row align="space-between" style={{ paddingVertical: 6 }}>
-            <Row gap={12}>
-              <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
-                <Icon name="ribbon-outline" size={16} color={colors.accent} />
-              </View>
-              <T variant="bodySemi">Friend Challenges</T>
+          </Pressable>
+          <Pressable onPress={() => router.push('/challenge' as never)}>
+            <Row align="space-between" style={{ paddingVertical: 6 }}>
+              <Row gap={12}>
+                <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
+                  <Icon name="ribbon-outline" size={16} color={colors.accent} />
+                </View>
+                <T variant="bodySemi">Friend Challenges</T>
+              </Row>
+              <Row gap={8}>
+                <Tag label="Soon" color={colors.accent} bg={colors.accentSoft} />
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Row>
             </Row>
-            <Pressable onPress={() => router.push('/challenge' as never)}>
+          </Pressable>
+          <Pressable onPress={() => router.push('/achievements' as never)}>
+            <Row align="space-between" style={{ paddingVertical: 6 }}>
+              <Row gap={12}>
+                <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
+                  <Icon name="medal-outline" size={16} color={colors.accent} />
+                </View>
+                <T variant="bodySemi">Achievements</T>
+              </Row>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </Row>
-          <Row align="space-between" style={{ paddingVertical: 6 }}>
-            <Row gap={12}>
-              <View style={[styles.favIcon, { backgroundColor: colors.accentSoft }]}>
-                <Icon name="medal-outline" size={16} color={colors.accent} />
-              </View>
-              <T variant="bodySemi">Achievements</T>
             </Row>
-            <Pressable onPress={() => router.push('/achievements' as never)}>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </Row>
+          </Pressable>
         </Card>
       </Section>
 

@@ -16,6 +16,8 @@ import type { Friend } from '../types';
 
 const FILTERS = ['This Week', 'This Month', 'All Time'] as const;
 
+export const LEADERBOARD_COMING_SOON = true;
+
 export default function LeaderboardScreen() {
   useAccent();
   const router = useRouter();
@@ -24,6 +26,50 @@ export default function LeaderboardScreen() {
   const setFriends = usePulse((s) => s.setFriends);
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('This Week');
+
+  if (LEADERBOARD_COMING_SOON) {
+    return (
+      <Screen scroll>
+        <ScreenHeader title="Leaderboard" subtitle="Global & Friends" back />
+        <View style={styles.comingSoonContainer}>
+          <View style={styles.comingSoonGlowBox}>
+            <LinearGradient
+              colors={[accentTint(colors.accent, 0.2), colors.surface2]}
+              style={StyleSheet.absoluteFill}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <View style={[styles.comingSoonIconCircle, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="podium" size={44} color={colors.accent} />
+            </View>
+          </View>
+
+          <View style={[styles.comingSoonBadge, { backgroundColor: colors.accentSoft }]}>
+            <T variant="micro" accent style={{ fontWeight: '700', letterSpacing: 1.2 }}>
+              COMING SOON
+            </T>
+          </View>
+
+          <T variant="h2" center style={{ marginTop: spacing.md }}>
+            Rankings & Leaderboards
+          </T>
+
+          <T variant="body" dim center style={{ marginTop: spacing.sm, lineHeight: 22, maxWidth: 320 }}>
+            Compete with workout partners, compare training streaks, PRs, and weekly tonnage, and climb the global ranks. This feature is arriving in the next major update!
+          </T>
+
+          <View style={{ marginTop: spacing.xl, width: '100%', maxWidth: 280 }}>
+            <Button
+              label="Back to Home"
+              variant="primary"
+              full
+              onPress={() => router.replace('/(tabs)/home' as never)}
+            />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   useEffect(() => {
     if (user?.id) {
@@ -236,5 +282,33 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  comingSoonContainer: {
+    marginTop: spacing.xl,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  comingSoonGlowBox: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  comingSoonIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  comingSoonBadge: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
   },
 });

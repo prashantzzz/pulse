@@ -11,18 +11,20 @@ import { Avatar } from '../../components/misc';
 import { Card, horizontalSwipeLockProps, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
-import { greetingFor } from '../../lib/greeting';
-import { currentStreak, detectPRs, formatCompact, nextMoves, workoutsInLastDays, workoutStats, type NextMove } from '../../lib/stats';
+import { formatGreetingName, greetingFor } from '../../lib/greeting';
+import {
+  currentStreak,
+  detectPRs,
+  formatCompact,
+  getSmartTodayPlan,
+  nextMoves,
+  workoutsInLastDays,
+  workoutStats,
+  type NextMove,
+} from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { WorkoutPlan } from '../../types';
-
-// rotate through the user's plans (editable in My Workouts) — module-level so
-// the purity lint rule doesn't flag Date.now() inside the component
-function todaysPlan(plans: WorkoutPlan[]): WorkoutPlan | undefined {
-  if (plans.length === 0) return undefined;
-  return plans[Math.floor(Date.now() / 86400000) % plans.length];
-}
 
 export default function HomeScreen() {
   // subscribe so this screen re-renders (and recreates its children) live on accent change
@@ -31,9 +33,12 @@ export default function HomeScreen() {
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
   const plans = usePulse((s) => s.plans);
+  const activeWorkout = usePulse((s) => s.activeWorkout);
   const startWorkout = usePulse((s) => s.startWorkout);
 
-  const plan = todaysPlan(plans);
+  const [manualSelectedPlanId, setManualSelectedPlanId] = useState<string | null>(null);
+  const smartPlanResult = getSmartTodayPlan(workouts, plans, activeWorkout, manualSelectedPlanId);
+
   const greeting = greetingFor();
   const week = workoutsInLastDays(workouts, 7);
   const weekStats = week.reduce((acc, w) => {
@@ -44,11 +49,14 @@ export default function HomeScreen() {
   }, { volume: 0, sets: 0 });
   const streak = currentStreak(workouts);
   const last = workouts.reduce<typeof workouts[number] | null>((best, w) => (!best || new Date(w.startTime) > new Date(best.startTime) ? w : best), null) ?? workouts[workouts.length - 1];
-  const prevEquivalent = plan
-    ? [...workouts].filter((w) => w.id !== last?.id).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).find((w) => w.title === plan.title)
+  const lastPrevSession = last
+    ? [...workouts]
+        .filter((w) => w.id !== last.id)
+        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+        .find((w) => w.title === last.title)
     : undefined;
   const recentPrs = last ? [...detectPRs(last, workouts)].sort((a, b) => b.deltaPct - a.deltaPct) : [];
-  const moves = nextMoves(workouts, plans, plan?.id);
+  const moves = nextMoves(workouts, plans, smartPlanResult.plan?.id);
 
   // celebrate the PR with a mount pulse
   const pulse = useAnimatedValue(0);
@@ -63,6 +71,8 @@ export default function HomeScreen() {
   const first = last ? EXERCISE_MAP[last.exercises[0]?.exerciseId] : null;
   const lastStats = last ? workoutStats(last) : null;
 
+  const firstName = formatGreetingName(profile?.name);
+
   return (
     <Screen
       scroll
@@ -72,7 +82,7 @@ export default function HomeScreen() {
       <Row align="space-between" style={{ marginBottom: spacing.lg }}>
         <View>
           <T variant="h2">
-            {greeting.heading}, {profile?.name ?? 'Athlete'}
+            {greeting.heading}, {firstName}
           </T>
           <T variant="small" dim style={{ marginTop: 2 }}>
             {greeting.sub}
@@ -101,18 +111,7 @@ export default function HomeScreen() {
       </View>
 
       {/* today's workout hero */}
-      {plan ? (
-        <View style={{ marginTop: spacing.lg }}>
-          <TodayWorkoutCard
-            plan={plan}
-            prevWorkout={prevEquivalent}
-            onStart={() => {
-              const w = startWorkout(plan.title, plan.exercises);
-              router.push(`/workout/${w.id}`);
-            }}
-          />
-        </View>
-      ) : (
+      {smartPlanResult.state === 'NO_PLANS' ? (
         <View style={{ marginTop: spacing.lg }}>
           <Card gradient="charcoal" style={{ padding: spacing.lg, borderRadius: radius.xxl, borderWidth: 1, borderColor: `${colors.accent}33` }}>
             <Row align="space-between" style={{ marginBottom: spacing.xs }}>
@@ -137,6 +136,30 @@ export default function HomeScreen() {
               <Ionicons name="arrow-forward" size={16} color={colors.bg} />
             </Pressable>
           </Card>
+        </View>
+      ) : (
+        <View style={{ marginTop: spacing.lg }}>
+          <TodayWorkoutCard
+            plan={smartPlanResult.plan ?? smartPlanResult.nextUpPlan}
+            prevWorkout={smartPlanResult.prevEquivalent}
+            plans={plans}
+            onSelectPlan={(p) => setManualSelectedPlanId(p.id)}
+            completedWorkout={smartPlanResult.state === 'COMPLETED_TODAY' ? smartPlanResult.completedWorkout : null}
+            activeWorkout={smartPlanResult.state === 'IN_PROGRESS' ? smartPlanResult.activeWorkout : null}
+            isLongLayoff={smartPlanResult.isLongLayoff}
+            onResume={() => {
+              if (activeWorkout) {
+                router.push(`/workout/${activeWorkout.id}`);
+              }
+            }}
+            onStart={(targetPlan) => {
+              const p = targetPlan ?? smartPlanResult.plan ?? smartPlanResult.nextUpPlan ?? plans[0];
+              if (p) {
+                const w = startWorkout(p.title, p.exercises);
+                router.push(`/workout/${w.id}`);
+              }
+            }}
+          />
         </View>
       )}
 
@@ -238,11 +261,11 @@ export default function HomeScreen() {
               <Metric label="Exercises" value={`${lastStats.exercises}`} />
               <Metric label="Volume" value={`${formatCompact(lastStats.volumeKg)} kg`} accent />
               <Metric label="Sets" value={`${lastStats.sets}`} />
-              {prevEquivalent ? (
+              {lastPrevSession ? (
                 <Metric
                   label="vs last"
                   value={`${(() => {
-                    const prev = workoutStats(prevEquivalent);
+                    const prev = workoutStats(lastPrevSession);
                     const pct = prev.volumeKg > 0 ? Math.round(((lastStats.volumeKg - prev.volumeKg) / prev.volumeKg) * 100) : 0;
                     return pct >= 0 ? `+${pct}%` : `${pct}%`;
                   })()}`}

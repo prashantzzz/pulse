@@ -21,7 +21,7 @@ const VIEWS = ['Strength', 'Volume', 'Regularity', 'Body', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
 
-const TIMEFRAME_VIEWS: ProgressView[] = ['Strength', 'Volume', 'Regularity', 'Body'];
+const TIMEFRAME_VIEWS: ProgressView[] = ['Strength', 'Volume', 'Regularity'];
 
 export default function ProgressScreen() {
   useAccent();
@@ -87,13 +87,7 @@ export default function ProgressScreen() {
           <ConsistencyView workouts={workouts} chartW={chartW} tf={tf} onTimeframeChange={setTf} />
         ) : null}
         {view === 'Body' ? (
-          <BodyView
-            workouts={workouts}
-            measurements={measurements}
-            profile={profile}
-            tf={tf}
-            onTimeframeChange={setTf}
-          />
+          <BodyView workouts={workouts} measurements={measurements} profile={profile} />
         ) : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}
       </View>

@@ -1,4 +1,4 @@
-import { GREETINGS, dayPart, greetingFor } from '../greeting';
+import { GREETINGS, dayPart, formatGreetingName, greetingFor } from '../greeting';
 
 describe('dayPart', () => {
   it('buckets hours into morning / noon / evening / night', () => {
@@ -39,3 +39,23 @@ describe('greetingFor', () => {
     expect(subs.size).toBeGreaterThan(1);
   });
 });
+
+describe('formatGreetingName', () => {
+  it('extracts first name from full name', () => {
+    expect(formatGreetingName('Prashant Sharma')).toBe('Prashant');
+    expect(formatGreetingName('John Doe')).toBe('John');
+    expect(formatGreetingName('Alice')).toBe('Alice');
+  });
+
+  it('handles leading and trailing whitespace', () => {
+    expect(formatGreetingName('   Alex Smith  ')).toBe('Alex');
+  });
+
+  it('falls back to Athlete when name is missing or empty', () => {
+    expect(formatGreetingName(null)).toBe('Athlete');
+    expect(formatGreetingName(undefined)).toBe('Athlete');
+    expect(formatGreetingName('')).toBe('Athlete');
+    expect(formatGreetingName('   ')).toBe('Athlete');
+  });
+});
+

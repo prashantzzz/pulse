@@ -10,9 +10,10 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 
 - **Exercise Library & Detail Guides** — Coached exercises searchable by muscle, equipment, and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
 - **Evidence-Based Templates & My Plans** — Select from structured workout routines (PPL, Upper/Lower, Full Body, Arnold Split) with expandable exercise previews, or edit and maintain your own routines in *My Plans*.
+- **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping.
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage.
-- **Active Workout & Live Notifications** — Start workouts with set logging (weight/reps/RPE/notes), automated rest timers, and sticky live notifications with `'Pause'` and `'Finish'` action buttons.
-- **Progress Analytics & Streaks** — Estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
+- **Active Workout & Live Notifications** — Start workouts with set logging (weight/reps/RPE/notes), automated rest timers, and silent ongoing live notifications with `'Pause'`/`'Resume'` and `'Finish'` action buttons and strict post-completion dismissal.
+- **Progress Analytics & Heatmap** — All-time cumulative muscle development heatmap (with primary and secondary fractional volume crediting), estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
 - **Friend Challenges & Social** — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
 - **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
 - **CSV Import / Export** — Export and import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
@@ -121,6 +122,18 @@ Plan ──► startWorkout() ──► activeWorkout (store)
 ```
 
 **Everything analytics** derives from the same `workouts[]` array: `workoutStats`, `bestForExercise`, `detectPRs`, `currentStreak`, `volumeByMuscle`, `progressScore`, etc.
+
+### Smart Next-Workout Recommendation Algorithm
+Home's **Today's Workout** hero is driven by `getSmartTodayPlan(workouts, plans, activeWorkout)`:
+1. **Live Priority:** If an active workout is in progress, displays a live resume card with completed set count and live duration.
+2. **Same-Day Celebration:** If the athlete already completed a session today, presents a celebratory summary (`COMPLETED TODAY 🎉`) with volume/sets and a button previewing the next upcoming routine.
+3. **Sequential State Continuity:** Recommends the next plan in sequence based on the last completed workout rather than naive calendar day modulo, preserving the split progression across multi-day rest gaps.
+4. **Long Layoff Auto-Reset:** Inactivity gaps $> 14\text{ days}$ automatically restart from Day 1 of the user's split.
+5. **3-Tier Plan Matching Engine:** Resolves custom and ad-hoc workouts (e.g. *"My Upper"*, *"Session Alpha"*) to the user's saved plans via:
+   - **Tier 1:** Exact Title / Plan ID Match
+   - **Tier 2:** Exercise ID Jaccard Set Overlap ($\ge 50\%$)
+   - **Tier 3:** Muscle Group & Movement Pattern Load Distribution Vector
+6. **1-Tap Plan Swap:** Interactive `⇄ Swap` button allowing athletes to easily switch to any other day in their routine without cluttering the card.
 
 ---
 

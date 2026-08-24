@@ -40,13 +40,37 @@ export function TimeframeChips({
   );
 }
 
+/** High-contrast, vibrant distinct color palette for multi-slice charts based on app theme colors */
+export const DISTINCT_CHART_COLORS = [
+  '#F472B6', // Rose Pink (instant contrast against Mint/Sky/Lime at index 0)
+  '#38BDF8', // Sky Blue
+  '#FF9F43', // Warm Coral / Orange
+  '#A78BFA', // Lavender Purple
+  '#34D399', // Mint Green (separated from Sky Blue & Teal)
+  '#B8FF20', // Electric Lime
+  '#2FD8D0', // Teal Cyan
+  '#FF5B66', // Crimson Red
+  '#818CF8', // Indigo
+  '#FFC53D', // Amber Gold (placed lower to avoid competing with Coral in 6-slice charts)
+  '#22D3EE', // Bright Cyan
+  '#E879F9', // Fuchsia
+  '#4ADE80', // Emerald
+  '#C084FC', // Light Violet
+  '#FB7185', // Strawberry
+  '#F97316', // Deep Orange
+];
+
 /**
- * Chart series colors — the first slice follows the live accent, the rest stay
- * distinct. Shared by every chart on the Progress screen so the palette is
- * consistent across tabs.
+ * Chart series colors — the first slice follows the live accent, the rest use
+ * distinct, vibrant high-contrast colors without repeating or clashing with the accent.
  */
 export function chartColor(i: number): string {
-  return i === 0 ? colors.accent : colors.chart[i % colors.chart.length];
+  if (i === 0) return colors.accent;
+  // Filter out the live accent color so every segment has a unique color
+  const palette = DISTINCT_CHART_COLORS.filter(
+    (c) => c.toLowerCase() !== colors.accent.toLowerCase()
+  );
+  return palette[(i - 1) % palette.length];
 }
 
 /** Small stat tile used at the top of each Progress tab. */

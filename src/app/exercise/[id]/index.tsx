@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { ExerciseAnimation } from '../../../components/animation';
@@ -26,18 +26,25 @@ export default function ExerciseDetailScreen() {
   const workouts = usePulse((s) => s.workouts);
   const [addSheet, setAddSheet] = useState(false);
 
-  // Dismiss bottom sheet on phone back press
-  useEffect(() => {
-    const onBackPress = () => {
-      if (addSheet) {
-        setAddSheet(false);
+  // Handle hardware back press cleanly when this screen is active
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (addSheet) {
+          setAddSheet(false);
+          return true;
+        }
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(tabs)/workouts' as never);
+        }
         return true;
-      }
-      return false;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [addSheet]);
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [addSheet, router])
+  );
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
   if (!exercise) {
@@ -71,7 +78,19 @@ export default function ExerciseDetailScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
-        <ScreenHeader back right={fav ? 'bookmark' : 'bookmark-outline'} rightLabel="Toggle favorite" onRight={() => toggleFavorite(exercise.id)} />
+        <ScreenHeader
+          back
+          onBack={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/library' as never);
+            }
+          }}
+          right={fav ? 'bookmark' : 'bookmark-outline'}
+          rightLabel="Toggle favorite"
+          onRight={() => toggleFavorite(exercise.id)}
+        />
 
         <View>
           {getExerciseAnimation(exercise.id) ? (

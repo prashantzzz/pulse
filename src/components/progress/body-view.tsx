@@ -8,12 +8,12 @@ import { MuscleLegend, MuscleMap } from '../muscle-map';
 import { T } from '../Text';
 import { ExerciseThumb } from '../muscle-icon';
 import { Button, Card, Row, Screen, Section, Tag } from '../ui';
-import { ANATOMY_LABEL_MAP, exercisesForSlug } from '../../data/exercises';
-import { getTrainingEfficiency, volumeByMuscle, volumeBySlug, workoutsInLastDays } from '../../lib/stats';
+import { ANATOMY_LABEL_MAP, exercisesForSlug, resolveExercise } from '../../data/exercises';
+import { getTrainingEfficiency, GROUP_TO_SLUGS, volumeByMuscle, volumeBySlug } from '../../lib/stats';
 import { colors, radius, spacing } from '../../theme';
 import type { BodyMeasurement, MuscleGroup, MuscleSlug, UserProfile, Workout } from '../../types';
 import type { Exercise } from '../../types';
-import { progressStyles, TF_LABELS, TimeframeChips, type ProgressTimeframe } from './shared';
+import { progressStyles } from './shared';
 
 const ALL_MUSCLES: MuscleGroup[] = ['Chest', 'Back', 'Quads', 'Hamstrings', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Calves', 'Glutes', 'Forearms'];
 
@@ -35,90 +35,125 @@ const ANATOMY_LABELS: Partial<Record<Slug, string>> = {
   calves: 'Calves',
 };
 
-const DAYS: Record<ProgressTimeframe, number> = { '7D': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+function formatRecency(d?: Date): string {
+  if (!d) return 'Not logged yet';
+  const diffMs = Date.now() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays <= 0) return 'Trained today';
+  if (diffDays === 1) return 'Trained yesterday';
+  if (diffDays < 7) return `Trained ${diffDays} days ago`;
+  if (diffDays < 30) return `Trained ${Math.max(1, Math.floor(diffDays / 7))}w ago`;
+  return `Trained ${Math.max(1, Math.floor(diffDays / 30))}mo ago`;
+}
 
 /**
- * Body tab: muscle heatmap (tap a muscle for training volume detail) with
- * its own timeframe control and the latest body measurements.
+ * Body tab: all-time cumulative muscle heatmap from the day user started training
+ * until today, providing actionable hypertrophy stimulus and volume metrics.
  */
 export function BodyView({
   workouts,
   measurements,
   profile,
-  tf = '3M',
-  onTimeframeChange,
 }: {
   workouts: Workout[];
   measurements: BodyMeasurement[];
   profile: UserProfile | null;
-  tf?: ProgressTimeframe;
-  onTimeframeChange?: (t: ProgressTimeframe) => void;
 }) {
   const router = useRouter();
-  const [localTf, setLocalTf] = useState<ProgressTimeframe>('3M');
   const [selMuscle, setSelMuscle] = useState<MuscleGroup | null>(null);
   const [selSlug, setSelSlug] = useState<Slug | null>(null);
   const [exerciseModalSlug, setExerciseModalSlug] = useState<string | null>(null);
 
-  const activeTf = tf ?? localTf;
-  const handleTfChange = onTimeframeChange ?? setLocalTf;
+  // Calculate training journey span from Day 1 to Today
+  const sortedWorkoutsAsc = [...workouts].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+  );
+  const firstWorkoutTime =
+    sortedWorkoutsAsc.length > 0
+      ? new Date(sortedWorkoutsAsc[0].startTime).getTime()
+      : Date.now();
 
-  const days = DAYS[activeTf];
-  const weeks = Math.max(1, Math.round(days / 7));
+  const daysSinceStart = Math.max(
+    1,
+    Math.ceil((Date.now() - firstWorkoutTime) / 86400000),
+  );
+  const weeksSinceStart = Math.max(1, daysSinceStart / 7);
 
-  // Current timeframe volume and sets
-  const volByMuscle = volumeByMuscle(workouts, days);
-  const volBySlug = volumeBySlug(workouts, days);
+  // Cumulative all-time volume and sets across entire history
+  const volByMuscle = volumeByMuscle(workouts);
+  const volBySlug = volumeBySlug(workouts);
 
-  // Previous timeframe of same length for truthful delta comparison
-  const cutoffCurrent = Date.now() - days * 86400000;
-  const cutoffPrev = Date.now() - days * 2 * 86400000;
-  const prevWorkouts = workouts.filter((w) => {
-    const t = new Date(w.endTime).getTime();
-    return t >= cutoffPrev && t < cutoffCurrent;
-  });
-  const prevByMuscle = volumeByMuscle(prevWorkouts);
-  const prevBySlug = volumeBySlug(prevWorkouts);
+  // Calculate last trained date for each slug and muscle group
+  const lastTrainedSlugMap = new Map<string, Date>();
+  const lastTrainedMuscleMap = new Map<string, Date>();
 
-  // Intensity heatmap calculation based on weekly volume rate over the chosen timeframe
+  const sortedWorkoutsDesc = [...workouts].sort(
+    (a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime(),
+  );
+
+  for (const w of sortedWorkoutsDesc) {
+    const wDate = new Date(w.endTime);
+    for (const we of w.exercises) {
+      if (!we.sets.some((s) => s.completed)) continue;
+      const ex = resolveExercise(we.exerciseId);
+      if (!ex) continue;
+
+      if (!lastTrainedMuscleMap.has(ex.muscleGroup)) {
+        lastTrainedMuscleMap.set(ex.muscleGroup, wDate);
+      }
+      for (const sec of ex.secondaryMuscles) {
+        if (!lastTrainedMuscleMap.has(sec)) {
+          lastTrainedMuscleMap.set(sec, wDate);
+        }
+      }
+
+      const targets: MuscleSlug[] =
+        ex.targetSlugs && ex.targetSlugs.length > 0
+          ? ex.targetSlugs
+          : (GROUP_TO_SLUGS[ex.muscleGroup] || []);
+      for (const slug of targets) {
+        if (!lastTrainedSlugMap.has(slug)) {
+          lastTrainedSlugMap.set(slug, wDate);
+        }
+      }
+    }
+  }
+
+  // Intensity heatmap calculation based on average weekly volume rate across the journey
   const intensity: Record<string, number> = {};
   for (const v of volByMuscle) {
-    const weeklySets = v.sets / weeks;
+    const weeklySets = v.sets / weeksSinceStart;
     intensity[v.muscle] = weeklySets < 3 ? 0.25 : weeklySets < 6 ? 0.5 : 1;
   }
   for (const s of volBySlug) {
-    const weeklySets = s.sets / weeks;
+    const weeklySets = s.sets / weeksSinceStart;
     intensity[s.slug] = weeklySets < 3 ? 0.25 : weeklySets < 6 ? 0.5 : 1;
   }
   for (const m of ALL_MUSCLES) {
-    if (intensity[m] == null) intensity[m] = 0.25; // never logged → undertrained
+    if (intensity[m] == null) intensity[m] = 0.25; // never logged → undertrained baseline
   }
 
   // Slug-level specific metrics with group-level fallback
   const slugDetail = selSlug ? volBySlug.find((v) => v.slug === (selSlug as MuscleSlug)) : null;
-  const slugPrev = selSlug ? prevBySlug.find((v) => v.slug === (selSlug as MuscleSlug)) : null;
-
   const muscleDetail = selMuscle ? volByMuscle.find((v) => v.muscle === selMuscle) : null;
-  const musclePrev = selMuscle ? prevByMuscle.find((v) => v.muscle === selMuscle) : null;
 
   const activeSets = selSlug && slugDetail ? slugDetail.sets : (muscleDetail?.sets ?? 0);
   const activeVolume = selSlug && slugDetail ? slugDetail.volume : (muscleDetail?.volume ?? 0);
-  const avgWeeklySets = activeSets / weeks;
+  const avgWeeklySets = activeSets / weeksSinceStart;
 
   const efficiency = getTrainingEfficiency(avgWeeklySets);
   const efficiencyColor = efficiency.level === 3 ? colors.zoneWell : efficiency.level === 2 ? colors.zoneMod : colors.zoneLow;
   const efficiencyBg = efficiency.level === 3 ? 'rgba(34, 197, 94, 0.15)' : efficiency.level === 2 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)';
 
-  const prevVol = selSlug && slugPrev ? slugPrev.volume : (musclePrev?.volume ?? 0);
-  const musclePct =
-    activeVolume > 0 && prevVol > 0
-      ? Math.round(((activeVolume - prevVol) / prevVol) * 100)
-      : 0;
+  const lastTrainedDate = selSlug
+    ? lastTrainedSlugMap.get(String(selSlug))
+    : selMuscle
+    ? lastTrainedMuscleMap.get(selMuscle)
+    : undefined;
+  const recencyText = formatRecency(lastTrainedDate);
 
   const displayTitle = selSlug && ANATOMY_LABELS[selSlug] ? ANATOMY_LABELS[selSlug] : selMuscle;
   const last = measurements[measurements.length - 1];
-
-  const setsLabel = activeTf === '7D' ? 'Sets this week' : activeTf === '1M' ? 'Sets this month' : `Sets (${activeTf})`;
 
   // Exercises for the muscle exercise modal
   const modalExercises: Exercise[] = exerciseModalSlug
@@ -139,21 +174,26 @@ export function BodyView({
     ? `Exercises for ${selMuscle}`
     : null;
 
+  const journeyBadgeText =
+    workouts.length > 0
+      ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} logged`
+      : 'No workouts yet';
+
   return (
     <>
-      <TimeframeChips tf={activeTf} onChange={handleTfChange} />
-
       <Card style={{ padding: spacing.lg }}>
         <Row align="space-between">
           <View>
             <T variant="h3">Muscle Heatmap</T>
             <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
-              Tap a muscle for details
+              All-time training breakdown
             </T>
           </View>
-          <T variant="small" dim style={{ fontSize: 12 }}>
-            {TF_LABELS[activeTf]}
-          </T>
+          <View style={[progressStyles.periodBadge, { backgroundColor: colors.accentSoft }]}>
+            <T variant="smallMedium" accent style={{ fontSize: 12 }}>
+              {journeyBadgeText}
+            </T>
+          </View>
         </Row>
         <View style={{ marginTop: spacing.md }}>
           <MuscleMap
@@ -178,27 +218,18 @@ export function BodyView({
         <Card gradient="charcoal" style={{ padding: spacing.lg }}>
           <Row align="space-between">
             <T variant="h3">{displayTitle}</T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={[progressStyles.deltaBadge, { backgroundColor: efficiencyBg, borderRadius: radius.pill }]}>
-                <T variant="micro" style={{ color: efficiencyColor, fontWeight: '700' }}>
-                  {efficiency.status}
-                </T>
-              </View>
-              {musclePct !== 0 ? (
-                <View style={[progressStyles.deltaBadge, { backgroundColor: musclePct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
-                  <T variant="micro" style={{ color: musclePct > 0 ? colors.accent : colors.red }}>
-                    {musclePct > 0 ? '+' : ''}
-                    {musclePct}%
-                  </T>
-                </View>
-              ) : null}
+            <View style={[progressStyles.deltaBadge, { backgroundColor: efficiencyBg, borderRadius: radius.pill }]}>
+              <T variant="micro" style={{ color: efficiencyColor, fontWeight: '700' }}>
+                {efficiency.status}
+              </T>
             </View>
           </Row>
+
           <Row align="space-between" style={{ marginTop: spacing.md }}>
             <View style={{ alignItems: 'center', gap: 2 }}>
               <T variant="numSm">{activeSets}</T>
               <T variant="micro" muted>
-                {setsLabel}
+                Total sets
               </T>
             </View>
             <View style={{ alignItems: 'center', gap: 2 }}>
@@ -206,7 +237,7 @@ export function BodyView({
                 {activeVolume.toLocaleString()}
               </T>
               <T variant="micro" muted>
-                Volume kg
+                All-time volume kg
               </T>
             </View>
             <View style={{ alignItems: 'center', gap: 2 }}>
@@ -218,6 +249,14 @@ export function BodyView({
               </T>
             </View>
           </Row>
+
+          {/* Last trained info */}
+          <View style={styles.recencyRow}>
+            <Ionicons name="time-outline" size={13} color={colors.textDim} />
+            <T variant="micro" dim style={{ fontSize: 11 }}>
+              {recencyText}
+            </T>
+          </View>
 
           {/* "Exercises for <Muscle>" button */}
           {exerciseBtnLabel ? (
@@ -361,6 +400,13 @@ export function BodyView({
 }
 
 const styles = StyleSheet.create({
+  recencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
+  },
   exercisesBtn: {
     flexDirection: 'row',
     alignItems: 'center',

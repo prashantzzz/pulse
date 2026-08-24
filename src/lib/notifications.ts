@@ -6,16 +6,20 @@ export const ACTIVE_WORKOUT_NOTIFICATION_ID = 'pulse-active-workout-live';
 
 export const EVENING_REMINDER_CATEGORY = 'evening-reminder-category';
 export const ACTIVE_WORKOUT_CATEGORY = 'active-workout-category';
+export const ACTIVE_WORKOUT_PAUSED_CATEGORY = 'active-workout-paused-category';
 
-// Configure foreground presentation behavior
+// Configure foreground presentation behavior — live workout tracker stays silent in the shade without popup alert banners
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const isLive = notification?.request?.identifier === ACTIVE_WORKOUT_NOTIFICATION_ID;
+    return {
+      shouldShowAlert: !isLive,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: !isLive,
+      shouldShowList: true,
+    };
+  },
 });
 
 /**
@@ -36,13 +40,32 @@ export async function setupNotificationCategories(): Promise<void> {
       },
     ]);
 
-    // 2. Category for active live workout (includes 'Pause' and 'Finish' buttons)
+    // 2. Category for active live workout running (includes 'Pause' and 'Finish' buttons)
     await Notifications.setNotificationCategoryAsync(ACTIVE_WORKOUT_CATEGORY, [
       {
         identifier: 'PAUSE_WORKOUT',
         buttonTitle: 'Pause',
         options: {
+          opensAppToForeground: false,
+        },
+      },
+      {
+        identifier: 'FINISH_WORKOUT',
+        buttonTitle: 'Finish',
+        options: {
           opensAppToForeground: true,
+          isDestructive: true,
+        },
+      },
+    ]);
+
+    // 3. Category for active live workout paused (includes 'Resume' and 'Finish' buttons)
+    await Notifications.setNotificationCategoryAsync(ACTIVE_WORKOUT_PAUSED_CATEGORY, [
+      {
+        identifier: 'RESUME_WORKOUT',
+        buttonTitle: 'Resume',
+        options: {
+          opensAppToForeground: false,
         },
       },
       {
@@ -84,10 +107,10 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         showBadge: true,
       });
 
-      // Channel 2: Live active workout tracking (silent updates, public lockscreen)
+      // Channel 2: Live active workout tracking (silent ongoing updates in notification tray)
       await Notifications.setNotificationChannelAsync('active-workout', {
         name: 'Active Workout Tracker',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.LOW,
         sound: undefined,
         enableVibrate: false,
         showBadge: false,
@@ -131,10 +154,12 @@ export async function presentActiveWorkoutNotification({
       content: {
         title: `${statusEmoji} ${workoutTitle}`,
         body: bodyText,
-        categoryIdentifier: ACTIVE_WORKOUT_CATEGORY,
+        categoryIdentifier: isPaused ? ACTIVE_WORKOUT_PAUSED_CATEGORY : ACTIVE_WORKOUT_CATEGORY,
         sticky: true,
         autoDismiss: false,
         sound: false,
+        priority: Notifications.AndroidNotificationPriority.LOW,
+        ...(Platform.OS === 'android' ? { channelId: 'active-workout' } : {}),
         data: {
           workoutId,
           url: `/workout/${workoutId}`,
@@ -156,6 +181,7 @@ export async function dismissActiveWorkoutNotification(): Promise<void> {
 
   try {
     await Notifications.dismissNotificationAsync(ACTIVE_WORKOUT_NOTIFICATION_ID);
+    await Notifications.cancelScheduledNotificationAsync(ACTIVE_WORKOUT_NOTIFICATION_ID);
   } catch (err) {
     console.warn('Error dismissing active workout notification:', err);
   }
