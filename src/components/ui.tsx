@@ -31,7 +31,7 @@ import {
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
-import { colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
+import { accentTint, colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
 import { T } from './Text';
 
 // ---------------------------------------------------------------------------
@@ -312,6 +312,54 @@ export function Card({
 // Screen scaffold + headers
 // ---------------------------------------------------------------------------
 
+/**
+ * Modern Ambient Top Light Glow — subtle, refined theme-reactive halo
+ * concentrated at the top-center of the screen. (Native & Web)
+ */
+export function AmbientTopGlow({ height = 260 }: { height?: number }) {
+  const accentKey = useAccent();
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Concentrated Top-Center Linear Gradient */}
+      <LinearGradient
+        colors={[accentTint(colors.accent, 0.18), accentTint(colors.accent, 0.04), 'transparent']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.ambientTopWash, { height }]}
+      />
+      {/* Concentrated Top-Center Radial Glow */}
+      <Svg width="100%" height={height} style={styles.ambientTopSvg}>
+        <Defs>
+          <RadialGradient
+            id={`pulse-radial-glow-${accentKey}`}
+            cx="50%"
+            cy="0%"
+            rx="45%"
+            ry="75%"
+            fx="50%"
+            fy="0%">
+            <Stop offset="0%" stopColor={colors.accent} stopOpacity="0.22" />
+            <Stop offset="40%" stopColor={colors.accent} stopOpacity="0.08" />
+            <Stop offset="75%" stopColor={colors.accent} stopOpacity="0.015" />
+            <Stop offset="100%" stopColor={colors.accent} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#pulse-radial-glow-${accentKey})`} />
+      </Svg>
+      {/* Soft Top-Center Ambient Halo */}
+      <View
+        style={[
+          styles.ambientTopOrb,
+          {
+            backgroundColor: colors.accent,
+            shadowColor: colors.accent,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
 export function Screen({
   children,
   scroll,
@@ -347,25 +395,30 @@ export function Screen({
       onMoveShouldSetPanResponder: (_, g) => {
         if (isInnerHorizontalActive) return false;
         if (!onSwipeLeft && !onSwipeRight) return false;
-        // Require clear horizontal motion (>50px, 2.2x greater than dy, noticeable velocity)
-        const isHorizontal = Math.abs(g.dx) > 50 && Math.abs(g.dx) > Math.abs(g.dy) * 2.2;
-        const hasVelocity = Math.abs(g.vx) > 0.2 || Math.abs(g.dx) > 90;
+        // Flexible horizontal motion (>25px, 1.25x greater than dy, noticeable velocity)
+        // allows comfortable thumb arc/diagonal gestures without triggering on vertical scrolls
+        const isHorizontal = Math.abs(g.dx) > 25 && Math.abs(g.dx) > Math.abs(g.dy) * 1.25;
+        const hasVelocity = Math.abs(g.vx) > 0.15 || Math.abs(g.dx) > 40;
         return isHorizontal && hasVelocity;
       },
       onPanResponderTerminationRequest: () => true,
       onPanResponderRelease: (_, g) => {
         if (isInnerHorizontalActive) return;
         const dx = g.dx;
+        const dy = g.dy;
         const vx = g.vx;
-        if (dx < -50 && (vx < -0.2 || dx < -90)) {
-          if (onSwipeLeft) {
-            hapticsLight();
-            onSwipeLeft();
-          }
-        } else if (dx > 50 && (vx > 0.2 || dx > 90)) {
-          if (onSwipeRight) {
-            hapticsLight();
-            onSwipeRight();
+        const isHorizontal = Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.2;
+        if (isHorizontal) {
+          if (dx < -35 && (vx < -0.15 || dx < -55)) {
+            if (onSwipeLeft) {
+              hapticsLight();
+              onSwipeLeft();
+            }
+          } else if (dx > 35 && (vx > 0.15 || dx > 55)) {
+            if (onSwipeRight) {
+              hapticsLight();
+              onSwipeRight();
+            }
           }
         }
       },
@@ -416,7 +469,7 @@ export function Screen({
     const dt = Date.now() - start.t;
     touchStartRef.current = null;
 
-    if (dt < 600 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 2) {
+    if (dt < 700 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.25) {
       if (dx < 0 && onSwipeLeft) {
         hapticsLight();
         onSwipeLeft();
@@ -441,24 +494,8 @@ export function Screen({
           }
         : {})}>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {/* Ambient Top Glow in selected Theme Color */}
-        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-          <Defs>
-            <RadialGradient
-              id={`pulse-radial-glow-${accentKey}`}
-              cx="50%"
-              cy="0%"
-              rx="75%"
-              ry="45%"
-              fx="50%"
-              fy="0%">
-              <Stop offset="0%" stopColor={colors.accent} stopOpacity="0.14" />
-              <Stop offset="50%" stopColor={colors.accent} stopOpacity="0.04" />
-              <Stop offset="100%" stopColor={colors.accent} stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill={`url(#pulse-radial-glow-${accentKey})`} />
-        </Svg>
+        {/* Subtle, concentrated Ambient Top Light Glow in selected Theme Color */}
+        <AmbientTopGlow />
 
         {/* Scattered mini Lucide gym doodles in a tasteful polka-dot scatter */}
         <View style={styles.doodleOverlay}>
@@ -882,5 +919,31 @@ const styles = StyleSheet.create({
   doodleItem: {
     position: 'absolute',
     opacity: 0.12,
+  },
+  ambientTopWash: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  ambientTopSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  ambientTopOrb: {
+    position: 'absolute',
+    top: -95,
+    alignSelf: 'center',
+    width: 240,
+    height: 160,
+    borderRadius: 120,
+    opacity: 0.12,
+    ...(Platform.OS === 'web' ? ({ filter: 'blur(50px)' } as any) : {}),
+    shadowOffset: { width: 0, height: 25 },
+    shadowOpacity: 0.4,
+    shadowRadius: 50,
+    elevation: 0,
   },
 });

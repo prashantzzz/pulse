@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import {
   ACTIVE_WORKOUT_CATEGORY,
   ACTIVE_WORKOUT_NOTIFICATION_ID,
+  ACTIVE_WORKOUT_PAUSED_CATEGORY,
   EVENING_REMINDER_CATEGORY,
   EVENING_REMINDER_ID,
   dismissActiveWorkoutNotification,
@@ -19,8 +20,8 @@ jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn().mockResolvedValue('notification-id-123'),
   cancelScheduledNotificationAsync: jest.fn().mockResolvedValue(undefined),
   dismissNotificationAsync: jest.fn().mockResolvedValue(undefined),
-  AndroidImportance: { HIGH: 4, DEFAULT: 3 },
-  AndroidNotificationPriority: { HIGH: 'high' },
+  AndroidImportance: { HIGH: 4, DEFAULT: 3, LOW: 2 },
+  AndroidNotificationPriority: { HIGH: 'high', LOW: 'low' },
   AndroidNotificationVisibility: { PUBLIC: 1 },
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
@@ -45,14 +46,31 @@ describe('Notifications System', () => {
       ],
     );
 
-    // 2. Active workout with 'Pause' and 'Finish'
+    // 2. Active workout running with 'Pause' and 'Finish'
     expect(Notifications.setNotificationCategoryAsync).toHaveBeenCalledWith(
       ACTIVE_WORKOUT_CATEGORY,
       [
         expect.objectContaining({
           identifier: 'PAUSE_WORKOUT',
           buttonTitle: 'Pause',
-          options: { opensAppToForeground: true },
+          options: { opensAppToForeground: false },
+        }),
+        expect.objectContaining({
+          identifier: 'FINISH_WORKOUT',
+          buttonTitle: 'Finish',
+          options: { opensAppToForeground: true, isDestructive: true },
+        }),
+      ],
+    );
+
+    // 3. Active workout paused with 'Resume' and 'Finish'
+    expect(Notifications.setNotificationCategoryAsync).toHaveBeenCalledWith(
+      ACTIVE_WORKOUT_PAUSED_CATEGORY,
+      [
+        expect.objectContaining({
+          identifier: 'RESUME_WORKOUT',
+          buttonTitle: 'Resume',
+          options: { opensAppToForeground: false },
         }),
         expect.objectContaining({
           identifier: 'FINISH_WORKOUT',
@@ -74,19 +92,40 @@ describe('Notifications System', () => {
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
-      content: {
+      content: expect.objectContaining({
         title: '🔥 [LIVE] Push Day A',
         body: 'Set 2/6 · Bench Press · Duration: 14:32',
         categoryIdentifier: ACTIVE_WORKOUT_CATEGORY,
         sticky: true,
         autoDismiss: false,
         sound: false,
+        priority: 'low',
         data: {
           workoutId: 'w-123',
           url: '/workout/w-123',
           isPaused: false,
         },
-      },
+      }),
+      trigger: null,
+    });
+  });
+
+  it('should present paused workout notification with resume category', async () => {
+    await presentActiveWorkoutNotification({
+      workoutTitle: 'Push Day A',
+      currentSetInfo: 'Set 2/6 · Bench Press',
+      durationText: '14:32',
+      isPaused: true,
+      workoutId: 'w-123',
+    });
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
+      content: expect.objectContaining({
+        title: '⏸️ [PAUSED] Push Day A',
+        categoryIdentifier: ACTIVE_WORKOUT_PAUSED_CATEGORY,
+        data: expect.objectContaining({ isPaused: true }),
+      }),
       trigger: null,
     });
   });
@@ -94,6 +133,7 @@ describe('Notifications System', () => {
   it('should dismiss active workout notification', async () => {
     await dismissActiveWorkoutNotification();
     expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith(ACTIVE_WORKOUT_NOTIFICATION_ID);
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(ACTIVE_WORKOUT_NOTIFICATION_ID);
   });
 
   it('should schedule evening reminder with Start Workout category', async () => {

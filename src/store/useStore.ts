@@ -296,11 +296,16 @@ export const usePulse = create<PulseState>()(
           };
         }),
 
-      cancelActiveWorkout: () => set({ activeWorkout: null }),
+      cancelActiveWorkout: () => {
+        import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
+        set({ activeWorkout: null });
+      },
 
       finishWorkout: () => {
         const { activeWorkout } = get();
         if (!activeWorkout) return null;
+        // Dismiss live tracking notification immediately
+        import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
         // when finishing while paused, end the workout at the pause moment so
         // the recorded duration matches the displayed (frozen) elapsed time
         const end = activeWorkout.paused ? (activeWorkout.pausedAt ?? new Date().toISOString()) : new Date().toISOString();

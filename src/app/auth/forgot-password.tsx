@@ -52,7 +52,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg, colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.24), accentTint(colors.accent, 0.06), colors.bg]} style={StyleSheet.absoluteFill} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState, BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProgressRing } from '../../../components/ring';
@@ -33,22 +33,24 @@ export default function ActiveWorkoutScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
 
-  // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard)
-  useEffect(() => {
-    const onBackPress = () => {
-      if (menuOpen) {
-        setMenuOpen(false);
+  // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard) ONLY when focused
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (menuOpen) {
+          setMenuOpen(false);
+          return true;
+        }
+        setMenuOpen(true);
         return true;
-      }
-      setMenuOpen(true);
-      return true;
-    };
+      };
 
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [menuOpen]);
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [menuOpen])
+  );
 
-  const workout = activeWorkout ?? workouts.find((w) => w.id === id);
+  const workout = activeWorkout && activeWorkout.id === id ? activeWorkout : workouts.find((w) => w.id === id);
 
   // while paused the elapsed timer is frozen at the pause moment
   const elapsedSec = workout
@@ -60,36 +62,65 @@ export default function ActiveWorkoutScreen() {
   const doneSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0) : 0;
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
-  const elapsedInterval = Math.floor(elapsedSec / 15);
+  // 30-second interval milestone for notification background sync
+  const elapsedMinute = Math.floor(elapsedSec / 30);
 
   // Keep live notification synced with current exercise, sets progress, and duration
+  // ONLY for the active running workout (strictly dismissed on completion/discard)
   useEffect(() => {
-    if (!workout) {
+    if (!activeWorkout || activeWorkout.id !== id) {
       dismissActiveWorkoutNotification();
       return;
     }
 
-    const currentEx = workout.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? workout.exercises[workout.exercises.length - 1];
+    const currentEx = activeWorkout.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? activeWorkout.exercises[activeWorkout.exercises.length - 1];
     const currentExName = currentEx ? EXERCISE_MAP[currentEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
     const currentSetInfo = totalSets > 0 ? `Set ${doneSets + 1}/${totalSets} · ${currentExName}` : 'Workout in progress';
 
     presentActiveWorkoutNotification({
-      workoutTitle: workout.title,
+      workoutTitle: activeWorkout.title,
       currentSetInfo,
       durationText: formatDuration(elapsedSec),
-      isPaused: workout.paused,
-      workoutId: workout.id,
+      isPaused: activeWorkout.paused,
+      workoutId: activeWorkout.id,
     });
-  }, [workout, doneSets, totalSets, elapsedSec, elapsedInterval]);
+  }, [activeWorkout?.id, activeWorkout?.paused, doneSets, totalSets, elapsedMinute]);
 
   // Clean up notification on unmount if workout has completed or been discarded
   useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      const curr = usePulse.getState().activeWorkout;
+      if (!curr || curr.id !== id) {
+        dismissActiveWorkoutNotification();
+        return;
+      }
+      if (state === 'background' || state === 'active') {
+        const curSec = curr.paused
+          ? Math.max(0, Math.floor((new Date(curr.pausedAt ?? curr.startTime).getTime() - new Date(curr.startTime).getTime()) / 1000))
+          : Math.max(0, Math.floor((Date.now() - new Date(curr.startTime).getTime()) / 1000));
+        const cEx = curr.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? curr.exercises[curr.exercises.length - 1];
+        const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
+        const dSets = curr.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
+        const tSets = curr.exercises.reduce((s, we) => s + we.sets.length, 0);
+        const cInfo = tSets > 0 ? `Set ${dSets + 1}/${tSets} · ${cExName}` : 'Workout in progress';
+
+        presentActiveWorkoutNotification({
+          workoutTitle: curr.title,
+          currentSetInfo: cInfo,
+          durationText: formatDuration(curSec),
+          isPaused: curr.paused,
+          workoutId: curr.id,
+        });
+      }
+    });
+
     return () => {
+      sub.remove();
       if (!usePulse.getState().activeWorkout) {
         dismissActiveWorkoutNotification();
       }
     };
-  }, []);
+  }, [id]);
 
   if (!workout) {
     return (

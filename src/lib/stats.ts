@@ -1043,3 +1043,199 @@ export function formatCompact(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return `${Math.round(n)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Smart Next-Workout Engine & Progression Recommendations
+// ---------------------------------------------------------------------------
+
+export type SmartTodayPlanState =
+  | 'IN_PROGRESS'
+  | 'NO_PLANS'
+  | 'COMPLETED_TODAY'
+  | 'READY_TO_START';
+
+export interface SmartTodayPlanResult {
+  state: SmartTodayPlanState;
+  plan?: WorkoutPlan;
+  completedWorkout?: Workout;
+  nextUpPlan?: WorkoutPlan;
+  prevEquivalent?: Workout | null;
+  activeWorkout?: Workout | null;
+  isLongLayoff?: boolean;
+}
+
+/**
+ * Calculates a 0.0 - 1.0 similarity score between a completed workout and a plan template.
+ * Tier 1: Exact title match (score: 1.0)
+ * Tier 2: Exercise ID Jaccard overlap (score: 0.6 * jaccard + 0.4 * muscle_sim)
+ * Tier 3: Muscle & Movement pattern vector similarity
+ */
+export function calculatePlanSimilarity(
+  workout: Pick<Workout, 'title' | 'exercises'>,
+  plan: WorkoutPlan,
+): number {
+  const wTitle = (workout.title ?? '').trim().toLowerCase();
+  const pTitle = (plan.title ?? '').trim().toLowerCase();
+
+  // Tier 1: Exact title match
+  if (wTitle && pTitle && wTitle === pTitle) {
+    return 1.0;
+  }
+
+  // Tier 2: Exercise ID Overlap (Jaccard similarity)
+  const workoutExIds = new Set(workout.exercises.map((e) => e.exerciseId));
+  const planExIds = new Set(plan.exercises.map((e) => e.exerciseId));
+
+  let sharedCount = 0;
+  for (const id of workoutExIds) {
+    if (planExIds.has(id)) sharedCount += 1;
+  }
+
+  const unionSize = new Set([...workoutExIds, ...planExIds]).size;
+  const jaccard = unionSize > 0 ? sharedCount / unionSize : 0;
+
+  if (jaccard >= 0.5) {
+    return 0.8 + jaccard * 0.2;
+  }
+
+  // Tier 3: Muscle Group & Movement Pattern Vector Similarity
+  const workoutMuscles = new Set<string>();
+  const workoutMovements = new Set<string>();
+  for (const we of workout.exercises) {
+    const ex = EXERCISE_MAP[we.exerciseId];
+    if (ex) {
+      workoutMuscles.add(ex.muscleGroup);
+      workoutMovements.add(ex.movement);
+    }
+  }
+
+  const planMuscles = new Set(plan.muscles);
+  const planMovements = new Set<string>();
+  for (const pe of plan.exercises) {
+    const ex = EXERCISE_MAP[pe.exerciseId];
+    if (ex) {
+      planMovements.add(ex.movement);
+    }
+  }
+
+  let sharedMuscles = 0;
+  for (const m of workoutMuscles) {
+    if (planMuscles.has(m)) sharedMuscles += 1;
+  }
+  const muscleSim =
+    workoutMuscles.size > 0 && planMuscles.size > 0
+      ? sharedMuscles / Math.max(workoutMuscles.size, planMuscles.size)
+      : 0;
+
+  let sharedMovements = 0;
+  for (const mov of workoutMovements) {
+    if (planMovements.has(mov)) sharedMovements += 1;
+  }
+  const movementSim =
+    workoutMovements.size > 0 && planMovements.size > 0
+      ? sharedMovements / Math.max(workoutMovements.size, planMovements.size)
+      : 0;
+
+  return jaccard * 0.4 + muscleSim * 0.4 + movementSim * 0.2;
+}
+
+/**
+ * Finds the index of the plan in `plans` that best matches the given completed workout.
+ * Returns -1 if no plan matches with at least 0.25 confidence.
+ */
+export function matchWorkoutToPlanIndex(
+  workout: Pick<Workout, 'title' | 'exercises'>,
+  plans: WorkoutPlan[],
+): number {
+  if (!plans || plans.length === 0) return -1;
+
+  let bestIndex = -1;
+  let bestScore = 0.25; // minimum threshold
+
+  for (let i = 0; i < plans.length; i += 1) {
+    const score = calculatePlanSimilarity(workout, plans[i]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
+/**
+ * Intelligent next-workout recommendation engine.
+ */
+export function getSmartTodayPlan(
+  workouts: Workout[],
+  plans: WorkoutPlan[],
+  activeWorkout?: Workout | null,
+  manualSelectedPlanId?: string | null,
+): SmartTodayPlanResult {
+  // 1. If an active workout is in progress, prioritize resuming it
+  if (activeWorkout) {
+    return {
+      state: 'IN_PROGRESS',
+      activeWorkout,
+    };
+  }
+
+  // 2. If user has no plans, prompt template chooser
+  if (!plans || plans.length === 0) {
+    return { state: 'NO_PLANS' };
+  }
+
+  // Sort workouts newest first
+  const sortedWorkouts = [...workouts].sort(
+    (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+  );
+
+  // 3. Check if user already completed a workout today (since local midnight)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const workoutDoneToday = sortedWorkouts.find(
+    (w) => new Date(w.startTime).getTime() >= todayStart.getTime(),
+  );
+
+  const lastCompleted = sortedWorkouts[0];
+  const daysSinceLast = lastCompleted
+    ? (Date.now() - new Date(lastCompleted.startTime).getTime()) / 86400000
+    : 999;
+  const isLongLayoff = daysSinceLast > 14 && !!lastCompleted;
+
+  // Determine the next plan index
+  let recommendedIndex = 0;
+
+  if (manualSelectedPlanId) {
+    const manualIdx = plans.findIndex((p) => p.id === manualSelectedPlanId);
+    if (manualIdx !== -1) {
+      recommendedIndex = manualIdx;
+    }
+  } else if (!isLongLayoff && lastCompleted) {
+    const matchedIdx = matchWorkoutToPlanIndex(lastCompleted, plans);
+    if (matchedIdx !== -1) {
+      recommendedIndex = (matchedIdx + 1) % plans.length;
+    }
+  }
+
+  const selectedPlan = plans[recommendedIndex] ?? plans[0];
+  const prevEquivalent =
+    sortedWorkouts.find((w) => w.title === selectedPlan.title) ?? null;
+
+  if (workoutDoneToday && !manualSelectedPlanId) {
+    return {
+      state: 'COMPLETED_TODAY',
+      completedWorkout: workoutDoneToday,
+      nextUpPlan: selectedPlan,
+      prevEquivalent,
+    };
+  }
+
+  return {
+    state: 'READY_TO_START',
+    plan: selectedPlan,
+    prevEquivalent,
+    isLongLayoff,
+  };
+}
+

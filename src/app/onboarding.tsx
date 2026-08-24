@@ -151,7 +151,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: Math.max(insets.top + layout.screenTopPad, 60), paddingBottom: insets.bottom + 20 }]}>
-      <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[accentTint(colors.accent, 0.24), accentTint(colors.accent, 0.06), colors.bg]} style={StyleSheet.absoluteFill} />
       {step > 0 ? (
         <Pressable onPress={() => setStep(step - 1)} style={[styles.backBtn, { top: Math.max(insets.top + 10, 52) }]} hitSlop={10}>
           <Icon name="chevron-back" size={20} />

@@ -1,6 +1,6 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef } from 'react';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Image, Platform, StyleSheet, View } from 'react-native';
 
 import { getExerciseAnimation } from '../data/exercise-animations';
 import { MuscleTargetMap } from './muscle-map';
@@ -12,12 +12,45 @@ import type { Exercise } from '../types';
  * shot on a light studio background, so they play on a matching light card —
  * no chroma-keying, no blend modes — and the whole frame is visible.
  */
-function ExerciseVideo({ source }: { source: number }) {
+function ExerciseVideo({ source, assetAspectRatio }: { source: number; assetAspectRatio?: number }) {
+  const [aspectRatio, setAspectRatio] = useState<number>(() => {
+    if (assetAspectRatio && assetAspectRatio > 0) {
+      return assetAspectRatio;
+    }
+    try {
+      const res = Image.resolveAssetSource(source);
+      if (res?.width && res?.height && res.height > 0) {
+        return res.width / res.height;
+      }
+    } catch {}
+    return 1;
+  });
+
   const player = useVideoPlayer(source, (p) => {
     p.loop = true;
     p.muted = true;
     p.staysActiveInBackground = true;
   });
+
+  // Track video aspect ratio dynamically when video source loads
+  useEffect(() => {
+    const subLoad = player.addListener('sourceLoad', (payload) => {
+      const track = payload?.availableVideoTracks?.[0];
+      if (track?.size?.width && track?.size?.height && track.size.height > 0) {
+        setAspectRatio(track.size.width / track.size.height);
+      }
+    });
+    const subTrack = player.addListener('videoTrackChange', (payload) => {
+      const track = payload?.videoTrack;
+      if (track?.size?.width && track?.size?.height && track.size.height > 0) {
+        setAspectRatio(track.size.width / track.size.height);
+      }
+    });
+    return () => {
+      subLoad.remove();
+      subTrack.remove();
+    };
+  }, [player]);
 
   // Start playback as soon as the source is ready. Calling play() before the
   // <video> element is attached (or before media has loaded) is a silent no-op
@@ -59,25 +92,20 @@ function ExerciseVideo({ source }: { source: number }) {
     };
   }, [player]);
 
-  // Important: give the view an explicit 100%×100% box. On web, a replaced
-  // element (<video>) with `auto` dimensions keeps its intrinsic size (the
-  // clips are 1080×1080) even when absolutely positioned with all insets 0,
-  // so it overflows the card and gets cropped by `overflow: hidden`. With an
-  // explicit box, `contentFit="contain"` scales the footage to fit the card
-  // and the white background shows through the letterbox bars.
-  // Some embedded webviews (e.g. the Freebuff preview pane) don't composite
-  // <video> surfaces: the clip plays but the card stays blank white. On web we
-  // keep the VideoView as the playback driver (it mounts the <video> element)
-  // but paint every frame onto an overlay <canvas>, which composites reliably
-  // everywhere. Native keeps the regular VideoView.
+  // Important: On Android and iOS native, wrap in a height: 100% container with
+  // the video's exact aspect ratio so both top and bottom edges strictly touch
+  // the card boundaries without letterbox gaps, with left and right adjusting automatically.
+  // On web we use the canvas overlay for universal compatibility.
   if (Platform.OS !== 'web') {
     return (
-      <VideoView
-        player={player}
-        style={styles.video}
-        contentFit="contain"
-        nativeControls={false}
-      />
+      <View style={[styles.videoContainer, { aspectRatio }]}>
+        <VideoView
+          player={player}
+          style={styles.video}
+          contentFit="contain"
+          nativeControls={false}
+        />
+      </View>
     );
   }
   return <WebExerciseVideo player={player} />;
@@ -174,7 +202,7 @@ export function ExerciseAnimation({
         <>
           {/* light studio background matches the footage — the full frame shows */}
           <View style={[StyleSheet.absoluteFill, styles.videoCardBg]} />
-          <ExerciseVideo source={asset.source} />
+          <ExerciseVideo source={asset.source} assetAspectRatio={asset.aspectRatio} />
         </>
       ) : (
         <MuscleFallback exercise={exercise} height={height} gender={gender} />
@@ -202,6 +230,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E3DF',
+  },
+  videoContainer: {
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   video: {
     width: '100%',

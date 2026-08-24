@@ -112,11 +112,14 @@ export default function RootLayout() {
         router.push('/(tabs)/workouts' as never);
       } else if (actionId === 'PAUSE_WORKOUT') {
         usePulse.getState().pauseActiveWorkout();
-        if (data?.workoutId) {
-          router.push(`/workout/${data.workoutId}` as never);
-        }
+      } else if (actionId === 'RESUME_WORKOUT') {
+        usePulse.getState().resumeActiveWorkout();
       } else if (actionId === 'FINISH_WORKOUT') {
-        if (data?.workoutId) {
+        import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
+        const finished = usePulse.getState().finishWorkout();
+        if (finished) {
+          router.replace(`/workout/${finished.id}/summary` as never);
+        } else if (data?.workoutId) {
           router.push(`/workout/${data.workoutId}` as never);
         }
       } else if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER) {
