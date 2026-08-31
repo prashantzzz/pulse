@@ -262,7 +262,8 @@ npx supabase db push   # apply all pending migrations to the remote project
 ```
 
 ```bash
-eas build -p android --profile preview #build apk
+eas build -p android --profile preview #build apk on cloud
+npx expo run:android #local device testing
 ```
 
 Migrations live in `supabase/migrations/` and are applied in timestamp order. They are idempotent — safe to re-run.

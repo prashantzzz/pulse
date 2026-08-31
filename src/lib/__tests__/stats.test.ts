@@ -8,6 +8,7 @@ import {
   detectPRs,
   e1rm,
   calculatePlanSimilarity,
+  getRecommendedRestSeconds,
   getSmartTodayPlan,
   getTrainingEfficiency,
   longestStreak,
@@ -813,12 +814,12 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('accurately identifies COMPLETED_TODAY when user logged a workout earlier today', () => {
-    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
     const workouts: Workout[] = [
       makeWorkout({
         title: 'Push Power',
-        startTime: twoHoursAgo,
-        endTime: twoHoursAgo,
+        startTime: fiveMinutesAgo,
+        endTime: fiveMinutesAgo,
         exercises: [
           makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })]),
         ],
@@ -897,8 +898,9 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('handles two-a-day workouts by correctly pointing to the sequence after the latest completed session', () => {
-    const morning = new Date(Date.now() - 6 * 3600000).toISOString();
-    const afternoon = new Date(Date.now() - 1 * 3600000).toISOString();
+    const now = Date.now();
+    const morning = new Date(now - 15 * 60000).toISOString();
+    const afternoon = new Date(now - 5 * 60000).toISOString();
     const workouts: Workout[] = [
       makeWorkout({
         id: 'w-afternoon',
@@ -923,12 +925,12 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('allows manual swap override even if a workout was completed today', () => {
-    const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
     const workouts: Workout[] = [
       makeWorkout({
         title: 'Push Power',
-        startTime: twoHoursAgo,
-        endTime: twoHoursAgo,
+        startTime: fiveMinutesAgo,
+        endTime: fiveMinutesAgo,
         exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 80, reps: 10, completed: true })])],
       }),
     ];
@@ -956,6 +958,68 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
     const result = getSmartTodayPlan(workouts, samplePlans);
     expect(result.state).toBe('READY_TO_START');
     expect(result.plan?.id).toBe('plan-push'); // Falls back cleanly to Day 1
+  });
+});
+
+describe('Adaptive CNS & Muscular Fatigue Rest Engine (getRecommendedRestSeconds)', () => {
+  it('assigns 120s rest for heavy CNS compound barbell exercises', () => {
+    const deadlift = getRecommendedRestSeconds('deadlift');
+    expect(deadlift.seconds).toBe(120);
+    expect(deadlift.intensityTier).toBe('CNS Heavy');
+
+    const squat = getRecommendedRestSeconds('squat');
+    expect(squat.seconds).toBe(120);
+    expect(squat.intensityTier).toBe('CNS Heavy');
+
+    const bench = getRecommendedRestSeconds('bench-press');
+    expect(bench.seconds).toBe(120);
+    expect(bench.intensityTier).toBe('CNS Heavy');
+
+    const barbellRow = getRecommendedRestSeconds('barbell-row');
+    expect(barbellRow.seconds).toBe(120);
+    expect(barbellRow.intensityTier).toBe('CNS Heavy');
+  });
+
+  it('assigns 90s rest for moderate compound dumbbell, cable, and bodyweight movements', () => {
+    const latPulldown = getRecommendedRestSeconds('lat-pulldown');
+    expect(latPulldown.seconds).toBe(90);
+    expect(latPulldown.intensityTier).toBe('Compound');
+
+    const pullUp = getRecommendedRestSeconds('pull-up');
+    expect(pullUp.seconds).toBe(90);
+    expect(pullUp.intensityTier).toBe('Compound');
+
+    const dbIncline = getRecommendedRestSeconds('incline-dumbbell-bench-press');
+    expect(dbIncline.seconds).toBe(90);
+    expect(dbIncline.intensityTier).toBe('Compound');
+
+    const lunges = getRecommendedRestSeconds('dumbbell-lunge');
+    expect(lunges.seconds).toBe(90);
+    expect(lunges.intensityTier).toBe('Compound');
+  });
+
+  it('assigns 60s rest for standard hypertrophy isolation exercises', () => {
+    const bicepCurl = getRecommendedRestSeconds('bicep-curl');
+    expect(bicepCurl.seconds).toBe(60);
+    expect(bicepCurl.intensityTier).toBe('Isolation');
+
+    const tricepsPushdown = getRecommendedRestSeconds('triceps-pushdown');
+    expect(tricepsPushdown.seconds).toBe(60);
+    expect(tricepsPushdown.intensityTier).toBe('Isolation');
+
+    const latRaise = getRecommendedRestSeconds('lateral-raise');
+    expect(latRaise.seconds).toBe(60);
+    expect(latRaise.intensityTier).toBe('Isolation');
+  });
+
+  it('assigns 45s rest for core, calves, and light accessory exercises', () => {
+    const crunches = getRecommendedRestSeconds('crunch');
+    expect(crunches.seconds).toBe(45);
+    expect(crunches.intensityTier).toBe('Accessory');
+
+    const calfRaise = getRecommendedRestSeconds('calf-raise');
+    expect(calfRaise.seconds).toBe(45);
+    expect(calfRaise.intensityTier).toBe('Accessory');
   });
 });
 

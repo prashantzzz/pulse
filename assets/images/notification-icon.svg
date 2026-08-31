@@ -1,0 +1,12 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <g fill="white">
+    <!-- Left stem -->
+    <rect x="24" y="24" width="14" height="48" />
+    <!-- Diagonal -->
+    <polygon points="24,24 38,24 66,72 52,72" />
+    <!-- Right stem -->
+    <rect x="52" y="36" width="14" height="36" />
+    <!-- Arrow Head -->
+    <polygon points="59,12 40,36 78,36" />
+  </g>
+</svg>

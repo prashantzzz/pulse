@@ -105,9 +105,6 @@ export default function HomeScreen() {
             {streak >= 3 ? 'You are on fire — keep it rolling' : 'One workout today keeps it alive'}
           </T>
         </View>
-        <T variant="h3" accent>
-          🔥
-        </T>
       </View>
 
       {/* today's workout hero */}

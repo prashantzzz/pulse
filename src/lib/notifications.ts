@@ -128,7 +128,8 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 }
 
 /**
- * Present or update the live ongoing workout notification with current set, elapsed duration, and action buttons.
+ * Present or update the live ongoing workout notification with current set progress and action buttons.
+ * Updates in-place silently in the shade without heads-up popups or recurring timer intervals.
  */
 export async function presentActiveWorkoutNotification({
   workoutTitle,
@@ -139,20 +140,20 @@ export async function presentActiveWorkoutNotification({
 }: {
   workoutTitle: string;
   currentSetInfo: string;
-  durationText: string;
+  durationText?: string;
   isPaused?: boolean;
   workoutId: string;
 }): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
-    const statusEmoji = isPaused ? '⏸️ [PAUSED]' : '🔥 [LIVE]';
-    const bodyText = `${currentSetInfo} · Duration: ${durationText}`;
+    const title = isPaused ? `⏸️ ${workoutTitle}` : workoutTitle;
+    const bodyText = currentSetInfo;
 
     await Notifications.scheduleNotificationAsync({
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
       content: {
-        title: `${statusEmoji} ${workoutTitle}`,
+        title,
         body: bodyText,
         categoryIdentifier: isPaused ? ACTIVE_WORKOUT_PAUSED_CATEGORY : ACTIVE_WORKOUT_CATEGORY,
         sticky: true,
@@ -166,7 +167,7 @@ export async function presentActiveWorkoutNotification({
           isPaused,
         },
       },
-      trigger: null, // deliver immediately
+      trigger: null, // update in-place immediately
     });
   } catch (err) {
     console.warn('Error presenting active workout notification:', err);
@@ -201,41 +202,33 @@ export async function cancelEveningReminder(): Promise<void> {
 }
 
 /**
- * Schedule evening reminder for 7:00 PM with 'Start Workout' action button leading to Workouts page.
+ * Schedule daily evening reminder at 7:00 PM (19:00) with 'Start Workout' action button leading to Workouts page.
+ * Uses native daily calendar trigger so Android and iOS schedule repeating alarms at the exact local time.
  */
-export async function scheduleEveningReminder(): Promise<void> {
+export async function scheduleEveningReminder(hour = 19, minute = 0): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
     await cancelEveningReminder();
 
-    const now = new Date();
-    const scheduledTime = new Date();
-    scheduledTime.setHours(19, 0, 0, 0); // 7:00 PM
-
-    if (now.getTime() >= scheduledTime.getTime()) {
-      return;
-    }
-
-    const secondsUntil7PM = Math.floor((scheduledTime.getTime() - now.getTime()) / 1000);
-    if (secondsUntil7PM <= 0) return;
-
     await Notifications.scheduleNotificationAsync({
       identifier: EVENING_REMINDER_ID,
       content: {
         title: 'Time to Train! 🏋️',
-        body: "No workout logged today. Keep your momentum going and hit your goals!",
+        body: "No workout yet. Don’t break your streak!",
         categoryIdentifier: EVENING_REMINDER_CATEGORY,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
+        ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
         data: {
           url: '/(tabs)/workouts',
         },
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: secondsUntil7PM,
-        repeats: false,
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+        channelId: 'default',
       },
     });
   } catch (err) {

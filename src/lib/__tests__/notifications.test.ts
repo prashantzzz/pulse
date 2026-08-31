@@ -81,11 +81,10 @@ describe('Notifications System', () => {
     );
   });
 
-  it('should present active workout live notification with current set, duration, and actions', async () => {
+  it('should present active workout live notification with current set and actions', async () => {
     await presentActiveWorkoutNotification({
       workoutTitle: 'Push Day A',
       currentSetInfo: 'Set 2/6 · Bench Press',
-      durationText: '14:32',
       isPaused: false,
       workoutId: 'w-123',
     });
@@ -93,8 +92,8 @@ describe('Notifications System', () => {
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
       content: expect.objectContaining({
-        title: '🔥 [LIVE] Push Day A',
-        body: 'Set 2/6 · Bench Press · Duration: 14:32',
+        title: 'Push Day A',
+        body: 'Set 2/6 · Bench Press',
         categoryIdentifier: ACTIVE_WORKOUT_CATEGORY,
         sticky: true,
         autoDismiss: false,
@@ -110,11 +109,10 @@ describe('Notifications System', () => {
     });
   });
 
-  it('should present paused workout notification with resume category', async () => {
+  it('should present paused workout notification with minimal pause icon and resume category', async () => {
     await presentActiveWorkoutNotification({
       workoutTitle: 'Push Day A',
       currentSetInfo: 'Set 2/6 · Bench Press',
-      durationText: '14:32',
       isPaused: true,
       workoutId: 'w-123',
     });
@@ -122,7 +120,8 @@ describe('Notifications System', () => {
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
       content: expect.objectContaining({
-        title: '⏸️ [PAUSED] Push Day A',
+        title: '⏸️ Push Day A',
+        body: 'Set 2/6 · Bench Press',
         categoryIdentifier: ACTIVE_WORKOUT_PAUSED_CATEGORY,
         data: expect.objectContaining({ isPaused: true }),
       }),

@@ -11,6 +11,7 @@ import { platesForTarget } from '../../../lib/plates';
 import { previousSet, warmupSets } from '../../../lib/stats';
 import { usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
+import { hapticsLight } from '../../../lib/haptics';
 
 const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
@@ -56,9 +57,19 @@ export default function LogSetScreen() {
   const suggestedRepLow = suggestionReps ? Number(suggestionReps[1]) : 8;
   const suggestedRepHigh = suggestionReps ? Number(suggestionReps[2]) : 12;
 
+  const currentIndex = we.sets.findIndex((s) => s.id === current.id);
+  const prevIncomplete = we.sets.slice(0, currentIndex).find((s) => !s.completed);
+
   const save = (complete: boolean, goNext: boolean) => {
     patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
-    if (complete) completeSet(ex.id, current.id);
+    if (complete) {
+      if (prevIncomplete) {
+        hapticsLight();
+        toast(`Please complete Set ${prevIncomplete.setIndex} first`);
+        return;
+      }
+      completeSet(ex.id, current.id);
+    }
     if (goNext) {
       const remaining = we.sets.filter((s) => !s.completed && s.id !== current.id);
       const nextSet = remaining[0];
@@ -79,9 +90,14 @@ export default function LogSetScreen() {
   };
 
   const finish = () => {
+    if (prevIncomplete) {
+      hapticsLight();
+      toast(`Please complete Set ${prevIncomplete.setIndex} first`);
+      return;
+    }
     save(true, false);
     toast('Set complete');
-    router.replace(`/workout/${workout.id}/rest?sec=90`);
+    router.replace(`/workout/${workout.id}` as never);
   };
 
   return (
@@ -90,17 +106,25 @@ export default function LogSetScreen() {
         <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back />
 
         <View>
-          <Card gradient="charcoal" style={{ padding: spacing.md }}>
-            <Row gap={12}>
-              <Icon name="barbell-outline" size={20} color={colors.accent} />
-              <View>
-                <T variant="h3">{ex.name}</T>
-                <T variant="small" dim style={{ fontSize: 12 }}>
-                  {ex.equipment} · {we.targetReps} target reps
-                </T>
-              </View>
-            </Row>
-          </Card>
+          <Pressable
+            onPress={() => router.push(`/exercise/${ex.id}` as never)}
+            hitSlop={4}
+            style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
+            <Card gradient="charcoal" style={{ padding: spacing.md }}>
+              <Row align="space-between" style={{ width: '100%' }}>
+                <Row gap={12} style={{ flex: 1 }}>
+                  <Icon name="barbell-outline" size={20} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <T variant="h3">{ex.name}</T>
+                    <T variant="small" dim style={{ fontSize: 12 }}>
+                      {ex.equipment} · {we.targetReps} target reps
+                    </T>
+                  </View>
+                </Row>
+                <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
+              </Row>
+            </Card>
+          </Pressable>
 
           {/* last time — compact, same canonical exercise */}
           {prev ? (

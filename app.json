@@ -20,7 +20,12 @@
       },
       "package": "com.nextrep.fitness",
       "predictiveBackGestureEnabled": true,
-      "allowBackup": false
+      "allowBackup": false,
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM"
+      ]
     },
     "web": {
       "output": "single",
@@ -49,7 +54,13 @@
       ],
       "expo-sharing",
       "expo-video",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#FF8C00"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,
