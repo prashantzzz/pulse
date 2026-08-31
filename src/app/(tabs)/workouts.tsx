@@ -10,6 +10,7 @@ import { BottomSheet, EmptyState, toast } from '../../components/misc';
 import { ExerciseThumb, planIcon } from '../../components/muscle-icon';
 import { Button, Card, Chip, Row, Screen, Segmented, Tag } from '../../components/ui';
 import { PlanCard } from '../../components/workout-card';
+import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../components/collapsible';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
   PROGRAM_TEMPLATES,
@@ -435,10 +436,15 @@ function CollapsibleTemplateDay({
   const [open, setOpen] = useState(false);
   const daySets = day.exercises.reduce((acc, e) => acc + e.sets, 0);
 
+  const toggleOpen = () => {
+    animateLayout();
+    setOpen((o) => !o);
+  };
+
   return (
     <View style={styles.dayCard}>
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        onPress={toggleOpen}
         accessibilityRole="button"
         accessibilityLabel={`${day.title}, ${day.exercises.length} exercises`}
         accessibilityState={{ expanded: open }}
@@ -459,41 +465,39 @@ function CollapsibleTemplateDay({
             </T>
           </View>
         </Row>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-down'}
+        <AnimatedChevron
+          isOpen={open}
           size={18}
           color={open ? colors.accent : colors.textMuted}
         />
       </Pressable>
 
       {/* Expandable exercises list */}
-      {open ? (
-        <View style={styles.dayExercisesWrap}>
-          <View style={styles.dayExercisesDivider} />
-          {day.exercises.map((spec, i) => {
-            const ex = EXERCISE_MAP[spec.exerciseId];
-            if (!ex) return null;
-            return (
-              <View key={`${spec.exerciseId}-${i}`} style={styles.exRow}>
-                <ExerciseThumb muscle={ex.muscleGroup} size={28} />
-                <View style={{ flex: 1 }}>
-                  <T variant="smallSemi" numberOfLines={1}>
-                    {ex.name}
-                  </T>
-                  <T variant="micro" muted>
-                    {ex.equipment} · {ex.muscleGroup}
-                  </T>
-                </View>
-                <View style={styles.repBadge}>
-                  <T variant="micro" accent style={{ fontWeight: '600' }}>
-                    {spec.sets} × {spec.targetReps}
-                  </T>
-                </View>
+      <CollapsibleContent isOpen={open} style={styles.dayExercisesWrap}>
+        <View style={styles.dayExercisesDivider} />
+        {day.exercises.map((spec, i) => {
+          const ex = EXERCISE_MAP[spec.exerciseId];
+          if (!ex) return null;
+          return (
+            <View key={`${spec.exerciseId}-${i}`} style={styles.exRow}>
+              <ExerciseThumb muscle={ex.muscleGroup} size={28} />
+              <View style={{ flex: 1 }}>
+                <T variant="smallSemi" numberOfLines={1}>
+                  {ex.name}
+                </T>
+                <T variant="micro" muted>
+                  {ex.equipment} · {ex.muscleGroup}
+                </T>
               </View>
-            );
-          })}
-        </View>
-      ) : null}
+              <View style={styles.repBadge}>
+                <T variant="micro" accent style={{ fontWeight: '600' }}>
+                  {spec.sets} × {spec.targetReps}
+                </T>
+              </View>
+            </View>
+          );
+        })}
+      </CollapsibleContent>
     </View>
   );
 }

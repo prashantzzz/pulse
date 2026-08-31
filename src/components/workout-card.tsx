@@ -12,6 +12,7 @@ import { ExerciseThumb, planIcon } from './muscle-icon';
 import { EXERCISE_MAP } from '../data/exercises';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { workoutStats } from '../lib/stats';
+import { AnimatedChevron, CollapsibleContent, animateLayout } from './collapsible';
 
 // ---------------------------------------------------------------------------
 // Plan card (Workouts tab)
@@ -34,22 +35,16 @@ export function PlanCard({
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(totalSets * 2.8 + plan.exercises.length * 3 + 8);
   const [open, setOpen] = useState(false);
-  const openAnim = useAnimatedValue(0);
-  const [contentH, setContentH] = useState(0);
 
-  useEffect(() => {
-    Animated.timing(openAnim, {
-      toValue: open ? 1 : 0,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [open, openAnim]);
+  const toggleOpen = () => {
+    animateLayout();
+    setOpen((o) => !o);
+  };
 
   return (
     <View style={styles.planCard}>
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        onPress={toggleOpen}
         accessibilityLabel={`${plan.title}, ${plan.exercises.length} exercises`}
         accessibilityState={{ expanded: open }}
         // note: no accessibilityRole here — the Start button below is nested
@@ -62,7 +57,7 @@ export function PlanCard({
               <T variant="h3" style={{ flex: 1 }} numberOfLines={1}>
                 {plan.title}
               </T>
-              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+              <AnimatedChevron isOpen={open} size={18} color={colors.textMuted} />
             </Row>
             <Row gap={4} wrap style={{ flexShrink: 1, marginTop: 1 }}>
               {plan.muscles.map((m) => (
@@ -105,20 +100,9 @@ export function PlanCard({
         </View>
       </Pressable>
 
-      {/* expandable exercise list — always rendered so height can be measured,
-          clipped and animated by the wrapper */}
-      <Animated.View
-        accessibilityElementsHidden={!open}
-        importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
-        aria-hidden={!open}
-        style={{
-          height: openAnim.interpolate({ inputRange: [0, 1], outputRange: [0, contentH] }),
-          opacity: openAnim,
-          overflow: 'hidden',
-        }}>
-        <View
-          onLayout={(e) => setContentH(e.nativeEvent.layout.height)}
-          style={styles.expandWrap}>
+      {/* expandable exercise list */}
+      <CollapsibleContent isOpen={open}>
+        <View style={styles.expandWrap}>
           <View style={styles.exDivider} />
           {plan.exercises.map((spec) => {
             const ex = EXERCISE_MAP[spec.exerciseId];
@@ -141,7 +125,7 @@ export function PlanCard({
             );
           })}
         </View>
-      </Animated.View>
+      </CollapsibleContent>
     </View>
   );
 }

@@ -50,9 +50,17 @@ export function SetRow({
   onToggle?: () => void;
   isNext?: boolean;
 }) {
+  const handleRowPress = () => {
+    if (!completed && onToggle) {
+      onToggle();
+    } else {
+      onTap();
+    }
+  };
+
   return (
     <Pressable
-      onPress={onTap}
+      onPress={handleRowPress}
       style={({ pressed }) => [
         styles.row,
         completed && { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft2 },
@@ -77,7 +85,7 @@ export function SetRow({
         </T>
       </View>
 
-      <Pressable onPress={onToggle} hitSlop={8} style={styles.toggle}>
+      <Pressable onPress={onToggle ?? onTap} hitSlop={10} style={styles.toggle}>
         {completed ? (
           <View style={[styles.doneCircle, { backgroundColor: colors.accent }]}>
             <Ionicons name="checkmark" size={16} color={colors.bg} />
@@ -90,7 +98,7 @@ export function SetRow({
         )}
       </Pressable>
 
-      <View style={styles.values}>
+      <Pressable onPress={onTap} hitSlop={8} style={styles.values}>
         {/* unlogged sets preview the last workout's numbers as a dim target */}
         <T variant="numSm" style={{ color: completed ? colors.text : weight != null ? colors.text : colors.textMuted, minWidth: 34, textAlign: 'right' }}>
           {weight != null ? weight : prev?.weightKg ?? '–'}
@@ -98,7 +106,7 @@ export function SetRow({
         <T variant="numSm" style={{ color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted, minWidth: 22, textAlign: 'right' }}>
           {reps != null ? reps : prev?.reps ?? '–'}
         </T>
-      </View>
+      </Pressable>
     </Pressable>
   );
 }

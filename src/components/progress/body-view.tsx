@@ -354,7 +354,6 @@ export function BodyView({
                 <Pressable
                   key={ex.id}
                   onPress={() => {
-                    setExerciseModalSlug(null);
                     router.push(`/exercise/${ex.id}` as never);
                   }}
                   style={({ pressed }) => [styles.modalRow, pressed && { opacity: 0.82 }]}>

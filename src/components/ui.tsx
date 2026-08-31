@@ -314,20 +314,20 @@ export function Card({
 
 /**
  * Modern Ambient Top Light Glow — subtle, refined theme-reactive halo
- * concentrated at the top-center of the screen. (Native & Web)
+ * concentrated at the top-center of the screen. 100% pixel-synchronized across Native & Web.
  */
-export function AmbientTopGlow({ height = 260 }: { height?: number }) {
+export function AmbientTopGlow({ height = 240 }: { height?: number }) {
   const accentKey = useAccent();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Concentrated Top-Center Linear Gradient */}
+      {/* Concentrated Top-Center Linear Gradient Wash */}
       <LinearGradient
-        colors={[accentTint(colors.accent, 0.18), accentTint(colors.accent, 0.04), 'transparent']}
+        colors={[accentTint(colors.accent, 0.16), accentTint(colors.accent, 0.03), 'transparent']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={[styles.ambientTopWash, { height }]}
       />
-      {/* Concentrated Top-Center Radial Glow */}
+      {/* Concentrated Top-Center Radial Glow Orb */}
       <Svg width="100%" height={height} style={styles.ambientTopSvg}>
         <Defs>
           <RadialGradient
@@ -335,27 +335,17 @@ export function AmbientTopGlow({ height = 260 }: { height?: number }) {
             cx="50%"
             cy="0%"
             rx="45%"
-            ry="75%"
+            ry="80%"
             fx="50%"
             fy="0%">
             <Stop offset="0%" stopColor={colors.accent} stopOpacity="0.22" />
-            <Stop offset="40%" stopColor={colors.accent} stopOpacity="0.08" />
-            <Stop offset="75%" stopColor={colors.accent} stopOpacity="0.015" />
+            <Stop offset="35%" stopColor={colors.accent} stopOpacity="0.08" />
+            <Stop offset="70%" stopColor={colors.accent} stopOpacity="0.015" />
             <Stop offset="100%" stopColor={colors.accent} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <Rect width="100%" height="100%" fill={`url(#pulse-radial-glow-${accentKey})`} />
       </Svg>
-      {/* Soft Top-Center Ambient Halo */}
-      <View
-        style={[
-          styles.ambientTopOrb,
-          {
-            backgroundColor: colors.accent,
-            shadowColor: colors.accent,
-          },
-        ]}
-      />
     </View>
   );
 }
@@ -932,18 +922,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  ambientTopOrb: {
-    position: 'absolute',
-    top: -95,
-    alignSelf: 'center',
-    width: 240,
-    height: 160,
-    borderRadius: 120,
-    opacity: 0.12,
-    ...(Platform.OS === 'web' ? ({ filter: 'blur(50px)' } as any) : {}),
-    shadowOffset: { width: 0, height: 25 },
-    shadowOpacity: 0.4,
-    shadowRadius: 50,
-    elevation: 0,
-  },
 });
+
+export {
+  animateLayout,
+  useAccordionAnimation,
+  AnimatedChevron,
+  CollapsibleContent,
+  CollapsibleCard,
+} from './collapsible';

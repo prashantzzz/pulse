@@ -1,7 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { AppState, BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  AppState,
+  BackHandler,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  UIManager,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProgressRing } from '../../../components/ring';
@@ -9,13 +22,333 @@ import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
 import { BottomSheet, toast } from '../../../components/misc';
 import { Button, Row, Screen } from '../../../components/ui';
+import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../../components/collapsible';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
-import { previousSet } from '../../../lib/stats';
+import { getRecommendedRestSeconds, previousSet } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
-import { colors, layout, radius, spacing, useAccent } from '../../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
 import { presentActiveWorkoutNotification, dismissActiveWorkoutNotification } from '../../../lib/notifications';
+import type { ActiveWorkout, Workout, WorkoutExercise } from '../../../types';
+
+/**
+ * Animated collapsible Exercise Card using global accordion animations.
+ */
+function ExerciseAccordionCard({
+  we,
+  workout,
+  ex,
+  isOpen,
+  isNext,
+  doneCount,
+  totalCount,
+  prevValues,
+  nextExerciseId,
+  nextIncompleteSetId,
+  onToggleExpand,
+  onOpenExercise,
+  onQuickComplete,
+}: {
+  we: WorkoutExercise;
+  workout: ActiveWorkout | Workout;
+  ex: any;
+  isOpen: boolean;
+  isNext?: boolean;
+  doneCount: number;
+  totalCount: number;
+  prevValues: Map<string, { weightKg: number | null; reps: number | null }>;
+  nextExerciseId?: string;
+  nextIncompleteSetId?: string;
+  onToggleExpand: () => void;
+  onOpenExercise: () => void;
+  onQuickComplete: (exerciseId: string, setId: string) => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <View style={[styles.exCard, isNext && { borderColor: `${colors.accent}66` }]}>
+      <View style={styles.exHeader}>
+        {/* Left zone: tapping opens exercise page when expanded, or expands when collapsed */}
+        <Pressable
+          onPress={() => {
+            if (isOpen) {
+              onOpenExercise();
+            } else {
+              onToggleExpand();
+            }
+          }}
+          style={({ pressed }) => [styles.exHeaderLeft, pressed && { opacity: 0.75 }]}
+          hitSlop={4}
+          accessibilityRole="button"
+          accessibilityLabel={isOpen ? `View ${ex.name} details` : `Expand ${ex.name}`}>
+          <View style={[styles.exNum, doneCount === totalCount && { backgroundColor: colors.accent }]}>
+            <T variant="micro" style={{ color: doneCount === totalCount ? colors.bg : colors.accent }}>
+              {doneCount}/{totalCount}
+            </T>
+          </View>
+          <View style={{ flex: 1 }}>
+            <T variant="bodySemi">{ex.name}</T>
+            <T variant="micro" muted>
+              {ex.equipment} · {we.targetReps} reps
+            </T>
+          </View>
+        </Pressable>
+
+        {/* Right zone: dedicated collapse/expand toggle */}
+        <Pressable
+          onPress={onToggleExpand}
+          hitSlop={10}
+          style={({ pressed }) => [styles.exHeaderRight, pressed && { opacity: 0.75 }]}
+          accessibilityRole="button"
+          accessibilityLabel={isOpen ? 'Collapse exercise' : 'Expand exercise'}>
+          {isNext ? (
+            <View style={[styles.nextTag, { backgroundColor: colors.accentSoft }]}>
+              <T variant="micro" style={{ color: colors.accent, fontSize: 9 }}>
+                NEXT
+              </T>
+            </View>
+          ) : null}
+          <View style={styles.chevronWrap}>
+            <AnimatedChevron isOpen={isOpen} size={18} color={colors.textMuted} />
+          </View>
+        </Pressable>
+      </View>
+
+      <CollapsibleContent isOpen={isOpen} style={{ gap: 6, marginTop: spacing.sm }}>
+        <Row align="space-between" style={{ paddingHorizontal: 4, marginBottom: 2 }}>
+          <T variant="micro" muted style={{ fontSize: 10, width: 64 }}>
+            SET
+          </T>
+          <T variant="micro" muted style={{ fontSize: 10, flex: 1 }}>
+            LAST TIME
+          </T>
+          <T variant="micro" muted style={{ fontSize: 10, width: 84, textAlign: 'right' }}>
+            KG × REPS
+          </T>
+        </Row>
+        {we.sets.map((s) => (
+          <SetRow
+            key={s.id}
+            index={s.setIndex}
+            setType={s.setType}
+            weight={s.weightKg}
+            reps={s.reps}
+            prev={prevValues.get(`${we.exerciseId}:${s.setIndex}`)}
+            completed={s.completed}
+            isNext={!s.completed && we.id === nextExerciseId && s.id === nextIncompleteSetId}
+            onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}
+            onToggle={() => onQuickComplete(we.exerciseId, s.id)}
+          />
+        ))}
+        {we.notes ? (
+          <Row gap={6} style={{ marginTop: 4 }}>
+            <Ionicons name="document-text-outline" size={13} color={colors.textMuted} />
+            <T variant="micro" muted style={{ flex: 1 }}>
+              {we.notes}
+            </T>
+          </Row>
+        ) : null}
+      </CollapsibleContent>
+    </View>
+  );
+}
+
+/**
+ * Adaptive Rest Timer Animated Popup Modal.
+ * Renders an animated card with a deeply blurred backdrop, blocking touches to the underlying sets.
+ * 100% synchronized on Web & Android.
+ */
+function RestPopupModal({
+  visible,
+  timer,
+  onAddSeconds,
+  onTogglePause,
+  onSkip,
+}: {
+  visible: boolean;
+  timer: {
+    secondsLeft: number;
+    totalSeconds: number;
+    exerciseName: string;
+    reason: string;
+    paused: boolean;
+    completedSetInfo?: string;
+    nextSetInfo?: string;
+  } | null;
+  onAddSeconds: (sec: number) => void;
+  onTogglePause: () => void;
+  onSkip: () => void;
+}) {
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && timer) {
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          damping: 20,
+          stiffness: 260,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scale.setValue(0.92);
+      opacity.setValue(0);
+    }
+  }, [visible]);
+
+  if (!visible || !timer) return null;
+
+  const pct = timer.totalSeconds > 0 ? Math.round((timer.secondsLeft / timer.totalSeconds) * 100) : 0;
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onSkip}>
+      <View style={styles.restModalOverlay}>
+        {/* Blurred & Dimmed Backdrop — Blocks all touches to underlying sets */}
+        <Pressable
+          style={[
+            StyleSheet.absoluteFill,
+            styles.restModalBackdrop,
+            Platform.OS === 'web' && ({ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any),
+          ]}
+          onPress={() => {
+            // Touch blocking overlay
+          }}
+        />
+
+        {/* Animated Rest Popup Card */}
+        <Animated.View
+          style={[
+            styles.restModalCard,
+            Platform.OS === 'web' && ({ boxShadow: `0 20px 48px rgba(0,0,0,0.85), 0 0 32px ${colors.accent}33` } as any),
+            {
+              opacity,
+              transform: [{ scale }],
+            },
+          ]}>
+          <LinearGradient
+            colors={[accentTint(colors.accent, 0.22), colors.surface2, colors.surface]}
+            style={[StyleSheet.absoluteFill, { borderRadius: 28 }]}
+          />
+
+          {/* Top Pill / Badge */}
+          <Row align="space-between" style={{ marginBottom: spacing.md }}>
+            <View style={[styles.restTag, { backgroundColor: colors.accentSoft }]}>
+              <Row gap={5} align="center">
+                <Ionicons name="timer" size={13} color={colors.accent} />
+                <T variant="micro" style={{ color: colors.accent, fontWeight: '700', letterSpacing: 0.5 }}>
+                  REST & RECOVERY
+                </T>
+              </Row>
+            </View>
+            <View style={[styles.restTierTag, { borderColor: `${colors.accent}40` }]}>
+              <T variant="micro" muted style={{ fontSize: 10 }}>
+                {timer.reason}
+              </T>
+            </View>
+          </Row>
+
+          {/* Header Info */}
+          <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
+            <T variant="h3" center numberOfLines={1}>
+              {timer.exerciseName}
+            </T>
+            {timer.completedSetInfo ? (
+              <T variant="small" dim center style={{ marginTop: 2, fontSize: 12 }}>
+                Completed {timer.completedSetInfo}
+              </T>
+            ) : null}
+          </View>
+
+          {/* Hero Circular Countdown Timer flanked parallel by Pause and +30s buttons */}
+          <Row align="center" style={{ justifyContent: 'space-between', marginVertical: spacing.md, paddingHorizontal: spacing.xs }}>
+            {/* Pause / Resume Button */}
+            <Pressable
+              onPress={onTogglePause}
+              style={({ pressed }) => [
+                styles.restSideBtn,
+                timer.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+                pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+              ]}
+              hitSlop={8}>
+              <Ionicons
+                name={timer.paused ? 'play' : 'pause'}
+                size={22}
+                color={timer.paused ? colors.accent : colors.text}
+              />
+              <T variant="micro" muted style={{ fontSize: 10, marginTop: 2 }}>
+                {timer.paused ? 'Resume' : 'Pause'}
+              </T>
+            </Pressable>
+
+            {/* Circular Timer Ring */}
+            <ProgressRing size={146} strokeWidth={8} progress={pct} color={colors.accent}>
+              <View style={{ alignItems: 'center' }}>
+                <T variant="numLg" accent style={{ fontSize: 34, fontVariant: ['tabular-nums'] }}>
+                  {formatDuration(timer.secondsLeft)}
+                </T>
+                <T variant="micro" muted style={{ fontSize: 10, marginTop: -2 }}>
+                  {timer.paused ? 'PAUSED' : 'REMAINING'}
+                </T>
+              </View>
+            </ProgressRing>
+
+            {/* +30s Add Time Button */}
+            <Pressable
+              onPress={() => onAddSeconds(30)}
+              style={({ pressed }) => [
+                styles.restSideBtn,
+                { borderColor: `${colors.accent}4D` },
+                pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+              ]}
+              hitSlop={8}>
+              <T variant="bodySemi" accent style={{ fontSize: 15 }}>
+                +30s
+              </T>
+              <T variant="micro" muted style={{ fontSize: 10, marginTop: 1 }}>
+                Add
+              </T>
+            </Pressable>
+          </Row>
+
+          {/* Up Next Preview Card */}
+          {timer.nextSetInfo ? (
+            <View style={styles.nextSetPreview}>
+              <Row gap={8} align="center">
+                <View style={[styles.nextDot, { backgroundColor: colors.accent }]} />
+                <View style={{ flex: 1 }}>
+                  <T variant="micro" muted style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Up Next
+                  </T>
+                  <T variant="smallSemi" numberOfLines={1} style={{ marginTop: 1, fontSize: 12.5 }}>
+                    {timer.nextSetInfo}
+                  </T>
+                </View>
+              </Row>
+            </View>
+          ) : null}
+
+          {/* Primary CTA to Skip & Start Next Set */}
+          <Button
+            label="Skip Rest & Start Next Set"
+            icon="play-forward"
+            full
+            size="md"
+            onPress={onSkip}
+            style={{ marginTop: spacing.md }}
+          />
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function ActiveWorkoutScreen() {
   useAccent();
@@ -29,9 +362,20 @@ export default function ActiveWorkoutScreen() {
   const cancelActiveWorkout = usePulse((s) => s.cancelActiveWorkout);
   const pauseActiveWorkout = usePulse((s) => s.pauseActiveWorkout);
   const resumeActiveWorkout = usePulse((s) => s.resumeActiveWorkout);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
+
+  // In-screen automatic adaptive rest timer state
+  const [restTimer, setRestTimer] = useState<{
+    secondsLeft: number;
+    totalSeconds: number;
+    exerciseName: string;
+    reason: string;
+    paused: boolean;
+    completedSetInfo?: string;
+    nextSetInfo?: string;
+  } | null>(null);
 
   // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard) ONLY when focused
   useFocusEffect(
@@ -62,11 +406,67 @@ export default function ActiveWorkoutScreen() {
   const doneSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0) : 0;
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
-  // 30-second interval milestone for notification background sync
-  const elapsedMinute = Math.floor(elapsedSec / 30);
+  // Track completed sets count to detect when a new set was logged externally (e.g. from log.tsx)
+  const prevDoneSetsRef = useRef(doneSets);
+  useEffect(() => {
+    if (doneSets > prevDoneSetsRef.current && totalSets > 0 && doneSets < totalSets) {
+      // Find the last completed exercise to compute adaptive rest
+      const lastEx = [...(workout?.exercises ?? [])].reverse().find((we) => we.sets.some((s) => s.completed));
+      if (lastEx) {
+        const ex = EXERCISE_MAP[lastEx.exerciseId];
+        const rec = getRecommendedRestSeconds(lastEx.exerciseId);
+        const lastSet = [...lastEx.sets].reverse().find((s) => s.completed);
 
-  // Keep live notification synced with current exercise, sets progress, and duration
-  // ONLY for the active running workout (strictly dismissed on completion/discard)
+        let nextInfo = '';
+        for (const e of (workout?.exercises ?? [])) {
+          const nextS = e.sets.find((s) => !s.completed);
+          if (nextS) {
+            const nextEx = EXERCISE_MAP[e.exerciseId];
+            const p = previousSet(workouts, e.exerciseId, nextS.setIndex, workout?.id);
+            const wVal = nextS.weightKg ?? p?.weightKg;
+            const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
+            nextInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
+            break;
+          }
+        }
+
+        setRestTimer({
+          secondsLeft: rec.seconds,
+          totalSeconds: rec.seconds,
+          exerciseName: ex?.name ?? 'Exercise',
+          reason: rec.label,
+          paused: false,
+          completedSetInfo: `Set ${lastSet?.setIndex ?? 1} (${lastSet?.weightKg != null ? `${lastSet.weightKg} kg × ` : ''}${lastSet?.reps ?? lastEx.targetReps ?? '–'} reps)`,
+          nextSetInfo: nextInfo,
+        });
+      }
+    } else if (doneSets >= totalSets && totalSets > 0) {
+      setRestTimer(null);
+    }
+    prevDoneSetsRef.current = doneSets;
+  }, [doneSets, totalSets]);
+
+  // Live second-by-second countdown for the in-screen rest timer
+  useEffect(() => {
+    if (!restTimer || restTimer.paused || restTimer.secondsLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setRestTimer((prev) => {
+        if (!prev || prev.paused) return prev;
+        if (prev.secondsLeft <= 1) {
+          hapticsSuccess();
+          toast('Rest complete — ready for next set!');
+          return null;
+        }
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [restTimer?.paused, restTimer?.secondsLeft]);
+
+  // Keep live notification synced with current exercise and sets progress
+  // ONLY for the active running workout (updates silently on set completion or pause/resume)
   useEffect(() => {
     if (!activeWorkout || activeWorkout.id !== id) {
       dismissActiveWorkoutNotification();
@@ -80,11 +480,10 @@ export default function ActiveWorkoutScreen() {
     presentActiveWorkoutNotification({
       workoutTitle: activeWorkout.title,
       currentSetInfo,
-      durationText: formatDuration(elapsedSec),
       isPaused: activeWorkout.paused,
       workoutId: activeWorkout.id,
     });
-  }, [activeWorkout?.id, activeWorkout?.paused, doneSets, totalSets, elapsedMinute]);
+  }, [activeWorkout?.id, activeWorkout?.paused, activeWorkout?.title, doneSets, totalSets]);
 
   // Clean up notification on unmount if workout has completed or been discarded
   useEffect(() => {
@@ -95,9 +494,6 @@ export default function ActiveWorkoutScreen() {
         return;
       }
       if (state === 'background' || state === 'active') {
-        const curSec = curr.paused
-          ? Math.max(0, Math.floor((new Date(curr.pausedAt ?? curr.startTime).getTime() - new Date(curr.startTime).getTime()) / 1000))
-          : Math.max(0, Math.floor((Date.now() - new Date(curr.startTime).getTime()) / 1000));
         const cEx = curr.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? curr.exercises[curr.exercises.length - 1];
         const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
         const dSets = curr.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
@@ -107,7 +503,6 @@ export default function ActiveWorkoutScreen() {
         presentActiveWorkoutNotification({
           workoutTitle: curr.title,
           currentSetInfo: cInfo,
-          durationText: formatDuration(curSec),
           isPaused: curr.paused,
           workoutId: curr.id,
         });
@@ -136,8 +531,14 @@ export default function ActiveWorkoutScreen() {
     );
   }
 
-  // expand first incomplete exercise by default
-  const expandedId = expanded ?? workout.exercises.find((we) => we.sets.some((s) => !s.completed))?.id ?? workout.exercises[0]?.id;
+  // expand first incomplete exercise by default on initial mount (when expanded is undefined)
+  const defaultExpandedId = workout.exercises.find((we) => we.sets.some((s) => !s.completed))?.id ?? workout.exercises[0]?.id ?? null;
+  const expandedId = expanded !== undefined ? expanded : defaultExpandedId;
+
+  const toggleExpanded = (exerciseId: string | null) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(exerciseId);
+  };
 
   // historical values per exercise+set — same lookup as the set logger, so the
   // "LAST TIME" previews never disagree with what the logger pre-fills
@@ -155,14 +556,67 @@ export default function ActiveWorkoutScreen() {
   // The plus button toggles completion so an accidental tap can be undone.
   const quickComplete = (exerciseId: string, setId: string) => {
     const we = workout.exercises.find((w) => w.exerciseId === exerciseId);
-    const set = we?.sets.find((s) => s.id === setId);
+    if (!we) return;
+    const setIndex = we.sets.findIndex((s) => s.id === setId);
+    if (setIndex === -1) return;
+    const set = we.sets[setIndex];
+
     if (set?.completed) {
-      patchSet(exerciseId, setId, { completed: false, completedAt: null });
+      // Unmarking a completed set: also unmark any subsequent sets in this exercise
+      for (let i = setIndex; i < we.sets.length; i++) {
+        if (we.sets[i].completed) {
+          patchSet(exerciseId, we.sets[i].id, { completed: false, completedAt: null });
+        }
+      }
       toast('Set marked incomplete');
+      setRestTimer(null);
     } else {
+      // Restriction: set N cannot be completed unless all prior sets in this exercise are complete
+      const prevIncomplete = we.sets.slice(0, setIndex).find((s) => !s.completed);
+      if (prevIncomplete) {
+        hapticsLight();
+        toast(`Please complete Set ${prevIncomplete.setIndex} first`);
+        return;
+      }
+
       hapticsMedium();
       completeSet(exerciseId, setId);
       toast('Set complete');
+
+      // Check if any incomplete sets remain in the workout
+      const allDone = workout.exercises.every((e) =>
+        e.sets.every((s) => (s.id === setId ? true : s.completed))
+      );
+
+      if (!allDone) {
+        const ex = EXERCISE_MAP[exerciseId];
+        const rec = getRecommendedRestSeconds(exerciseId);
+
+        let nextInfo = '';
+        for (const e of workout.exercises) {
+          const nextS = e.sets.find((s) => (s.id === setId ? false : !s.completed));
+          if (nextS) {
+            const nextEx = EXERCISE_MAP[e.exerciseId];
+            const p = previousSet(workouts, e.exerciseId, nextS.setIndex, workout.id);
+            const wVal = nextS.weightKg ?? p?.weightKg;
+            const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
+            nextInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
+            break;
+          }
+        }
+
+        setRestTimer({
+          secondsLeft: rec.seconds,
+          totalSeconds: rec.seconds,
+          exerciseName: ex?.name ?? 'Exercise',
+          reason: rec.label,
+          paused: false,
+          completedSetInfo: `Set ${set?.setIndex ?? 1} (${set?.weightKg != null ? `${set.weightKg} kg × ` : ''}${set?.reps ?? we?.targetReps ?? '–'} reps)`,
+          nextSetInfo: nextInfo,
+        });
+      } else {
+        setRestTimer(null);
+      }
     }
   };
 
@@ -231,117 +685,68 @@ export default function ActiveWorkoutScreen() {
         </T>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: layout.screenPad, paddingBottom: 150, paddingTop: layout.screenTopPad }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: layout.screenPad,
+          paddingBottom: restTimer && restTimer.secondsLeft > 0 ? 180 : 120,
+          paddingTop: layout.screenTopPad,
+        }}>
         {workout.exercises.map((we) => {
           const ex = EXERCISE_MAP[we.exerciseId];
           if (!ex) return null;
           const done = we.sets.filter((s) => s.completed).length;
           const isOpen = expandedId === we.id;
           const isNext = nextExercise?.id === we.id;
-          return (
-            <View key={we.id} style={[styles.exCard, isNext && { borderColor: `${colors.accent}66` }]}>
-              <Pressable onPress={() => setExpanded(isOpen ? null : we.id)} style={styles.exHeader}>
-                <View style={styles.exHeaderLeft}>
-                  <View style={[styles.exNum, done === we.sets.length && { backgroundColor: colors.accent }]}>
-                    <T variant="micro" style={{ color: done === we.sets.length ? colors.bg : colors.accent }}>
-                      {done}/{we.sets.length}
-                    </T>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <T variant="bodySemi">{ex.name}</T>
-                    <T variant="micro" muted>
-                      {ex.equipment} · {we.targetReps} reps
-                    </T>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Pressable
-                    onPress={() => router.push(`/exercise/${we.exerciseId}` as never)}
-                    hitSlop={8}
-                    style={styles.formLink}>
-                    <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
-                  </Pressable>
-                  {isNext ? (
-                    <View style={[styles.nextTag, { backgroundColor: colors.accentSoft }]}>
-                      <T variant="micro" style={{ color: colors.accent, fontSize: 9 }}>
-                        NEXT
-                      </T>
-                    </View>
-                  ) : null}
-                  <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
-                </View>
-              </Pressable>
+          const nextIncompleteSet = we.sets.find((x) => !x.completed);
 
-              {isOpen ? (
-                <View style={{ gap: 6, marginTop: spacing.sm }}>
-                  <Row align="space-between" style={{ paddingHorizontal: 4, marginBottom: 2 }}>
-                    <T variant="micro" muted style={{ fontSize: 10, width: 64 }}>
-                      SET
-                    </T>
-                    <T variant="micro" muted style={{ fontSize: 10, flex: 1 }}>
-                      LAST TIME
-                    </T>
-                    <T variant="micro" muted style={{ fontSize: 10, width: 84, textAlign: 'right' }}>
-                      KG × REPS
-                    </T>
-                  </Row>
-                  {we.sets.map((s) => (
-                    <SetRow
-                      key={s.id}
-                      index={s.setIndex}
-                      setType={s.setType}
-                      weight={s.weightKg}
-                      reps={s.reps}
-                      prev={prevValues.get(`${we.exerciseId}:${s.setIndex}`)}
-                      completed={s.completed}
-                      isNext={!s.completed && we.id === nextExercise?.id && we.sets.find((x) => !x.completed)?.id === s.id}
-                      onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}
-                      onToggle={() => quickComplete(we.exerciseId, s.id)}
-                    />
-                  ))}
-                  {we.notes ? (
-                    <Row gap={6} style={{ marginTop: 4 }}>
-                      <Ionicons name="document-text-outline" size={13} color={colors.textMuted} />
-                      <T variant="micro" muted style={{ flex: 1 }}>
-                        {we.notes}
-                      </T>
-                    </Row>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
+          return (
+            <ExerciseAccordionCard
+              key={we.id}
+              we={we}
+              workout={workout}
+              ex={ex}
+              isOpen={isOpen}
+              isNext={isNext}
+              doneCount={done}
+              totalCount={we.sets.length}
+              prevValues={prevValues}
+              nextExerciseId={nextExercise?.id}
+              nextIncompleteSetId={nextIncompleteSet?.id}
+              onToggleExpand={() => toggleExpanded(isOpen ? null : we.id)}
+              onOpenExercise={() => router.push(`/exercise/${we.exerciseId}` as never)}
+              onQuickComplete={quickComplete}
+            />
           );
         })}
-
-        {/* last-set rest CTA */}
-        {lastDoneSet ? (
-          <View style={[styles.restCta, { borderColor: `${colors.accent}40` }]}>
-            <Row align="space-between">
-              <Row gap={10}>
-                <View style={[styles.restIcon, { backgroundColor: colors.accentSoft }]}>
-                  <Ionicons name="timer-outline" size={18} color={colors.accent} />
-                </View>
-                <View>
-                  <T variant="bodySemi" style={{ fontSize: 14 }}>
-                    Rest between sets
-                  </T>
-                  <T variant="small" dim style={{ fontSize: 12 }}>
-                    Breathe, then hit the next one.
-                  </T>
-                </View>
-              </Row>
-              <Button
-                label="Start Rest"
-                size="sm"
-                onPress={() => {
-                  const next = nextExercise;
-                  router.push(`/workout/${workout.id}/rest?sec=90${next ? `&next=${encodeURIComponent(EXERCISE_MAP[next.exerciseId]?.name ?? '')}` : ''}` as never);
-                }}
-              />
-            </Row>
-          </View>
-        ) : null}
       </ScrollView>
+
+      {/* Animated Rest Popup Modal — Blocks touches to underlying sets with blurred backdrop */}
+      <RestPopupModal
+        visible={!!restTimer && restTimer.secondsLeft > 0}
+        timer={restTimer}
+        onAddSeconds={(sec) => {
+          hapticsLight();
+          setRestTimer((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  secondsLeft: Math.max(5, prev.secondsLeft + sec),
+                  totalSeconds: Math.max(5, prev.totalSeconds + (sec > 0 ? sec : 0)),
+                }
+              : null
+          );
+        }}
+        onTogglePause={() => {
+          hapticsLight();
+          setRestTimer((prev) => (prev ? { ...prev, paused: !prev.paused } : null));
+        }}
+        onSkip={() => {
+          hapticsMedium();
+          setRestTimer(null);
+          toast('Rest skipped — ready for next set!');
+        }}
+      />
 
       {/* bottom bar */}
       <View style={styles.bottomBar}>
@@ -465,8 +870,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  exHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  exHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   exHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  exHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2, paddingLeft: 6 },
+  chevronWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   exNum: {
     width: 34,
     height: 34,
@@ -479,19 +892,71 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  restCta: {
-    marginTop: spacing.sm,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: spacing.md,
+  restModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
   },
-  restIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
+  restModalBackdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+  },
+  restModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: `${colors.accent}4D`,
+    padding: spacing.lg,
+    backgroundColor: colors.surface2,
+    elevation: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    overflow: 'hidden',
+  },
+  restTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    alignSelf: 'flex-start',
+  },
+  restTierTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    backgroundColor: colors.surface3,
+  },
+  nextSetPreview: {
+    backgroundColor: `${colors.surface3}B3`,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.xs,
+  },
+  nextDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  restSideBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface3,
+    borderWidth: 1.5,
+    borderColor: colors.borderBright,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bottomBar: {
     position: 'absolute',

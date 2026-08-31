@@ -1239,3 +1239,74 @@ export function getSmartTodayPlan(
   };
 }
 
+export interface RecommendedRest {
+  seconds: number;
+  label: string;
+  intensityTier: 'CNS Heavy' | 'Compound' | 'Isolation' | 'Accessory';
+}
+
+/**
+ * Calculates adaptive rest period based on neurological and muscular fatigue demand.
+ * 1. Heavy Central Nervous System (CNS) Barbell Compounds: 120s
+ * 2. Moderate Compound Movements (DBs, Cables, Pull-Ups, Dips, Lunges): 90s
+ * 3. Standard Isolation Movements (Curls, Pushdowns, Raises, Extensions): 60s
+ * 4. Core & Bodyweight Accessories (Planks, Crunches, Calves): 45s
+ */
+export function getRecommendedRestSeconds(exerciseId: string): RecommendedRest {
+  const ex = EXERCISE_MAP[exerciseId];
+  if (!ex) {
+    return { seconds: 90, label: 'Standard Rest', intensityTier: 'Compound' };
+  }
+
+  // 1. Heavy CNS Barbell Compounds
+  const heavyCnsSlugs = [
+    'deadlift',
+    'barbell-deadlift-sumo',
+    'squat',
+    'front-squat',
+    'bench-press',
+    'barbell-row',
+    'overhead-press',
+    'clean-and-jerk',
+    'snatch',
+    'leg-press',
+    't-bar-row',
+  ];
+  if (heavyCnsSlugs.includes(ex.id) || (ex.type === 'Compound' && ex.equipment === 'Barbell')) {
+    return { seconds: 120, label: 'Heavy CNS Recovery (120s)', intensityTier: 'CNS Heavy' };
+  }
+
+  // 2. Moderate Compounds
+  if (
+    ex.type === 'Compound' ||
+    [
+      'dumbbell-incline-press',
+      'dumbbell-bench-press',
+      'pull-up',
+      'chin-up',
+      'lat-pulldown',
+      'seated-cable-row',
+      'dumbbell-lunge',
+      'dumbbell-bulgarian-split-squat',
+      'dips',
+      'machine-chest-press',
+      'machine-row',
+    ].includes(ex.id)
+  ) {
+    return { seconds: 90, label: 'Muscular Recovery (90s)', intensityTier: 'Compound' };
+  }
+
+  // 3. Core, Calves & Light Accessories
+  if (
+    ex.muscleGroup === 'Core' ||
+    ex.muscleGroup === 'Calves' ||
+    ex.movement === 'Cardio' ||
+    (ex.equipment === 'Bodyweight' && ex.type === 'Isolation')
+  ) {
+    return { seconds: 45, label: 'Fast Turnover (45s)', intensityTier: 'Accessory' };
+  }
+
+  // 4. Standard Isolation
+  return { seconds: 60, label: 'Hypertrophy Rest (60s)', intensityTier: 'Isolation' };
+}
+
