@@ -378,9 +378,9 @@ export default function SettingsScreen() {
 
         <Card style={{ padding: spacing.md }}>
           <T variant="label" dim style={{ marginBottom: spacing.sm }}>
-            About
+            About & Legal
           </T>
-          <Row align="space-between">
+          <Row align="space-between" style={{ paddingBottom: 10 }}>
             <Row gap={12}>
               <View style={[styles.settingIcon, { backgroundColor: colors.accentSoft }]}>
                 <Icon name="pulse" size={18} color={colors.accent} />
@@ -393,6 +393,38 @@ export default function SettingsScreen() {
               </View>
             </Row>
           </Row>
+
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+          <Pressable onPress={() => router.push('/privacy' as never)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.surface3 }]}>
+                <Icon name="shield-checkmark-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Privacy Policy</T>
+                <T variant="micro" muted>
+                  Data safety, local storage & rights
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+
+          <Pressable onPress={() => router.push('/terms' as never)} style={styles.settingRow}>
+            <Row gap={12} style={{ flex: 1 }}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.surface3 }]}>
+                <Icon name="document-text-outline" size={18} color={colors.accent} />
+              </View>
+              <View>
+                <T variant="bodySemi">Terms of Service</T>
+                <T variant="micro" muted>
+                  Health disclaimer & terms of use
+                </T>
+              </View>
+            </Row>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
         </Card>
       </View>
 

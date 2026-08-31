@@ -144,9 +144,10 @@ export default function RootLayout() {
     const inAuthGroup = segList[0] === 'auth';
     const isIndex = segList.length === 0;
     const isChallengeInvite = segList[0] === 'challenge';
+    const isPublicLegal = segList[0] === 'privacy' || segList[0] === 'terms';
 
     if (!isAuthenticated) {
-      if (!inAuthGroup && !isIndex && !isChallengeInvite) {
+      if (!inAuthGroup && !isIndex && !isChallengeInvite && !isPublicLegal) {
         router.replace('/auth/login' as never);
       }
     }
@@ -185,6 +186,8 @@ export default function RootLayout() {
         <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="workout/[id]/summary" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="gym-mode" options={{ animation: 'fade' }} />
+        <Stack.Screen name="privacy" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="terms" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <ToastHost />
     </GestureHandlerRootView>
