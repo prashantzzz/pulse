@@ -210,7 +210,7 @@ export function workoutsInLastDays(workouts: Workout[], days: number): Workout[]
 }
 
 export function consistencyPct(workouts: Workout[], days: number): number {
-  if (days <= 0) return 0;
+  if (days <= 0 || workouts.length === 0) return 0;
   const keys = workoutDayKeys(workouts);
   const now = new Date();
   let active = 0;
@@ -231,6 +231,7 @@ export function consistencyPct(workouts: Workout[], days: number): number {
 }
 
 export function sessionsPerWeek(workouts: Workout[], weeks = 4): number {
+  if (workouts.length === 0) return 0;
   const recent = workoutsInLastDays(workouts, weeks * 7);
   return Math.round((recent.length / weeks) * 10) / 10;
 }

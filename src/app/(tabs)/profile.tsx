@@ -10,7 +10,7 @@ import { AchievementBadge, Avatar, toast } from '../../components/misc';
 import { Button, Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
-import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutStats } from '../../lib/stats';
+import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutsInLastDays, workoutStats } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const setProfile = usePulse((s) => s.setProfile);
   const user = useAuth((s) => s.user);
   const workouts = usePulse((s) => s.workouts);
+  const plans = usePulse((s) => s.plans);
   const favorites = usePulse((s) => s.favorites);
   const measurements = usePulse((s) => s.measurements);
   const weightUnit = usePulse((s) => s.weightUnit);
@@ -83,6 +84,11 @@ export default function ProfileScreen() {
   const streak = currentStreak(workouts);
   const volume = totalVolume(workouts);
   const sets = workouts.reduce((s, w) => s + workoutStats(w).sets, 0);
+  const monthWorkouts = workoutsInLastDays(workouts, 30);
+  const monthVolume = totalVolume(monthWorkouts);
+  const monthSets = monthWorkouts.reduce((s, w) => s + workoutStats(w).sets, 0);
+  const monthlyTarget = Math.max(8, plans.length > 0 ? plans.length * 4 : 12);
+  const monthProgress = Math.min(100, Math.round((monthWorkouts.length / monthlyTarget) * 100));
   const prCount = workouts.reduce((n, w) => n + detectPRs(w, workouts).length, 0);
 
   // exercise-based achievements, shared with the full gallery
@@ -243,23 +249,26 @@ export default function ProfileScreen() {
         )}
       </Section>
 
-      {/* weekly progress ring */}
+      {/* monthly progress ring */}
       <Section title="This Month">
         <Card style={{ padding: spacing.lg }}>
           <Row align="space-between">
             <View style={{ flex: 1 }}>
               <T variant="label" dim>
-                Training load
+                Monthly Volume
               </T>
               <T variant="numLg" style={{ marginTop: 4 }}>
-                {(volume / 1000).toFixed(1)}k
+                {monthVolume >= 1000 ? `${(monthVolume / 1000).toFixed(1)}k` : `${monthVolume}`}
               </T>
               <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
-                kg lifted · {sets} sets · {workouts.length} workouts
+                kg lifted · {monthSets} sets · {monthWorkouts.length} of {monthlyTarget} workouts
               </T>
             </View>
             <View style={{ width: 110, alignItems: 'center' }}>
-              <ProgressRingBig value={Math.min(100, Math.round((workouts.length / 16) * 100))} />
+              <ProgressRingBig value={monthProgress} />
+              <T variant="micro" muted style={{ marginTop: 4, textAlign: 'center' }}>
+                Monthly Goal
+              </T>
             </View>
           </Row>
         </Card>

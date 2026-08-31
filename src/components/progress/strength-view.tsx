@@ -5,7 +5,7 @@ import { LineChart } from '../charts';
 import { T } from '../Text';
 import { Card, Icon, Row, Section } from '../ui';
 import { EXERCISE_MAP } from '../../data/exercises';
-import { bestForExercise, consistencyPct, e1rm, strengthProgression } from '../../lib/stats';
+import { bestForExercise, consistencyPct, e1rm, strengthProgression, workoutsInLastDays } from '../../lib/stats';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
 import { progressStyles, SummaryCard, TimeframeChips, type ProgressTimeframe } from './shared';
@@ -53,9 +53,33 @@ export function StrengthView({
         return max;
       }, 0)
     : 0;
-  const lastVal = prog.filter((p) => p.value > 0).slice(-1)[0]?.value ?? 0;
-  const firstVal = prog.filter((p) => p.value > 0)[0]?.value ?? 0;
-  const deltaPct = firstVal > 0 ? Math.round(((lastVal - firstVal) / firstVal) * 100) : 0;
+  const validVals = prog.filter((p) => p.value > 0);
+  const lastVal = validVals.slice(-1)[0]?.value ?? 0;
+  const firstVal = validVals[0]?.value ?? 0;
+  const hasStrengthDelta = validVals.length >= 2 && firstVal > 0;
+  const deltaPct = hasStrengthDelta ? Math.round(((lastVal - firstVal) / firstVal) * 100) : null;
+
+  // Calculate actual volume lifted for this exercise in the selected timeframe
+  const recentExWorkouts = workoutsInLastDays(
+    workouts.filter((w) => w.exercises.some((we) => we.exerciseId === exerciseId)),
+    weeks * 7,
+  );
+  let exVolKg = 0;
+  for (const w of recentExWorkouts) {
+    for (const we of w.exercises) {
+      if (we.exerciseId !== exerciseId) continue;
+      for (const s of we.sets) {
+        if (s.completed && s.weightKg != null && s.reps != null) {
+          exVolKg += s.weightKg * s.reps;
+        }
+      }
+    }
+  }
+  const exVolFormatted = exVolKg > 0
+    ? (exVolKg >= 1000 ? `${(exVolKg / 1000).toFixed(1)}k` : `${Math.round(exVolKg)} kg`)
+    : '—';
+
+  const consistencyScore = workouts.length > 0 ? consistencyPct(workouts, 28) : null;
 
   // Top Sets is a personal best-board across every exercise: the single
   // strongest set (by estimated 1RM) per lift, ranked — so no exercise shows
@@ -81,9 +105,21 @@ export function StrengthView({
   return (
     <>
       <Row gap={spacing.sm}>
-        <SummaryCard label="Strength" value={`${deltaPct >= 0 ? '+' : ''}${deltaPct}%`} accent={deltaPct >= 0} icon="trending-up" flex1 />
-        <SummaryCard label="Volume" value="+8%" accent icon="layers" flex1 />
-        <SummaryCard label="Consistency" value={`${consistencyPct(workouts, 28)}%`} icon="checkmark-done" flex1 />
+        <SummaryCard
+          label="Strength"
+          value={
+            deltaPct != null
+              ? `${deltaPct >= 0 ? '+' : ''}${deltaPct}%`
+              : validVals.length === 1
+              ? `${validVals[0].value} ${repsMode ? 'reps' : 'kg'}`
+              : '—'
+          }
+          accent={deltaPct != null ? deltaPct >= 0 : validVals.length === 1}
+          icon="trending-up"
+          flex1
+        />
+        <SummaryCard label="Volume" value={exVolFormatted} accent={exVolKg > 0} icon="layers" flex1 />
+        <SummaryCard label="Consistency" value={consistencyScore != null ? `${consistencyScore}%` : '—'} icon="checkmark-done" flex1 />
       </Row>
 
       <Pressable onPress={onOpenPicker} style={progressStyles.exercisePicker}>
@@ -108,7 +144,7 @@ export function StrengthView({
               <T variant="numLg" accent>
                 {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${best.maxE1rm.e1rm.toFixed(1)} kg` : '—'}
               </T>
-              {deltaPct !== 0 ? (
+              {deltaPct != null && deltaPct !== 0 ? (
                 <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
                   <T variant="micro" style={{ color: deltaPct > 0 ? colors.accent : colors.red }}>
                     {deltaPct > 0 ? '+' : ''}

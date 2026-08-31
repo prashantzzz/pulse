@@ -110,7 +110,9 @@ export function ConsistencyView({
               {score}%
             </T>
             <T variant="small" dim style={{ fontSize: 12, marginTop: 4 }}>
-              Active days / 28 · one rest day between sessions counts
+              {workouts.length === 0
+                ? 'Log workouts to build your 28-day consistency score'
+                : 'Active days / 28 · one rest day between sessions counts'}
             </T>
           </View>
           <ProgressRing size={96} strokeWidth={9} progress={score}>
