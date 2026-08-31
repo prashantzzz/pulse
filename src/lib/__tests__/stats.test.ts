@@ -348,6 +348,11 @@ describe('consistencyPct', () => {
     // 7-day window: only the two training days are active
     expect(consistencyPct(workouts, 7)).toBe(29);
   });
+
+  it('returns 0 for empty workouts', () => {
+    expect(consistencyPct([], 7)).toBe(0);
+    expect(consistencyPct([], 28)).toBe(0);
+  });
 });
 
 

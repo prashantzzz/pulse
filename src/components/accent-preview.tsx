@@ -16,7 +16,7 @@ export function AccentPreview({ palette }: { palette: AccentPalette }) {
       {/* fake status / app bar */}
       <View style={styles.mockBar}>
         <T variant="smallSemi" style={{ color: p.accent, fontSize: 12, letterSpacing: 1 }}>
-          PULSE
+          NEXTREP
         </T>
         <View style={[styles.dot, { backgroundColor: p.accent }]} />
       </View>

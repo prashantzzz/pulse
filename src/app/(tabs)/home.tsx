@@ -47,6 +47,14 @@ export default function HomeScreen() {
     acc.sets += st.sets;
     return acc;
   }, { volume: 0, sets: 0 });
+  const prevWeekWorkouts = workouts.filter((w) => {
+    const t = new Date(w.startTime).getTime();
+    return t >= Date.now() - 14 * 86400000 && t < Date.now() - 7 * 86400000;
+  });
+  const prevWeekVolume = prevWeekWorkouts.reduce((sum, w) => sum + workoutStats(w).volumeKg, 0);
+  const weekVolDelta = prevWeekVolume > 0
+    ? Math.round(((weekStats.volume - prevWeekVolume) / prevWeekVolume) * 100)
+    : null;
   const streak = currentStreak(workouts);
   const last = workouts.reduce<typeof workouts[number] | null>((best, w) => (!best || new Date(w.startTime) > new Date(best.startTime) ? w : best), null) ?? workouts[workouts.length - 1];
   const lastPrevSession = last
@@ -167,14 +175,25 @@ export default function HomeScreen() {
             <T variant="label" dim>
               This Week
             </T>
-            <Row gap={16}>
-              <Row gap={4}>
-                <Ionicons name="trending-up" size={14} color={colors.accent} />
-                <T variant="smallMedium" accent style={{ fontSize: 12 }}>
-                  +8%
-                </T>
+            {weekVolDelta != null ? (
+              <Row gap={16}>
+                <Row gap={4}>
+                  <Ionicons
+                    name={weekVolDelta >= 0 ? 'trending-up' : 'trending-down'}
+                    size={14}
+                    color={weekVolDelta >= 0 ? colors.accent : colors.red}
+                  />
+                  <T
+                    variant="smallMedium"
+                    style={{
+                      color: weekVolDelta >= 0 ? colors.accent : colors.red,
+                      fontSize: 12,
+                    }}>
+                    {weekVolDelta >= 0 ? '+' : ''}{weekVolDelta}%
+                  </T>
+                </Row>
               </Row>
-            </Row>
+            ) : null}
           </Row>
           <Row align="space-between">
             <View style={{ alignItems: 'center', gap: 4 }}>
