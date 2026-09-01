@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/((?!assets|_expo|favicon.ico|metadata.json).*)",
+      "source": "/((?!assets|_expo|favicon.ico|metadata.json|privacy|terms|delete-account).*)",
       "destination": "/index.html"
     }
   ]

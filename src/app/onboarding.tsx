@@ -132,8 +132,8 @@ export default function OnboardingScreen() {
     goal: goals.length ? goals : ['Build Muscle'],
     experience: experience ?? 'Beginner',
     frequencyPerWeek: Number.parseInt(frequency ?? '3', 10) || 3,
-    equipment,
-    style: styles2,
+    equipment: equipment.length ? equipment : ['Barbell', 'Dumbbell', 'Bodyweight'],
+    style: styles2.length ? styles2 : ['Full Body'],
     trainingAgeMonths: experience === 'Advanced' ? 26 : experience === 'Intermediate' ? 12 : 3,
     onboarded: true,
     heightCm: Math.round(parsedHeightCm) || 175,
@@ -142,6 +142,14 @@ export default function OnboardingScreen() {
   });
 
   const next = () => {
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+      return;
+    }
+    finish(defaultProfile());
+  };
+
+  const skipCurrentStep = () => {
     if (step < steps.length - 1) {
       setStep(step + 1);
       return;
@@ -471,13 +479,7 @@ export default function OnboardingScreen() {
 
       <View style={styles.footer}>
         <Button label={s.cta} onPress={next} disabled={!canNext()} full size="lg" iconRight="arrow-forward" />
-        <Pressable
-          onPress={() => {
-            // Skipping must still seed the demo data and profile so the app
-            // isn't left empty — only the questionnaire is bypassed.
-            finish(defaultProfile());
-          }}
-          style={{ marginTop: 14 }}>
+        <Pressable onPress={skipCurrentStep} hitSlop={10} style={{ marginTop: 14 }}>
           <T variant="smallMedium" dim center>
             Skip for now
           </T>
