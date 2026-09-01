@@ -11,14 +11,14 @@
     "ios": {
       "icon": "./assets/images/logo.png",
       "supportsTablet": true,
-      "bundleIdentifier": "com.nextrep.fitness"
+      "bundleIdentifier": "com.nextrep.fitnesstracker"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0A0B0D",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
-      "package": "com.nextrep.fitness",
+      "package": "com.nextrep.fitnesstracker",
       "predictiveBackGestureEnabled": true,
       "allowBackup": false,
       "permissions": [
@@ -48,7 +48,8 @@
         "expo-build-properties",
         {
           "android": {
-            "enableMinifyInReleaseBuilds": true
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],

@@ -1311,3 +1311,110 @@ export function getRecommendedRestSeconds(exerciseId: string): RecommendedRest {
   return { seconds: 60, label: 'Hypertrophy Rest (60s)', intensityTier: 'Isolation' };
 }
 
+/**
+ * Computes intelligent, lenient starting weight and rep defaults for an exercise
+ * based on user experience level ('Beginner' | 'Intermediate' | 'Advanced'),
+ * equipment, movement mechanics, and target rep specifications.
+ */
+export function getDefaultSetValues(
+  exerciseId: string,
+  setIndex: number = 1,
+  experience: 'Beginner' | 'Intermediate' | 'Advanced' = 'Beginner',
+  targetRepsSpec?: string,
+  isWarmup: boolean = false
+): { weightKg: number; reps: number } {
+  const ex = resolveExercise(exerciseId) ?? EXERCISE_MAP[exerciseId];
+
+  // 1. Determine Reps
+  let reps = 10;
+  if (targetRepsSpec) {
+    const numMatch = targetRepsSpec.match(/^(\d+)$/);
+    const rangeMatch = targetRepsSpec.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (numMatch) {
+      reps = parseInt(numMatch[1], 10);
+    } else if (rangeMatch) {
+      const low = parseInt(rangeMatch[1], 10);
+      const high = parseInt(rangeMatch[2], 10);
+      reps = experience === 'Advanced' ? high : experience === 'Intermediate' ? Math.round((low + high) / 2) : low;
+    }
+  } else if (ex?.repRange) {
+    const rangeMatch = ex.repRange.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (rangeMatch) {
+      const low = parseInt(rangeMatch[1], 10);
+      const high = parseInt(rangeMatch[2], 10);
+      reps = experience === 'Advanced' ? high : experience === 'Intermediate' ? Math.round((low + high) / 2) : low;
+    }
+  }
+
+  // 2. Determine Weight (Kg)
+  let weightKg = 10;
+
+  if (!ex || ex.equipment === 'Bodyweight' || ex.movement === 'Cardio') {
+    weightKg = 0;
+    if (['pull-up', 'chin-up', 'dips'].includes(exerciseId)) {
+      reps = experience === 'Advanced' ? 10 : experience === 'Intermediate' ? 6 : 3;
+    }
+  } else if (ex.equipment === 'Barbell') {
+    // Lower body heavy compounds
+    if (
+      ['deadlift', 'barbell-deadlift', 'romanian-deadlift', 'sumo-deadlift', 'hip-thrust'].includes(exerciseId)
+    ) {
+      weightKg = experience === 'Advanced' ? 60 : experience === 'Intermediate' ? 45 : 30;
+    } else if (['squat', 'barbell-squat', 'front-squat'].includes(exerciseId) || ex.muscleGroup === 'Quads' || ex.muscleGroup === 'Hamstrings' || ex.muscleGroup === 'Glutes') {
+      weightKg = experience === 'Advanced' ? 60 : experience === 'Intermediate' ? 40 : 20;
+    } else if (['overhead-press', 'military-press'].includes(exerciseId) || ex.muscleGroup === 'Shoulders') {
+      weightKg = experience === 'Advanced' ? 35 : experience === 'Intermediate' ? 25 : 15;
+    } else if (['bench-press', 'incline-bench-press', 'barbell-row', 'pendlay-row'].includes(exerciseId) || ex.type === 'Compound') {
+      weightKg = experience === 'Advanced' ? 50 : experience === 'Intermediate' ? 35 : 20;
+    } else {
+      // Barbell isolation (curls, extensions, shrugs)
+      weightKg = experience === 'Advanced' ? 25 : experience === 'Intermediate' ? 20 : 15;
+    }
+  } else if (ex.equipment === 'Dumbbell') {
+    if (
+      ex.type === 'Compound' ||
+      [
+        'dumbbell-bench-press',
+        'incline-dumbbell-press',
+        'dumbbell-shoulder-press',
+        'dumbbell-row',
+        'dumbbell-squat',
+        'dumbbell-lunge',
+        'dumbbell-bulgarian-split-squat',
+      ].includes(exerciseId)
+    ) {
+      weightKg = experience === 'Advanced' ? 18 : experience === 'Intermediate' ? 12 : 8;
+    } else if (['lateral-raise', 'dumbbell-lateral-raise', 'rear-delt-fly', 'dumbbell-fly'].includes(exerciseId) || ex.muscleGroup === 'Shoulders') {
+      weightKg = experience === 'Advanced' ? 8 : experience === 'Intermediate' ? 5 : 3;
+    } else {
+      // Dumbbell arm isolation (curls, extensions)
+      weightKg = experience === 'Advanced' ? 12 : experience === 'Intermediate' ? 8 : 5;
+    }
+  } else if (ex.equipment === 'Cable') {
+    if (['lat-pulldown', 'seated-cable-row', 'cable-row'].includes(exerciseId) || ex.type === 'Compound') {
+      weightKg = experience === 'Advanced' ? 45 : experience === 'Intermediate' ? 30 : 20;
+    } else {
+      // Cable isolation (pushdown, curl, cable lateral, face pull)
+      weightKg = experience === 'Advanced' ? 20 : experience === 'Intermediate' ? 12.5 : 7.5;
+    }
+  } else if (ex.equipment === 'Machine') {
+    if (['leg-press', 'hack-squat'].includes(exerciseId)) {
+      weightKg = experience === 'Advanced' ? 80 : experience === 'Intermediate' ? 50 : 30;
+    } else if (ex.type === 'Compound' || ['machine-chest-press', 'machine-shoulder-press', 'machine-row'].includes(exerciseId)) {
+      weightKg = experience === 'Advanced' ? 45 : experience === 'Intermediate' ? 30 : 15;
+    } else {
+      // Machine isolation (leg extension, leg curl, calf raise, pec deck)
+      weightKg = experience === 'Advanced' ? 35 : experience === 'Intermediate' ? 20 : 12.5;
+    }
+  } else if (ex.equipment === 'Plate' || ex.equipment === 'Band') {
+    weightKg = experience === 'Advanced' ? 15 : experience === 'Intermediate' ? 10 : 5;
+  }
+
+  if (isWarmup && weightKg > 0) {
+    weightKg = Math.max(ex.equipment === 'Barbell' ? 20 : 2.5, Math.round((weightKg * 0.5) / 2.5) * 2.5);
+  }
+
+  return { weightKg, reps: Math.max(1, reps) };
+}
+
+

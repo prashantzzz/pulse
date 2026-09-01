@@ -18,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { SEED_PLANS } from '../data/seed';
 import { applyAccent, type AccentKey } from '../theme';
+import { getDefaultSetValues, previousSet } from '../lib/stats';
 import type {
   ActiveWorkout,
   BodyMeasurement,
@@ -192,6 +193,10 @@ export const usePulse = create<PulseState>()(
 
       startWorkout: (title, specs) => {
         const now = new Date();
+        const profile = get().profile;
+        const workouts = get().workouts;
+        const experience = profile?.experience ?? 'Beginner';
+
         const active: ActiveWorkout = {
           id: genId('aw'),
           title,
@@ -200,20 +205,32 @@ export const usePulse = create<PulseState>()(
           endTime: now.toISOString(),
           source: 'user',
           exercises: specs.map((spec, i) => {
-            const sets: ExerciseSet[] = Array.from({ length: spec.sets }, (_, si) => ({
-              id: genId('s'),
-              setIndex: si + 1,
-              setType: si === 0 && spec.sets > 3 ? 'warmup' : 'working',
-              weightKg: null,
-              reps: null,
-              distanceKm: null,
-              durationSec: null,
-              rpe: null,
-              notes: null,
-              supersetId: null,
-              completed: false,
-              completedAt: null,
-            }));
+            const sets: ExerciseSet[] = Array.from({ length: spec.sets }, (_, si) => {
+              const setIndex = si + 1;
+              const isWarmup = si === 0 && spec.sets > 3;
+              const prev = previousSet(workouts, spec.exerciseId, setIndex);
+              const defaults = getDefaultSetValues(
+                spec.exerciseId,
+                setIndex,
+                experience,
+                spec.targetReps,
+                isWarmup
+              );
+              return {
+                id: genId('s'),
+                setIndex,
+                setType: isWarmup ? 'warmup' : 'working',
+                weightKg: prev?.weightKg ?? defaults.weightKg,
+                reps: prev?.reps ?? defaults.reps,
+                distanceKm: null,
+                durationSec: null,
+                rpe: null,
+                notes: null,
+                supersetId: null,
+                completed: false,
+                completedAt: null,
+              };
+            });
             return {
               id: genId('we'),
               exerciseId: spec.exerciseId,

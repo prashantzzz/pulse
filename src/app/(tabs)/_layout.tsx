@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, useRouter } from 'expo-router';
-
-import { Animated, Dimensions, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Animated, BackHandler, Dimensions, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +47,21 @@ function PulseTabBar({
   useAccent();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        const currentRoute = state?.routeNames?.[state?.index] ?? 'home';
+        if (currentRoute !== 'home') {
+          router.replace('/(tabs)/home');
+          return true;
+        }
+        BackHandler.exitApp();
+        return true;
+      });
+      return () => sub.remove();
+    }
+  }, [state?.index, state?.routeNames, router]);
 
   return (
     <View

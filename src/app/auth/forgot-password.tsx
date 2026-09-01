@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,12 +16,23 @@ import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
 import { formatAuthError, sendPasswordResetEmail } from '../../lib/auth';
+import { useAuth } from '../../store/useAuth';
+import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function ForgotPasswordScreen() {
   useAccent();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const onboarded = usePulse((s) => s.onboarded);
+  const isInitialized = useAuth((s) => s.isInitialized);
+  const isAuthenticated = useAuth((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (isInitialized && isAuthenticated) {
+      router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
+    }
+  }, [isInitialized, isAuthenticated, onboarded, router]);
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

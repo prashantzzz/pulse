@@ -7,6 +7,7 @@ import {
   detectPlateaus,
   detectPRs,
   e1rm,
+  getDefaultSetValues,
   calculatePlanSimilarity,
   getRecommendedRestSeconds,
   getSmartTodayPlan,
@@ -1027,6 +1028,40 @@ describe('Adaptive CNS & Muscular Fatigue Rest Engine (getRecommendedRestSeconds
     expect(calfRaise.intensityTier).toBe('Accessory');
   });
 });
+
+describe('getDefaultSetValues', () => {
+  it('assigns 0kg for bodyweight movements with lenient reps tailored to experience', () => {
+    const pushup = getDefaultSetValues('push-up', 1, 'Beginner');
+    expect(pushup.weightKg).toBe(0);
+    expect(pushup.reps).toBeGreaterThanOrEqual(8);
+
+    const pullup = getDefaultSetValues('pull-up', 1, 'Beginner');
+    expect(pullup.weightKg).toBe(0);
+    expect(pullup.reps).toBe(3);
+
+    const pullupAdv = getDefaultSetValues('pull-up', 1, 'Advanced');
+    expect(pullupAdv.weightKg).toBe(0);
+    expect(pullupAdv.reps).toBe(10);
+  });
+
+  it('assigns lenient barbell weights for compound lifts based on experience', () => {
+    const benchBeg = getDefaultSetValues('bench-press', 1, 'Beginner');
+    expect(benchBeg.weightKg).toBe(20); // standard empty barbell
+
+    const benchAdv = getDefaultSetValues('bench-press', 1, 'Advanced');
+    expect(benchAdv.weightKg).toBe(50);
+
+    const squatBeg = getDefaultSetValues('squat', 1, 'Beginner');
+    expect(squatBeg.weightKg).toBe(20); // standard empty bar for beginner squat learning
+  });
+
+  it('assigns lighter weights for warm-up sets', () => {
+    const work = getDefaultSetValues('bench-press', 2, 'Intermediate', undefined, false);
+    const warmup = getDefaultSetValues('bench-press', 1, 'Intermediate', undefined, true);
+    expect(warmup.weightKg).toBeLessThanOrEqual(work.weightKg);
+  });
+});
+
 
 
 
