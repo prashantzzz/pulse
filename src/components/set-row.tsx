@@ -58,6 +58,13 @@ export function SetRow({
     }
   };
 
+  const prevDisplay =
+    prev?.weightKg != null && prev.weightKg > 0 && prev?.reps != null
+      ? `${prev.weightKg} kg × ${prev.reps}`
+      : prev?.reps != null
+        ? `${prev.reps} reps`
+        : '—';
+
   return (
     <Pressable
       onPress={handleRowPress}
@@ -75,15 +82,40 @@ export function SetRow({
             `Set ${index}`
           )}
         </T>
-        {/* warm-up already reads in the label below, so no pill (avoids overlap) */}
         {setType !== 'warmup' ? <SetTypeTag type={setType} /> : null}
       </View>
 
-      <View style={{ flex: 1 }}>
-        <T variant="small" dim style={{ fontSize: 12 }}>
-          {setType === 'warmup' ? 'Warm-up' : 'Working set'}
+      <View style={{ flex: 1, paddingHorizontal: 4 }}>
+        <T variant="small" style={{ fontSize: 12.5, color: prev ? colors.textDim : colors.textMuted }}>
+          {prevDisplay}
         </T>
       </View>
+
+      <Pressable onPress={onTap} hitSlop={8} style={styles.values}>
+        <T
+          variant="numSm"
+          style={{
+            color: completed ? colors.accent : weight != null ? colors.text : colors.textMuted,
+            minWidth: 32,
+            textAlign: 'right',
+            fontSize: 13,
+          }}>
+          {weight != null ? `${weight}k` : '–'}
+        </T>
+        <T variant="micro" muted style={{ fontSize: 11 }}>
+          ×
+        </T>
+        <T
+          variant="numSm"
+          style={{
+            color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted,
+            minWidth: 20,
+            textAlign: 'right',
+            fontSize: 13,
+          }}>
+          {reps != null ? reps : '–'}
+        </T>
+      </Pressable>
 
       <Pressable onPress={onToggle ?? onTap} hitSlop={10} style={styles.toggle}>
         {completed ? (
@@ -96,16 +128,6 @@ export function SetRow({
             <Ionicons name="checkmark-outline" size={16} color={colors.textDim} />
           </View>
         )}
-      </Pressable>
-
-      <Pressable onPress={onTap} hitSlop={8} style={styles.values}>
-        {/* unlogged sets preview the last workout's numbers as a dim target */}
-        <T variant="numSm" style={{ color: completed ? colors.text : weight != null ? colors.text : colors.textMuted, minWidth: 34, textAlign: 'right' }}>
-          {weight != null ? weight : prev?.weightKg ?? '–'}
-        </T>
-        <T variant="numSm" style={{ color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted, minWidth: 22, textAlign: 'right' }}>
-          {reps != null ? reps : prev?.reps ?? '–'}
-        </T>
       </Pressable>
     </Pressable>
   );

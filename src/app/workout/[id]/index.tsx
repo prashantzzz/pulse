@@ -116,14 +116,14 @@ function ExerciseAccordionCard({
       </View>
 
       <CollapsibleContent isOpen={isOpen} style={{ gap: 6, marginTop: spacing.sm }}>
-        <Row align="space-between" style={{ paddingHorizontal: 4, marginBottom: 2 }}>
+        <Row align="space-between" style={{ paddingHorizontal: 12, marginBottom: 2 }}>
           <T variant="micro" muted style={{ fontSize: 10, width: 64 }}>
             SET
           </T>
-          <T variant="micro" muted style={{ fontSize: 10, flex: 1 }}>
+          <T variant="micro" muted style={{ fontSize: 10, flex: 1, paddingHorizontal: 4 }}>
             LAST TIME
           </T>
-          <T variant="micro" muted style={{ fontSize: 10, width: 84, textAlign: 'right' }}>
+          <T variant="micro" muted style={{ fontSize: 10, width: 106, textAlign: 'right' }}>
             KG × REPS
           </T>
         </Row>
@@ -211,16 +211,14 @@ function RestPopupModal({
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onSkip}>
       <View style={styles.restModalOverlay}>
-        {/* Blurred & Dimmed Backdrop — Blocks all touches to underlying sets */}
+        {/* Blurred & Dimmed Backdrop — Tap backdrop or button to dismiss */}
         <Pressable
           style={[
             StyleSheet.absoluteFill,
             styles.restModalBackdrop,
             Platform.OS === 'web' && ({ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any),
           ]}
-          onPress={() => {
-            // Touch blocking overlay
-          }}
+          onPress={onSkip}
         />
 
         {/* Animated Rest Popup Card */}
@@ -463,7 +461,7 @@ export default function ActiveWorkoutScreen() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [restTimer?.paused, restTimer?.secondsLeft]);
+  }, [Boolean(restTimer), restTimer?.paused]);
 
   // Keep live notification synced with current exercise and sets progress
   // ONLY for the active running workout (updates silently on set completion or pause/resume)

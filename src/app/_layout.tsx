@@ -146,9 +146,16 @@ export default function RootLayout() {
     const isChallengeInvite = segList[0] === 'challenge';
     const isPublicLegal = segList[0] === 'privacy' || segList[0] === 'terms';
 
+    const isAuthRecovery = segList[1] === 'reset-password' || segList[1] === 'callback';
+
     if (!isAuthenticated) {
       if (!inAuthGroup && !isIndex && !isChallengeInvite && !isPublicLegal) {
         router.replace('/auth/login' as never);
+      }
+    } else {
+      if (inAuthGroup && !isAuthRecovery) {
+        const onboarded = usePulse.getState().onboarded;
+        router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
       }
     }
   }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, segments, router]);
@@ -175,14 +182,14 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
           animation: 'slide_from_right',
         }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth/login" options={{ animation: 'fade' }} />
+        <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="auth/login" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="auth/signup" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="auth/forgot-password" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="auth/reset-password" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="auth/callback" options={{ animation: 'fade' }} />
-        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="workout/[id]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="workout/[id]/summary" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="gym-mode" options={{ animation: 'fade' }} />
