@@ -388,7 +388,7 @@ export default function SettingsScreen() {
               <View>
                 <T variant="bodySemi">NextRep</T>
                 <T variant="micro" muted>
-                  v1.2.0 · Train smart. Get strong.
+                  Train smart. Get strong.
                 </T>
               </View>
             </Row>

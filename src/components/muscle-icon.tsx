@@ -68,16 +68,19 @@ export function ExerciseThumb({
   size = 56,
   icon,
   rounded = 14,
+  useThemeAccent = false,
 }: {
   muscle: MuscleGroup;
   size?: number;
   icon?: React.ReactNode;
   rounded?: number;
+  useThemeAccent?: boolean;
 }) {
   const g = GROUP_GRADIENT[muscle] ?? 'accentVertical';
+  const colorsList = useThemeAccent ? gradients.accent : gradients[g];
   return (
     <LinearGradient
-      colors={[...gradients[g]]}
+      colors={colorsList}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{

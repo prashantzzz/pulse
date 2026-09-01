@@ -374,14 +374,23 @@ export function TodayWorkoutCard({
       <View style={[styles.heroCard, { borderColor: `${colors.accent}2E` }]}>
         <LinearGradient colors={[accentTint(colors.accent, 0.16), colors.bg]} style={StyleSheet.absoluteFill} />
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
+        {first ? (
+          <View style={styles.heroArt} pointerEvents="none">
+            <ExerciseThumb muscle={first.muscleGroup} size={110} rounded={28} useThemeAccent />
+          </View>
+        ) : null}
         <View style={{ padding: spacing.lg, gap: 10 }}>
           <Row align="space-between">
-            <Tag label={isLongLayoff ? 'Fresh Start · Day 1' : "Today's Workout"} />
+            <Tag label={isLongLayoff ? 'Fresh Start · Day 1' : "Today's Workout"} color={colors.accent} bg={colors.accentSoft} />
             <Row gap={8} align="center">
               {plans.length > 1 ? (
                 <Pressable
                   onPress={() => setShowSwapModal(true)}
-                  style={({ pressed }) => [styles.swapPlanBtn, pressed && { opacity: 0.8 }]}>
+                  style={({ pressed }) => [
+                    styles.swapPlanBtn,
+                    { backgroundColor: colors.accentSoft, borderColor: `${colors.accent}40` },
+                    pressed && { opacity: 0.8 },
+                  ]}>
                   <Ionicons name="swap-horizontal" size={12} color={colors.accent} />
                   <T variant="micro" accent style={{ fontWeight: '700' }}>
                     Swap
@@ -421,11 +430,6 @@ export function TodayWorkoutCard({
             <Ionicons name="arrow-forward" size={18} color={colors.bg} />
           </Pressable>
         </View>
-        {first ? (
-          <View style={styles.heroArt}>
-            <ExerciseThumb muscle={first.muscleGroup} size={110} rounded={28} />
-          </View>
-        ) : null}
       </View>
 
       {/* Swap Plan Modal */}
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 999,
   },
-  heroArt: { position: 'absolute', right: -18, bottom: -14, opacity: 0.5, transform: [{ rotate: '-8deg' }] },
+  heroArt: { position: 'absolute', right: -12, bottom: -10, opacity: 0.22, transform: [{ rotate: '-8deg' }] },
   statPill: {
     flexDirection: 'row',
     alignItems: 'center',

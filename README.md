@@ -261,37 +261,18 @@ npm test           # jest — unit + security regression tests
 npx supabase db push   # apply all pending migrations to the remote project
 ```
 
-```bash
-eas build -p android --profile preview #build apk on cloud
-npx expo run:android #local device testing
-```
-
 Migrations live in `supabase/migrations/` and are applied in timestamp order. They are idempotent — safe to re-run.
 
-## Exercises Missing Animations (16 Total)
+### Android Build & Release
 
-These exercises currently do not have a dedicated `.mp4` video animation in `assets/vital/` and cleanly render the interactive anatomical muscle target heatmap instead:
+```bash
+# Preview build (internal APK testing)
+eas build --platform android --profile preview
 
-### Back
-- **Straight-Arm Pulldown** (`straight-arm-pulldown`)
-- **Barbell Shrug** (`shrug`)
+# Production build (AAB release for Google Play)
+eas build --platform android --profile production
 
-### Arms (Triceps)
-- **Close-Grip Bench Press** (`close-grip-bench-press`)
+# Local Android execution
+npx expo run:android
+```
 
-### Legs, Glutes & Calves
-- **Hack Squat** (`hack-squat`)
-- **Nordic Hamstring Curl** (`nordic-curl`)
-- **Glute Bridge** (`glute-bridge`)
-- **Cable Glute Kickback** (`cable-kickback`)
-- **Donkey Kick** (`donkey-kick`)
-- **Single-Leg Calf Raise** (`single-leg-calf-raise`)
-- **Leg Press Calf Raise** (`leg-press-calf-raise`)
-
-### Core & Cardio
-- **Ab Wheel Rollout** (`ab-wheel-rollout`)
-- **Dead Bug** (`dead-bug`)
-- **Mountain Climber** (`mountain-climber`)
-- **Elliptical Trainer** (`elliptical`)
-- **Jump Rope** (`jump-rope`)
-- **Battle Ropes** (`battle-ropes`)
