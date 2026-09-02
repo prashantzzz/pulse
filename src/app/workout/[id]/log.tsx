@@ -89,6 +89,15 @@ export default function LogSetScreen() {
     }
   };
 
+  // Save kg/reps/rpe/notes without marking the set as completed — useful for
+  // pre-setting weight before starting the set or adjusting values mid-session.
+  const saveOnly = () => {
+    patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
+    hapticsLight();
+    toast('Values saved');
+    router.back();
+  };
+
   const finish = () => {
     if (prevIncomplete) {
       hapticsLight();
@@ -227,29 +236,28 @@ export default function LogSetScreen() {
       {/* plate calculator — compact utility inside the logging flow */}
       <BottomSheet visible={platesOpen} onClose={() => setPlatesOpen(false)} title="Plate Calculator">
         <View style={{ gap: spacing.lg }}>
-          <Row align="space-between" style={{ gap: spacing.md }}>
-            <View style={{ flex: 1 }}>
-              <T variant="label" dim style={{ marginBottom: 10 }}>
-                Target weight
-              </T>
-              <Stepper value={platesTarget} onChange={setPlatesTarget} step={2.5} decimals={1} min={0} size="md" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <T variant="label" dim style={{ marginBottom: 10 }}>
-                Bar weight
-              </T>
-              <Stepper value={barWeight} onChange={setBarWeight} step={2.5} decimals={1} min={0} size="md" />
-            </View>
-          </Row>
+          <View>
+            <T variant="label" dim style={{ marginBottom: 10 }}>
+              Target weight
+            </T>
+            <Stepper value={platesTarget} onChange={setPlatesTarget} step={2.5} decimals={1} min={0} size="lg" />
+          </View>
+          <View style={styles.plateCalcDivider} />
+          <View>
+            <T variant="label" dim style={{ marginBottom: 10 }}>
+              Bar weight
+            </T>
+            <Stepper value={barWeight} onChange={setBarWeight} step={2.5} decimals={1} min={0} size="lg" />
+          </View>
           <PlateResultView targetKg={platesTarget} barKg={barWeight} />
         </View>
       </BottomSheet>
 
       <View style={styles.bottomBar}>
         <Button label="Complete Set" icon="checkmark" full size="lg" onPress={finish} />
-        <Pressable onPress={() => save(true, true)} style={{ marginTop: spacing.sm }}>
+        <Pressable onPress={saveOnly} style={{ marginTop: spacing.sm }}>
           <T variant="smallMedium" dim center>
-            Save & Next Set
+            Save
           </T>
         </Pressable>
       </View>
@@ -340,6 +348,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+  },
+  plateCalcDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: -spacing.xs,
   },
   plateChip: {
     backgroundColor: colors.surface3,

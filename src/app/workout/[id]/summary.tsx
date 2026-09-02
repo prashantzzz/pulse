@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnimatedValue } from '../../../lib/useAnimatedValue';
 
 import { T } from '../../../components/Text';
-import { toast } from '../../../components/misc';
 import { Button, Card, Row } from '../../../components/ui';
 import { formatDurationLabel } from '../../../lib/format';
 import { detectPRs, formatCompact, whatChanged, workoutRepeatSpecs, workoutStats } from '../../../lib/stats';
@@ -130,19 +129,6 @@ export default function SummaryScreen() {
     duration: formatDurationLabel(stats.durationMin),
   };
 
-  const shareText = `💪 ${workout.title} on NextRep\n${stats.exercises} exercises · ${stats.sets} sets · ${stats.volumeKg.toLocaleString()} kg volume · ~${stats.calories} kcal est.\n${prs.length > 0 ? `🏆 PRs: ${prs.map((p) => `${p.exerciseName} ${p.weightKg}×${p.reps}`).join(', ')}\n` : ''}${changed ? `📈 ${changed.volumePct >= 0 ? '+' : ''}${changed.volumePct}% vs last session` : ''}\n— sent with NextRep`;
-
-  const copyShare = async () => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(shareText);
-      }
-      toast('Workout card copied — paste it anywhere');
-    } catch {
-      toast('Share card ready');
-    }
-  };
-
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
       {/* celebration header */}
@@ -221,7 +207,6 @@ export default function SummaryScreen() {
                 />
                 <DeltaMetric label="Reps" value={`${changed.repsDelta > 0 ? '+' : ''}${changed.repsDelta}`} good={changed.repsDelta >= 0} neutral={changed.repsDelta === 0} />
                 <DeltaMetric label="Avg weight" value={`${changed.avgWeightDelta > 0 ? '+' : ''}${changed.avgWeightDelta} kg`} good={changed.avgWeightDelta >= 0} neutral={changed.avgWeightDelta === 0} />
-                <DeltaMetric label="Duration" value={`${changed.durationDeltaMin <= 0 ? '' : '+'}${changed.durationDeltaMin} min`} good={changed.durationDeltaMin <= 0} neutral={changed.durationDeltaMin === 0} />
               </Row>
             </Card>
           ) : null}
@@ -280,40 +265,12 @@ export default function SummaryScreen() {
             </T>
           </Card>
 
-          {/* share card */}
-          <T variant="h3" style={{ marginTop: spacing.xl, marginBottom: spacing.sm }}>
-            Share Your Card
-          </T>
-          <View style={[styles.shareCard, { borderColor: `${colors.accent}66` }]}>
-            <View style={styles.shareCardTop}>
-              <T variant="label" accent>
-                PULSE
-              </T>
-              <T variant="micro" muted>
-                {new Date(workout.startTime).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
-              </T>
-            </View>
-            <T variant="h2" style={{ marginTop: spacing.sm }}>
-              {workout.title}
-            </T>
-            <Row gap={14} style={{ marginTop: spacing.sm }}>
-              <ShareStat value={`${stats.sets}`} label="sets" />
-              <ShareStat value={formatCompact(stats.volumeKg)} label="kg volume" />
-              <ShareStat value={formatDurationLabel(stats.durationMin)} label="time" />
-            </Row>
-            {prs.length > 0 ? (
-              <T variant="small" accent style={{ marginTop: spacing.sm }}>
-                🏆 {prs.length} new PR{prs.length > 1 ? 's' : ''}
-              </T>
-            ) : null}
-          </View>
-          <Button label="Share Workout Card" icon="share-outline" full size="lg" style={{ marginTop: spacing.md }} onPress={copyShare} />
           <Button
             label="Repeat Workout"
             icon="refresh"
             full
             size="lg"
-            style={{ marginTop: spacing.sm }}
+            style={{ marginTop: spacing.xl }}
             onPress={() => {
               const w = startWorkout(workout.title, workoutRepeatSpecs(workout));
               router.replace(`/workout/${w.id}`);
@@ -357,19 +314,6 @@ function FingerprintStat({ icon, value, label }: { icon: React.ComponentProps<ty
     <View style={{ alignItems: 'center', gap: 3, flex: 1 }}>
       <Ionicons name={icon} size={18} color={colors.accent} />
       <T variant="smallSemi" style={{ fontSize: 12.5 }}>
-        {value}
-      </T>
-      <T variant="micro" muted>
-        {label}
-      </T>
-    </View>
-  );
-}
-
-function ShareStat({ value, label }: { value: string; label: string }) {
-  return (
-    <View>
-      <T variant="numSm" accent>
         {value}
       </T>
       <T variant="micro" muted>
@@ -443,12 +387,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fingerprintArt: { height: 56, marginTop: 4 },
-  shareCard: {
-    borderRadius: radius.xl,
-    borderWidth: 1.5,
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-    overflow: 'hidden',
-  },
-  shareCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
