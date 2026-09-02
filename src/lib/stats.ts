@@ -45,9 +45,32 @@ export function workoutStats(w: Workout): WorkoutStats {
     }
   }
   const durationMin = workoutDurationMin(w);
-  // Rough calorie estimate: strength ~7 kcal/min, cardio ~9 kcal/min
+
+  // MET-based calorie estimate (standard exercise physiology: kcal = MET × bodyKg × hours)
+  // Assumed body weight: 75 kg (no user profile available)
+  // MET values: Cardio = 7.0, heavy compound strength = 5.0, general strength = 3.5
+  const ASSUMED_BODY_KG = 75;
   const isCardio = w.exercises.some((we) => EXERCISE_MAP[we.exerciseId]?.movement === 'Cardio');
-  const calories = Math.round(durationMin * (isCardio ? 9 : 7) * (0.9 + (volumeKg / 20000) * 0.2));
+  const hasHeavyCompound = w.exercises.some((we) => {
+    const ex = EXERCISE_MAP[we.exerciseId];
+    return ex?.type === 'Compound' && (ex?.movement === 'Pull' || ex?.movement === 'Push') &&
+      we.sets.some((s) => s.completed && (s.weightKg ?? 0) >= 60);
+  });
+
+  let met = isCardio ? 7.0 : hasHeavyCompound ? 5.0 : 3.5;
+
+  // Scale MET up slightly for high-intensity workouts (volume density: kg per minute)
+  const volumePerMin = durationMin > 0 ? volumeKg / durationMin : 0;
+  if (!isCardio && volumePerMin > 300) met = Math.min(6.5, met + 1.0);
+  else if (!isCardio && volumePerMin > 150) met = Math.min(5.5, met + 0.5);
+
+  const durationHours = durationMin / 60;
+  let calories = Math.round(met * ASSUMED_BODY_KG * durationHours);
+
+  // Floor: each completed rep burns roughly 0.5 kcal on average (catches near-zero duration recordings)
+  const repFloor = Math.round(reps * 0.5);
+  calories = Math.max(calories, repFloor, 5);
+
   return { volumeKg: Math.round(volumeKg), sets, reps, durationMin, exercises: w.exercises.length, calories, muscles: [...muscles], distanceKm };
 }
 

@@ -416,8 +416,10 @@ export default function ActiveWorkoutScreen() {
     prevSecondsLeftRef.current = secondsLeft;
   }, [secondsLeft, storeRestTimer, clearRestTimer]);
 
-  // Keep live notification synced with current exercise and sets progress
-  // ONLY for the active running workout (updates silently on set completion or pause/resume/rest)
+  // Keep live notification synced with current exercise and sets progress.
+  // Only fires when meaningful state changes: set completed, paused/resumed, rest started/stopped.
+  // secondsLeft is intentionally excluded — the notification shows a static resting message;
+  // the live countdown is shown in the in-app RestPopupModal only.
   useEffect(() => {
     if (!activeWorkout || activeWorkout.id !== id) {
       dismissActiveWorkoutNotification();
@@ -430,8 +432,9 @@ export default function ActiveWorkoutScreen() {
 
     let currentSetInfo = '';
     if (isResting && storeRestTimer) {
-      const nextInfo = storeRestTimer.nextSetInfo ? ` · Up Next: ${storeRestTimer.nextSetInfo}` : '';
-      currentSetInfo = `Rest: ${formatDuration(secondsLeft)} (${storeRestTimer.exerciseName})${nextInfo}`;
+      // Static resting message — no live countdown so the notification doesn't re-fire every second
+      const nextInfo = storeRestTimer.nextSetInfo ? ` · Up next: ${storeRestTimer.nextSetInfo}` : '';
+      currentSetInfo = `Resting · ${storeRestTimer.exerciseName}${nextInfo}`;
     } else {
       currentSetInfo = totalSets > 0
         ? (doneSets < totalSets ? `Set ${doneSets + 1} · ${currentExName}` : 'All sets completed')
@@ -453,7 +456,7 @@ export default function ActiveWorkoutScreen() {
     totalSets,
     !!storeRestTimer,
     storeRestTimer?.paused,
-    secondsLeft,
+    // NOTE: secondsLeft intentionally omitted — notification uses static text, not live countdown
   ]);
 
   // Clean up notification on unmount if workout has completed or been discarded
@@ -464,7 +467,9 @@ export default function ActiveWorkoutScreen() {
         dismissActiveWorkoutNotification();
         return;
       }
-      if (state === 'background' || state === 'active') {
+      // Only post notification when going to background — ensures notification is present in the shade.
+      // On 'active' (returning to app), the screen-mounted useEffect above handles any required sync.
+      if (state === 'background') {
         const rt = curr.restTimer;
         const curSecondsLeft = rt
           ? rt.paused
@@ -479,8 +484,8 @@ export default function ActiveWorkoutScreen() {
 
         let cInfo = '';
         if (isResting && rt) {
-          const nextInfo = rt.nextSetInfo ? ` · Up Next: ${rt.nextSetInfo}` : '';
-          cInfo = `Rest: ${formatDuration(curSecondsLeft)} (${rt.exerciseName})${nextInfo}`;
+          const nextInfo = rt.nextSetInfo ? ` · Up next: ${rt.nextSetInfo}` : '';
+          cInfo = `Resting · ${rt.exerciseName}${nextInfo}`;
         } else {
           cInfo = tSets > 0
             ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
