@@ -20,12 +20,7 @@
       },
       "package": "com.nextrep.fitnesstracker",
       "predictiveBackGestureEnabled": true,
-      "allowBackup": false,
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM"
-      ]
+      "allowBackup": false
     },
     "web": {
       "output": "single",
