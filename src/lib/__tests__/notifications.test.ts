@@ -3,6 +3,7 @@ import {
   ACTIVE_WORKOUT_CATEGORY,
   ACTIVE_WORKOUT_NOTIFICATION_ID,
   ACTIVE_WORKOUT_PAUSED_CATEGORY,
+  ACTIVE_WORKOUT_RESTING_CATEGORY,
   EVENING_REMINDER_CATEGORY,
   EVENING_REMINDER_ID,
   dismissActiveWorkoutNotification,
@@ -79,12 +80,29 @@ describe('Notifications System', () => {
         }),
       ],
     );
+
+    // 4. Active workout resting with 'Skip Rest' and 'Finish' (NO Pause button)
+    expect(Notifications.setNotificationCategoryAsync).toHaveBeenCalledWith(
+      ACTIVE_WORKOUT_RESTING_CATEGORY,
+      [
+        expect.objectContaining({
+          identifier: 'SKIP_REST',
+          buttonTitle: 'Skip Rest',
+          options: { opensAppToForeground: false },
+        }),
+        expect.objectContaining({
+          identifier: 'FINISH_WORKOUT',
+          buttonTitle: 'Finish',
+          options: { opensAppToForeground: true, isDestructive: true },
+        }),
+      ],
+    );
   });
 
-  it('should present active workout live notification with current set and actions', async () => {
+  it('should present active workout live notification with current ith set and actions', async () => {
     await presentActiveWorkoutNotification({
       workoutTitle: 'Push Day A',
-      currentSetInfo: 'Set 2/6 · Bench Press',
+      currentSetInfo: 'Set 2 · Bench Press',
       isPaused: false,
       workoutId: 'w-123',
     });
@@ -93,7 +111,7 @@ describe('Notifications System', () => {
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
       content: expect.objectContaining({
         title: 'Push Day A',
-        body: 'Set 2/6 · Bench Press',
+        body: 'Set 2 · Bench Press',
         categoryIdentifier: ACTIVE_WORKOUT_CATEGORY,
         sticky: true,
         autoDismiss: false,
@@ -103,7 +121,28 @@ describe('Notifications System', () => {
           workoutId: 'w-123',
           url: '/workout/w-123',
           isPaused: false,
+          isResting: false,
         },
+      }),
+      trigger: null,
+    });
+  });
+
+  it('should present resting workout notification without pause button and with resting category', async () => {
+    await presentActiveWorkoutNotification({
+      workoutTitle: 'Push Day A',
+      currentSetInfo: 'Rest: 01:30 (Bench Press) · Up Next: Set 3 · Bench Press',
+      isResting: true,
+      workoutId: 'w-123',
+    });
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
+      content: expect.objectContaining({
+        title: '⏱️ Resting · Push Day A',
+        body: 'Rest: 01:30 (Bench Press) · Up Next: Set 3 · Bench Press',
+        categoryIdentifier: ACTIVE_WORKOUT_RESTING_CATEGORY,
+        data: expect.objectContaining({ isResting: true }),
       }),
       trigger: null,
     });
@@ -112,7 +151,7 @@ describe('Notifications System', () => {
   it('should present paused workout notification with minimal pause icon and resume category', async () => {
     await presentActiveWorkoutNotification({
       workoutTitle: 'Push Day A',
-      currentSetInfo: 'Set 2/6 · Bench Press',
+      currentSetInfo: 'Set 2 · Bench Press',
       isPaused: true,
       workoutId: 'w-123',
     });
@@ -121,7 +160,7 @@ describe('Notifications System', () => {
       identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
       content: expect.objectContaining({
         title: '⏸️ Push Day A',
-        body: 'Set 2/6 · Bench Press',
+        body: 'Set 2 · Bench Press',
         categoryIdentifier: ACTIVE_WORKOUT_PAUSED_CATEGORY,
         data: expect.objectContaining({ isPaused: true }),
       }),

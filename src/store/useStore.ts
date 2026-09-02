@@ -17,14 +17,16 @@ import {
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { SEED_PLANS } from '../data/seed';
+import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
-import { getDefaultSetValues, previousSet } from '../lib/stats';
+import { getDefaultSetValues, previousSet, getRecommendedRestSeconds } from '../lib/stats';
 import type {
   ActiveWorkout,
   BodyMeasurement,
   ExerciseSet,
   Friend,
   ManualPR,
+  RestTimerState,
   UserProfile,
   Workout,
   WorkoutExercise,
@@ -76,6 +78,22 @@ interface PulseState {
   pauseActiveWorkout: () => void;
   /** Un-pause by shifting startTime forward by the paused duration */
   resumeActiveWorkout: () => void;
+  /** Start or update adaptive rest timer in the active workout */
+  startRestTimer: (rest: {
+    totalSeconds: number;
+    exerciseName: string;
+    reason: string;
+    completedSetInfo?: string;
+    nextSetInfo?: string;
+  }) => void;
+  /** Pause the active rest timer, preserving remaining seconds */
+  pauseRestTimer: () => void;
+  /** Resume the paused rest timer */
+  resumeRestTimer: () => void;
+  /** Add/subtract seconds to the rest timer */
+  addRestSeconds: (sec: number) => void;
+  /** Clear/skip the rest timer */
+  clearRestTimer: () => void;
   /** Discard the active workout entirely */
   cancelActiveWorkout: () => void;
   /** Finalize active workout into history; returns the finished workout */
@@ -249,9 +267,11 @@ export const usePulse = create<PulseState>()(
       patchSet: (exerciseId, setId, patch) =>
         set((s) => {
           if (!s.activeWorkout) return s;
+          const clearingRest = patch.completed === false;
           return {
             activeWorkout: {
               ...s.activeWorkout,
+              restTimer: clearingRest ? null : s.activeWorkout.restTimer,
               exercises: s.activeWorkout.exercises.map((we) =>
                 we.exerciseId === exerciseId
                   ? { ...we, sets: we.sets.map((st) => (st.id === setId ? { ...st, ...patch } : st)) }
@@ -264,22 +284,158 @@ export const usePulse = create<PulseState>()(
       completeSet: (exerciseId, setId) =>
         set((s) => {
           if (!s.activeWorkout) return s;
+          const nowIso = new Date().toISOString();
+          const updatedExercises = s.activeWorkout.exercises.map((we) =>
+            we.exerciseId === exerciseId
+              ? {
+                  ...we,
+                  sets: we.sets.map((st) =>
+                    st.id === setId
+                      ? { ...st, completed: true, completedAt: nowIso }
+                      : st,
+                  ),
+                }
+              : we,
+          );
+
+          const totalSets = updatedExercises.reduce((sum, we) => sum + we.sets.length, 0);
+          const doneSets = updatedExercises.reduce((sum, we) => sum + we.sets.filter((x) => x.completed).length, 0);
+
+          let nextRestTimer: RestTimerState | null = null;
+          if (totalSets > 0 && doneSets < totalSets) {
+            const rec = getRecommendedRestSeconds(exerciseId);
+            const ex = EXERCISE_MAP[exerciseId];
+            const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
+            const completedSetInfo = completedSet
+              ? `Set ${completedSet.setIndex} (${completedSet.weightKg != null ? `${completedSet.weightKg} kg × ` : ''}${completedSet.reps ?? '–'} reps)`
+              : undefined;
+
+            let nextSetInfo = '';
+            for (const e of updatedExercises) {
+              const nextS = e.sets.find((st) => !st.completed);
+              if (nextS) {
+                const nextEx = EXERCISE_MAP[e.exerciseId];
+                const p = previousSet(s.workouts, e.exerciseId, nextS.setIndex, s.activeWorkout.id);
+                const wVal = nextS.weightKg ?? p?.weightKg;
+                const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
+                nextSetInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
+                break;
+              }
+            }
+
+            nextRestTimer = {
+              targetEndTimeMs: Date.now() + rec.seconds * 1000,
+              totalSeconds: rec.seconds,
+              exerciseName: ex?.name ?? 'Exercise',
+              reason: rec.label,
+              paused: false,
+              completedSetInfo,
+              nextSetInfo,
+            };
+          }
+
           return {
             activeWorkout: {
               ...s.activeWorkout,
-              endTime: new Date().toISOString(),
-              exercises: s.activeWorkout.exercises.map((we) =>
-                we.exerciseId === exerciseId
-                  ? {
-                      ...we,
-                      sets: we.sets.map((st) =>
-                        st.id === setId
-                          ? { ...st, completed: true, completedAt: new Date().toISOString() }
-                          : st,
-                      ),
-                    }
-                  : we,
-              ),
+              endTime: nowIso,
+              exercises: updatedExercises,
+              restTimer: nextRestTimer,
+            },
+          };
+        }),
+
+      startRestTimer: (rest) =>
+        set((s) => {
+          if (!s.activeWorkout) return s;
+          return {
+            activeWorkout: {
+              ...s.activeWorkout,
+              restTimer: {
+                ...rest,
+                targetEndTimeMs: Date.now() + rest.totalSeconds * 1000,
+                paused: false,
+              },
+            },
+          };
+        }),
+
+      pauseRestTimer: () =>
+        set((s) => {
+          const rt = s.activeWorkout?.restTimer;
+          if (!s.activeWorkout || !rt || rt.paused) return s;
+          const remainingSec = Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000));
+          return {
+            activeWorkout: {
+              ...s.activeWorkout,
+              restTimer: {
+                ...rt,
+                paused: true,
+                remainingSecWhenPaused: remainingSec,
+              },
+            },
+          };
+        }),
+
+      resumeRestTimer: () =>
+        set((s) => {
+          const rt = s.activeWorkout?.restTimer;
+          if (!s.activeWorkout || !rt || !rt.paused) return s;
+          const remainingSec = rt.remainingSecWhenPaused ?? 0;
+          return {
+            activeWorkout: {
+              ...s.activeWorkout,
+              restTimer: {
+                ...rt,
+                paused: false,
+                remainingSecWhenPaused: undefined,
+                targetEndTimeMs: Date.now() + remainingSec * 1000,
+              },
+            },
+          };
+        }),
+
+      addRestSeconds: (sec) =>
+        set((s) => {
+          const rt = s.activeWorkout?.restTimer;
+          if (!s.activeWorkout || !rt) return s;
+          if (rt.paused) {
+            const curRemaining = rt.remainingSecWhenPaused ?? 0;
+            const nextRemaining = Math.max(5, curRemaining + sec);
+            const nextTotal = Math.max(5, rt.totalSeconds + (sec > 0 ? sec : 0));
+            return {
+              activeWorkout: {
+                ...s.activeWorkout,
+                restTimer: {
+                  ...rt,
+                  totalSeconds: nextTotal,
+                  remainingSecWhenPaused: nextRemaining,
+                },
+              },
+            };
+          } else {
+            const curRemaining = Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000));
+            const nextRemaining = Math.max(5, curRemaining + sec);
+            const nextTotal = Math.max(5, rt.totalSeconds + (sec > 0 ? sec : 0));
+            return {
+              activeWorkout: {
+                ...s.activeWorkout,
+                restTimer: {
+                  ...rt,
+                  totalSeconds: nextTotal,
+                  targetEndTimeMs: Date.now() + nextRemaining * 1000,
+                },
+              },
+            };
+          }
+        }),
+
+      clearRestTimer: () =>
+        set((s) => {
+          if (!s.activeWorkout || !s.activeWorkout.restTimer) return s;
+          return {
+            activeWorkout: {
+              ...s.activeWorkout,
+              restTimer: null,
             },
           };
         }),
@@ -330,6 +486,7 @@ export const usePulse = create<PulseState>()(
           ...activeWorkout,
           paused: undefined,
           pausedAt: undefined,
+          restTimer: undefined,
           endTime: end,
         };
         set((s) => ({
