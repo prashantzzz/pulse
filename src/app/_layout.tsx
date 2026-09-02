@@ -114,6 +114,8 @@ export default function RootLayout() {
         usePulse.getState().pauseActiveWorkout();
       } else if (actionId === 'RESUME_WORKOUT') {
         usePulse.getState().resumeActiveWorkout();
+      } else if (actionId === 'SKIP_REST') {
+        usePulse.getState().clearRestTimer();
       } else if (actionId === 'FINISH_WORKOUT') {
         import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
         const finished = usePulse.getState().finishWorkout();

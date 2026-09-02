@@ -7,6 +7,7 @@ export const ACTIVE_WORKOUT_NOTIFICATION_ID = 'pulse-active-workout-live';
 export const EVENING_REMINDER_CATEGORY = 'evening-reminder-category';
 export const ACTIVE_WORKOUT_CATEGORY = 'active-workout-category';
 export const ACTIVE_WORKOUT_PAUSED_CATEGORY = 'active-workout-paused-category';
+export const ACTIVE_WORKOUT_RESTING_CATEGORY = 'active-workout-resting-category';
 
 // Configure foreground presentation behavior — live workout tracker stays silent in the shade without popup alert banners
 Notifications.setNotificationHandler({
@@ -64,6 +65,25 @@ export async function setupNotificationCategories(): Promise<void> {
       {
         identifier: 'RESUME_WORKOUT',
         buttonTitle: 'Resume',
+        options: {
+          opensAppToForeground: false,
+        },
+      },
+      {
+        identifier: 'FINISH_WORKOUT',
+        buttonTitle: 'Finish',
+        options: {
+          opensAppToForeground: true,
+          isDestructive: true,
+        },
+      },
+    ]);
+
+    // 4. Category for active live workout resting (includes 'Skip Rest' and 'Finish' buttons — NO Pause button)
+    await Notifications.setNotificationCategoryAsync(ACTIVE_WORKOUT_RESTING_CATEGORY, [
+      {
+        identifier: 'SKIP_REST',
+        buttonTitle: 'Skip Rest',
         options: {
           opensAppToForeground: false,
         },
@@ -136,18 +156,30 @@ export async function presentActiveWorkoutNotification({
   currentSetInfo,
   durationText,
   isPaused = false,
+  isResting = false,
   workoutId,
 }: {
   workoutTitle: string;
   currentSetInfo: string;
   durationText?: string;
   isPaused?: boolean;
+  isResting?: boolean;
   workoutId: string;
 }): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
-    const title = isPaused ? `⏸️ ${workoutTitle}` : workoutTitle;
+    let title = workoutTitle;
+    let category = ACTIVE_WORKOUT_CATEGORY;
+
+    if (isResting) {
+      title = `⏱️ Resting · ${workoutTitle}`;
+      category = ACTIVE_WORKOUT_RESTING_CATEGORY;
+    } else if (isPaused) {
+      title = `⏸️ ${workoutTitle}`;
+      category = ACTIVE_WORKOUT_PAUSED_CATEGORY;
+    }
+
     const bodyText = currentSetInfo;
 
     await Notifications.scheduleNotificationAsync({
@@ -155,7 +187,7 @@ export async function presentActiveWorkoutNotification({
       content: {
         title,
         body: bodyText,
-        categoryIdentifier: isPaused ? ACTIVE_WORKOUT_PAUSED_CATEGORY : ACTIVE_WORKOUT_CATEGORY,
+        categoryIdentifier: category,
         sticky: true,
         autoDismiss: false,
         sound: false,
@@ -165,6 +197,7 @@ export async function presentActiveWorkoutNotification({
           workoutId,
           url: `/workout/${workoutId}`,
           isPaused,
+          isResting,
         },
       },
       trigger: null, // update in-place immediately

@@ -360,20 +360,13 @@ export default function ActiveWorkoutScreen() {
   const cancelActiveWorkout = usePulse((s) => s.cancelActiveWorkout);
   const pauseActiveWorkout = usePulse((s) => s.pauseActiveWorkout);
   const resumeActiveWorkout = usePulse((s) => s.resumeActiveWorkout);
+  const pauseRestTimer = usePulse((s) => s.pauseRestTimer);
+  const resumeRestTimer = usePulse((s) => s.resumeRestTimer);
+  const addRestSeconds = usePulse((s) => s.addRestSeconds);
+  const clearRestTimer = usePulse((s) => s.clearRestTimer);
   const [expanded, setExpanded] = useState<string | null | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
-
-  // In-screen automatic adaptive rest timer state
-  const [restTimer, setRestTimer] = useState<{
-    secondsLeft: number;
-    totalSeconds: number;
-    exerciseName: string;
-    reason: string;
-    paused: boolean;
-    completedSetInfo?: string;
-    nextSetInfo?: string;
-  } | null>(null);
 
   // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard) ONLY when focused
   useFocusEffect(
@@ -404,84 +397,64 @@ export default function ActiveWorkoutScreen() {
   const doneSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0) : 0;
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
 
-  // Track completed sets count to detect when a new set was logged externally (e.g. from log.tsx)
-  const prevDoneSetsRef = useRef(doneSets);
+  // In-screen automatic adaptive rest timer derived from persistent store
+  const storeRestTimer = workout?.restTimer ?? null;
+  const secondsLeft = storeRestTimer
+    ? storeRestTimer.paused
+      ? (storeRestTimer.remainingSecWhenPaused ?? 0)
+      : Math.max(0, Math.ceil((storeRestTimer.targetEndTimeMs - now) / 1000))
+    : 0;
+
+  // Auto-clear rest timer and provide haptic feedback when it reaches 0
+  const prevSecondsLeftRef = useRef(secondsLeft);
   useEffect(() => {
-    if (doneSets > prevDoneSetsRef.current && totalSets > 0 && doneSets < totalSets) {
-      // Find the last completed exercise to compute adaptive rest
-      const lastEx = [...(workout?.exercises ?? [])].reverse().find((we) => we.sets.some((s) => s.completed));
-      if (lastEx) {
-        const ex = EXERCISE_MAP[lastEx.exerciseId];
-        const rec = getRecommendedRestSeconds(lastEx.exerciseId);
-        const lastSet = [...lastEx.sets].reverse().find((s) => s.completed);
-
-        let nextInfo = '';
-        for (const e of (workout?.exercises ?? [])) {
-          const nextS = e.sets.find((s) => !s.completed);
-          if (nextS) {
-            const nextEx = EXERCISE_MAP[e.exerciseId];
-            const p = previousSet(workouts, e.exerciseId, nextS.setIndex, workout?.id);
-            const wVal = nextS.weightKg ?? p?.weightKg;
-            const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
-            nextInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
-            break;
-          }
-        }
-
-        setRestTimer({
-          secondsLeft: rec.seconds,
-          totalSeconds: rec.seconds,
-          exerciseName: ex?.name ?? 'Exercise',
-          reason: rec.label,
-          paused: false,
-          completedSetInfo: `Set ${lastSet?.setIndex ?? 1} (${lastSet?.weightKg != null ? `${lastSet.weightKg} kg × ` : ''}${lastSet?.reps ?? lastEx.targetReps ?? '–'} reps)`,
-          nextSetInfo: nextInfo,
-        });
-      }
-    } else if (doneSets >= totalSets && totalSets > 0) {
-      setRestTimer(null);
+    if (storeRestTimer && !storeRestTimer.paused && secondsLeft <= 0 && prevSecondsLeftRef.current > 0) {
+      clearRestTimer();
+      hapticsSuccess();
+      toast('Rest complete — ready for next set!');
     }
-    prevDoneSetsRef.current = doneSets;
-  }, [doneSets, totalSets]);
-
-  // Live second-by-second countdown for the in-screen rest timer
-  useEffect(() => {
-    if (!restTimer || restTimer.paused || restTimer.secondsLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setRestTimer((prev) => {
-        if (!prev || prev.paused) return prev;
-        if (prev.secondsLeft <= 1) {
-          hapticsSuccess();
-          toast('Rest complete — ready for next set!');
-          return null;
-        }
-        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [Boolean(restTimer), restTimer?.paused]);
+    prevSecondsLeftRef.current = secondsLeft;
+  }, [secondsLeft, storeRestTimer, clearRestTimer]);
 
   // Keep live notification synced with current exercise and sets progress
-  // ONLY for the active running workout (updates silently on set completion or pause/resume)
+  // ONLY for the active running workout (updates silently on set completion or pause/resume/rest)
   useEffect(() => {
     if (!activeWorkout || activeWorkout.id !== id) {
       dismissActiveWorkoutNotification();
       return;
     }
 
+    const isResting = !!storeRestTimer && secondsLeft > 0;
     const currentEx = activeWorkout.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? activeWorkout.exercises[activeWorkout.exercises.length - 1];
     const currentExName = currentEx ? EXERCISE_MAP[currentEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
-    const currentSetInfo = totalSets > 0 ? `Set ${doneSets + 1}/${totalSets} · ${currentExName}` : 'Workout in progress';
+
+    let currentSetInfo = '';
+    if (isResting && storeRestTimer) {
+      const nextInfo = storeRestTimer.nextSetInfo ? ` · Up Next: ${storeRestTimer.nextSetInfo}` : '';
+      currentSetInfo = `Rest: ${formatDuration(secondsLeft)} (${storeRestTimer.exerciseName})${nextInfo}`;
+    } else {
+      currentSetInfo = totalSets > 0
+        ? (doneSets < totalSets ? `Set ${doneSets + 1} · ${currentExName}` : 'All sets completed')
+        : 'Workout in progress';
+    }
 
     presentActiveWorkoutNotification({
       workoutTitle: activeWorkout.title,
       currentSetInfo,
       isPaused: activeWorkout.paused,
+      isResting,
       workoutId: activeWorkout.id,
     });
-  }, [activeWorkout?.id, activeWorkout?.paused, activeWorkout?.title, doneSets, totalSets]);
+  }, [
+    activeWorkout?.id,
+    activeWorkout?.paused,
+    activeWorkout?.title,
+    doneSets,
+    totalSets,
+    !!storeRestTimer,
+    storeRestTimer?.paused,
+    secondsLeft,
+  ]);
 
   // Clean up notification on unmount if workout has completed or been discarded
   useEffect(() => {
@@ -492,16 +465,33 @@ export default function ActiveWorkoutScreen() {
         return;
       }
       if (state === 'background' || state === 'active') {
+        const rt = curr.restTimer;
+        const curSecondsLeft = rt
+          ? rt.paused
+            ? (rt.remainingSecWhenPaused ?? 0)
+            : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))
+          : 0;
+        const isResting = !!rt && curSecondsLeft > 0;
         const cEx = curr.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? curr.exercises[curr.exercises.length - 1];
         const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
         const dSets = curr.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
         const tSets = curr.exercises.reduce((s, we) => s + we.sets.length, 0);
-        const cInfo = tSets > 0 ? `Set ${dSets + 1}/${tSets} · ${cExName}` : 'Workout in progress';
+
+        let cInfo = '';
+        if (isResting && rt) {
+          const nextInfo = rt.nextSetInfo ? ` · Up Next: ${rt.nextSetInfo}` : '';
+          cInfo = `Rest: ${formatDuration(curSecondsLeft)} (${rt.exerciseName})${nextInfo}`;
+        } else {
+          cInfo = tSets > 0
+            ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
+            : 'Workout in progress';
+        }
 
         presentActiveWorkoutNotification({
           workoutTitle: curr.title,
           currentSetInfo: cInfo,
           isPaused: curr.paused,
+          isResting,
           workoutId: curr.id,
         });
       }
@@ -567,7 +557,7 @@ export default function ActiveWorkoutScreen() {
         }
       }
       toast('Set marked incomplete');
-      setRestTimer(null);
+      clearRestTimer();
     } else {
       // Restriction: set N cannot be completed unless all prior sets in this exercise are complete
       const prevIncomplete = we.sets.slice(0, setIndex).find((s) => !s.completed);
@@ -580,41 +570,6 @@ export default function ActiveWorkoutScreen() {
       hapticsMedium();
       completeSet(exerciseId, setId);
       toast('Set complete');
-
-      // Check if any incomplete sets remain in the workout
-      const allDone = workout.exercises.every((e) =>
-        e.sets.every((s) => (s.id === setId ? true : s.completed))
-      );
-
-      if (!allDone) {
-        const ex = EXERCISE_MAP[exerciseId];
-        const rec = getRecommendedRestSeconds(exerciseId);
-
-        let nextInfo = '';
-        for (const e of workout.exercises) {
-          const nextS = e.sets.find((s) => (s.id === setId ? false : !s.completed));
-          if (nextS) {
-            const nextEx = EXERCISE_MAP[e.exerciseId];
-            const p = previousSet(workouts, e.exerciseId, nextS.setIndex, workout.id);
-            const wVal = nextS.weightKg ?? p?.weightKg;
-            const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
-            nextInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
-            break;
-          }
-        }
-
-        setRestTimer({
-          secondsLeft: rec.seconds,
-          totalSeconds: rec.seconds,
-          exerciseName: ex?.name ?? 'Exercise',
-          reason: rec.label,
-          paused: false,
-          completedSetInfo: `Set ${set?.setIndex ?? 1} (${set?.weightKg != null ? `${set.weightKg} kg × ` : ''}${set?.reps ?? we?.targetReps ?? '–'} reps)`,
-          nextSetInfo: nextInfo,
-        });
-      } else {
-        setRestTimer(null);
-      }
     }
   };
 
@@ -687,7 +642,7 @@ export default function ActiveWorkoutScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: layout.screenPad,
-          paddingBottom: restTimer && restTimer.secondsLeft > 0 ? 180 : 120,
+          paddingBottom: storeRestTimer && secondsLeft > 0 ? 180 : 120,
           paddingTop: layout.screenTopPad,
         }}>
         {workout.exercises.map((we) => {
@@ -721,27 +676,23 @@ export default function ActiveWorkoutScreen() {
 
       {/* Animated Rest Popup Modal — Blocks touches to underlying sets with blurred backdrop */}
       <RestPopupModal
-        visible={!!restTimer && restTimer.secondsLeft > 0}
-        timer={restTimer}
+        visible={!!storeRestTimer && secondsLeft > 0}
+        timer={storeRestTimer ? { ...storeRestTimer, secondsLeft } : null}
         onAddSeconds={(sec) => {
           hapticsLight();
-          setRestTimer((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  secondsLeft: Math.max(5, prev.secondsLeft + sec),
-                  totalSeconds: Math.max(5, prev.totalSeconds + (sec > 0 ? sec : 0)),
-                }
-              : null
-          );
+          addRestSeconds(sec);
         }}
         onTogglePause={() => {
           hapticsLight();
-          setRestTimer((prev) => (prev ? { ...prev, paused: !prev.paused } : null));
+          if (storeRestTimer?.paused) {
+            resumeRestTimer();
+          } else {
+            pauseRestTimer();
+          }
         }}
         onSkip={() => {
           hapticsMedium();
-          setRestTimer(null);
+          clearRestTimer();
           toast('Rest skipped — ready for next set!');
         }}
       />

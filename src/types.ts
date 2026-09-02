@@ -151,6 +151,17 @@ export interface WorkoutExercise {
   sets: ExerciseSet[];
 }
 
+export interface RestTimerState {
+  targetEndTimeMs: number;
+  totalSeconds: number;
+  exerciseName: string;
+  reason: string;
+  paused: boolean;
+  remainingSecWhenPaused?: number;
+  completedSetInfo?: string;
+  nextSetInfo?: string;
+}
+
 export interface Workout {
   id: string;
   title: string;
@@ -162,6 +173,8 @@ export interface Workout {
   /** pause/resume state for an in-progress workout (never persisted to history) */
   paused?: boolean;
   pausedAt?: string | null;
+  /** in-progress adaptive rest timer (never persisted to history) */
+  restTimer?: RestTimerState | null;
 }
 
 export interface BodyMeasurement {
