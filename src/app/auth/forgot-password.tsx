@@ -28,6 +28,7 @@ export default function ForgotPasswordScreen() {
   const onboarded = usePulse((s) => s.onboarded);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -43,10 +44,10 @@ export default function ForgotPasswordScreen() {
   }, [router]);
 
   useEffect(() => {
-    if (isInitialized && isAuthenticated) {
+    if (isInitialized && isAuthenticated && !isVerifyingUser) {
       router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
     }
-  }, [isInitialized, isAuthenticated, onboarded, router]);
+  }, [isInitialized, isAuthenticated, isVerifyingUser, onboarded, router]);
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

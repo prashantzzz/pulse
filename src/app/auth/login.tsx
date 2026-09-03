@@ -31,12 +31,13 @@ export default function LoginScreen() {
   const onboarded = usePulse((s) => s.onboarded);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
 
   useEffect(() => {
-    if (isInitialized && isAuthenticated) {
+    if (isInitialized && isAuthenticated && !isVerifyingUser) {
       router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
     }
-  }, [isInitialized, isAuthenticated, onboarded, router]);
+  }, [isInitialized, isAuthenticated, isVerifyingUser, onboarded, router]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,6 +55,7 @@ export default function LoginScreen() {
 
     setErrorMessage(null);
     setLoading(true);
+    useAuth.setState({ isVerifyingUser: true });
 
     try {
       const data = await signInWithEmail(email, password);
@@ -61,46 +63,62 @@ export default function LoginScreen() {
         toast('Signed in successfully');
         await syncUserDataFromCloud(data.user.id);
         const isUserOnboarded = usePulse.getState().onboarded;
+        useAuth.setState({ isVerifyingUser: false });
         if (isUserOnboarded || onboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/onboarding');
         }
+      } else {
+        useAuth.setState({ isVerifyingUser: false });
       }
     } catch (err: unknown) {
+      useAuth.setState({ isVerifyingUser: false });
       const msg = formatAuthError(err);
       setErrorMessage(msg);
       toast(msg);
     } finally {
       setLoading(false);
+      if (!useAuth.getState().isAuthenticated) {
+        useAuth.setState({ isVerifyingUser: false });
+      }
     }
   };
 
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setGoogleLoading(true);
+    useAuth.setState({ isVerifyingUser: true });
 
     try {
       const result = await signInWithGoogle();
       if (result.cancelled) {
+        useAuth.setState({ isVerifyingUser: false });
         return;
       }
       if (result.session?.user) {
         toast('Signed in with Google');
         await syncUserDataFromCloud(result.session.user.id);
         const isUserOnboarded = usePulse.getState().onboarded;
+        useAuth.setState({ isVerifyingUser: false });
         if (isUserOnboarded || onboarded) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/onboarding');
         }
+      } else {
+        useAuth.setState({ isVerifyingUser: false });
       }
     } catch (err: unknown) {
+      useAuth.setState({ isVerifyingUser: false });
       const msg = formatAuthError(err);
       setErrorMessage(msg);
       toast(msg);
     } finally {
       setGoogleLoading(false);
+      if (!useAuth.getState().isAuthenticated) {
+        useAuth.setState({ isVerifyingUser: false });
+      }
     }
   };
 

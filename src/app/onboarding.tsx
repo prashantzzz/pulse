@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AccentPreview } from '../components/accent-preview';
+import { AuthLoadingScreen } from '../components/auth-loading';
 import { T } from '../components/Text';
 import { Button, Chip, Icon, Row } from '../components/ui';
 import { ACCENTS, accentTint, colors, gradients, layout, radius, spacing, useAccent, type AccentKey } from '../theme';
@@ -45,10 +46,19 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useAuth((s) => s.user);
+  const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
+  const onboarded = usePulse((s) => s.onboarded);
   const completeOnboarding = usePulse((s) => s.completeOnboarding);
   const addMeasurement = usePulse((s) => s.addMeasurement);
   const accentKey = usePulse((s) => s.accentKey);
   const setAccent = usePulse((s) => s.setAccent);
+
+  useEffect(() => {
+    if (onboarded && !isVerifyingUser) {
+      router.replace('/(tabs)/home');
+    }
+  }, [onboarded, isVerifyingUser, router]);
+
   const [step, setStep] = useState(0);
   const [gender, setGender] = useState<UserProfile['gender'] | null>(null);
   const [unitMode, setUnitMode] = useState<'metric' | 'imperial'>('metric');
@@ -78,6 +88,10 @@ export default function OnboardingScreen() {
     { title: 'What should we call you?', subtitle: 'Almost there', body: '', cta: 'Build My Dashboard' },
   ];
   const s = steps[step];
+
+  if (isVerifyingUser || onboarded) {
+    return <AuthLoadingScreen title="Loading profile..." subtitle="Setting up your dashboard" />;
+  }
 
   const parsedHeightCm = unitMode === 'metric' ? parseFloat(heightCm) || 0 : (parseFloat(heightFt) || 0) * 30.48 + (parseFloat(heightIn) || 0) * 2.54;
   const parsedWeightKg = unitMode === 'metric' ? parseFloat(weightKg) || 0 : (parseFloat(weightLbs) || 0) * 0.453592;

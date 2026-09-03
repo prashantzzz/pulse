@@ -14,8 +14,10 @@ interface AuthState {
   isLoading: boolean;
   isInitialized: boolean;
   isAuthenticated: boolean;
+  isVerifyingUser: boolean;
 
   setSession: (session: Session | null) => void;
+  setIsVerifyingUser: (val: boolean) => void;
   initialize: () => () => void;
   signOut: () => Promise<void>;
   syncProfileFromCloud: (userId: string) => Promise<ProfileRow | null>;
@@ -46,6 +48,7 @@ export const useAuth = create<AuthState>((set) => ({
   isLoading: true,
   isInitialized: false,
   isAuthenticated: false,
+  isVerifyingUser: false,
 
   setSession: (session) => {
     set({
@@ -54,6 +57,8 @@ export const useAuth = create<AuthState>((set) => ({
       isAuthenticated: Boolean(session?.user),
     });
   },
+
+  setIsVerifyingUser: (val) => set({ isVerifyingUser: val }),
 
   syncProfileFromCloud: async (userId: string) => {
     try {
@@ -93,7 +98,7 @@ export const useAuth = create<AuthState>((set) => ({
     flushOfflineSyncQueue().catch(() => {});
 
     if (!isSupabaseConfigured) {
-      set({ isLoading: false, isInitialized: true });
+      set({ isLoading: false, isInitialized: true, isVerifyingUser: false });
       return () => {};
     }
 
@@ -101,22 +106,40 @@ export const useAuth = create<AuthState>((set) => ({
     supabase.auth
       .getSession()
       .then(async ({ data: { session } }) => {
-        set({
-          session,
-          user: session?.user ?? null,
-          isAuthenticated: Boolean(session?.user),
-          isLoading: false,
-          isInitialized: true,
-        });
-
         if (session?.user) {
-          await syncUserDataFromCloud(session.user.id);
-          await flushOfflineSyncQueue();
+          set({
+            session,
+            user: session.user,
+            isAuthenticated: true,
+            isVerifyingUser: true,
+            isLoading: false,
+          });
+
+          try {
+            await Promise.race([
+              syncUserDataFromCloud(session.user.id),
+              new Promise((resolve) => setTimeout(resolve, 6000)),
+            ]);
+            await flushOfflineSyncQueue().catch(() => {});
+          } catch (err) {
+            console.warn('Error syncing cloud user on start:', err);
+          } finally {
+            set({ isVerifyingUser: false, isInitialized: true });
+          }
+        } else {
+          set({
+            session: null,
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            isVerifyingUser: false,
+            isInitialized: true,
+          });
         }
       })
       .catch((err) => {
         console.warn('Error reading stored session:', err);
-        set({ isLoading: false, isInitialized: true });
+        set({ isLoading: false, isInitialized: true, isVerifyingUser: false });
       });
 
     // 2. Subscribe to auth state changes (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.)
@@ -124,18 +147,29 @@ export const useAuth = create<AuthState>((set) => ({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
-      set({
-        session,
-        user,
-        isAuthenticated: Boolean(user),
-        isLoading: false,
-      });
 
       if (event === 'SIGNED_IN' && user) {
-        // If logged in via Google OAuth, sync avatar and name if needed
-        await syncGoogleProfile(user);
-        await syncUserDataFromCloud(user.id);
-        await flushOfflineSyncQueue();
+        set({
+          session,
+          user,
+          isAuthenticated: true,
+          isVerifyingUser: true,
+          isLoading: false,
+        });
+
+        try {
+          // If logged in via Google OAuth, sync avatar and name if needed
+          await syncGoogleProfile(user).catch(() => {});
+          await Promise.race([
+            syncUserDataFromCloud(user.id),
+            new Promise((resolve) => setTimeout(resolve, 6000)),
+          ]);
+          await flushOfflineSyncQueue().catch(() => {});
+        } catch (err) {
+          console.warn('Error syncing cloud user on SIGNED_IN:', err);
+        } finally {
+          set({ isVerifyingUser: false });
+        }
       } else if (event === 'SIGNED_OUT') {
         dismissActiveWorkoutNotification().catch(() => {});
         usePulse.getState().clearSessionCache();
@@ -143,6 +177,20 @@ export const useAuth = create<AuthState>((set) => ({
         // crafted invite stored before login cannot affect the next user.
         AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
         AsyncStorage.removeItem('@nextrep_pending_invite').catch(() => {});
+        set({
+          session: null,
+          user: null,
+          isAuthenticated: false,
+          isVerifyingUser: false,
+          isLoading: false,
+        });
+      } else if (session) {
+        set({
+          session,
+          user,
+          isAuthenticated: Boolean(user),
+          isLoading: false,
+        });
       }
     });
 
@@ -169,6 +217,7 @@ export const useAuth = create<AuthState>((set) => ({
         session: null,
         user: null,
         isAuthenticated: false,
+        isVerifyingUser: false,
         isLoading: false,
       });
     }

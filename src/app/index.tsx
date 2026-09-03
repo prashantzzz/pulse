@@ -17,6 +17,7 @@ export default function SplashScreen() {
   const hydrated = usePulse((s) => s.hydrated);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
 
   // Animation values
   const logoScale = useAnimatedValue(0.7);
@@ -100,7 +101,7 @@ export default function SplashScreen() {
   ]);
 
   useEffect(() => {
-    if (!hydrated || !isInitialized) return;
+    if (!hydrated || !isInitialized || isVerifyingUser) return;
 
     const t = setTimeout(() => {
       Animated.timing(exitOpacity, {
@@ -120,7 +121,7 @@ export default function SplashScreen() {
     }, 1850);
 
     return () => clearTimeout(t);
-  }, [hydrated, isInitialized, isAuthenticated, onboarded, router, exitOpacity]);
+  }, [hydrated, isInitialized, isAuthenticated, isVerifyingUser, onboarded, router, exitOpacity]);
 
   const ambientScale = glowPulse.interpolate({
     inputRange: [0, 1],
