@@ -101,7 +101,7 @@ export default function TermsOfServiceScreen() {
         <TermsSection
           icon="mail-outline"
           title="7. Contact Information"
-          body="For inquiries regarding these Terms of Service, please contact support@nextrep.fit."
+          body="For inquiries regarding these Terms of Service, please contact prasmatic.help@gmail.com."
         />
       </View>
     </Screen>
