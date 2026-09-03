@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, Share, StyleSheet, View, BackHandler } from 'react-native';
 
 import { T } from '../components/Text';
 import { Avatar, toast } from '../components/misc';
@@ -60,10 +60,27 @@ export default function ChallengeScreen() {
   const [incomingInvite, setIncomingInvite] = useState<PendingInvite | null>(null);
   const [activeDuels, setActiveDuels] = useState<ActiveDuel[]>([]);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/home' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   if (CHALLENGE_COMING_SOON) {
     return (
       <Screen scroll>
-        <ScreenHeader title="Friend Challenges" subtitle="Compete & Win" back />
+        <ScreenHeader title="Friend Challenges" subtitle="Compete & Win" back onBack={handleBack} />
         <View style={styles.comingSoonContainer}>
           <View style={styles.comingSoonGlowBox}>
             <LinearGradient
@@ -286,7 +303,7 @@ export default function ChallengeScreen() {
   if (!isAuthenticated && incomingInvite) {
     return (
       <Screen scroll>
-        <ScreenHeader title="NextRep Challenge" subtitle="You received an invite!" back />
+        <ScreenHeader title="NextRep Challenge" subtitle="You received an invite!" back onBack={handleBack} />
 
         <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
           <View style={styles.incomingHero}>
@@ -357,7 +374,7 @@ export default function ChallengeScreen() {
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Friend Challenge" subtitle="Turn training into friendly rivalry" back />
+      <ScreenHeader title="Friend Challenge" subtitle="Turn training into friendly rivalry" back onBack={handleBack} />
 
       {/* Incoming Invite Banner (if authenticated) */}
       {incomingInvite ? (

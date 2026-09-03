@@ -1,4 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { AchievementBadge } from '../components/misc';
@@ -9,7 +11,25 @@ import { spacing, useAccent } from '../theme';
 
 export default function AchievementsScreen() {
   useAccent();
+  const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/profile' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const all = computeAchievements(workouts);
   const cats = ['Strength', 'Consistency', 'Volume'];
@@ -17,7 +37,7 @@ export default function AchievementsScreen() {
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Achievements" subtitle={`${earnedCount} of ${all.length} unlocked`} back />
+      <ScreenHeader title="Achievements" subtitle={`${earnedCount} of ${all.length} unlocked`} back onBack={handleBack} />
 
       <View>
         <Card style={{ padding: spacing.md }}>

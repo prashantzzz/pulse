@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../components/Text';
@@ -26,6 +26,25 @@ export default function GymModeScreen() {
   const currentEx = workout?.exercises.find((we) => we.sets.some((s) => !s.completed));
   const currentSet = currentEx?.sets.find((s) => !s.completed);
   const ex = currentEx ? EXERCISE_MAP[currentEx.exerciseId] : undefined;
+
+  const handleClose = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else if (workout?.id) {
+      router.replace(`/workout/${workout.id}` as never);
+    } else {
+      router.replace('/(tabs)/home' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleClose();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router, workout?.id]);
 
   // Seed the steppers with the current set's stored values when moving to a
   // new set. Track the last-synced set id and adjust state during render (the
@@ -76,7 +95,7 @@ export default function GymModeScreen() {
 
       {/* minimal top bar */}
       <View style={[styles.top, { paddingTop: Math.max(insets.top + layout.screenTopPad, spacing.xl) }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={handleClose} hitSlop={10}>
           <Ionicons name="close" size={26} color={colors.textDim} />
         </Pressable>
         <T variant="small" dim>

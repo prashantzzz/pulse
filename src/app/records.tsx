@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -18,10 +19,11 @@ import { colors, layout, radius, spacing, useAccent } from '../theme';
  */
 export default function RecordsScreen() {
   useAccent();
+  const router = useRouter();
+  const workouts = usePulse((s) => s.workouts);
   const manualPRs = usePulse((s) => s.manualPRs);
   const addManualPR = usePulse((s) => s.addManualPR);
   const removeManualPR = usePulse((s) => s.removeManualPR);
-  const workouts = usePulse((s) => s.workouts);
 
   const [sheet, setSheet] = useState(false);
   const [query, setQuery] = useState('');
@@ -29,18 +31,27 @@ export default function RecordsScreen() {
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
 
-  // Dismiss bottom sheet on phone back press
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/progress' as never);
+    }
+  };
+
+  // Dismiss bottom sheet or navigate back on phone back press
   useEffect(() => {
     const onBackPress = () => {
       if (sheet) {
         setSheet(false);
         return true;
       }
-      return false;
+      handleBack();
+      return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [sheet]);
+  }, [sheet, router]);
 
   const historyBests = [...new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId)))]
     .map((id) => ({ id, best: bestForExercise(workouts, id) }))
@@ -70,7 +81,7 @@ export default function RecordsScreen() {
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
-      <ScreenHeader title="Personal Records" subtitle={`${manualPRs.length} manual · ${historyBests.length} from workouts`} back />
+      <ScreenHeader title="Personal Records" subtitle={`${manualPRs.length} manual · ${historyBests.length} from workouts`} back onBack={handleBack} />
 
       <View style={{ marginBottom: spacing.md }}>
         <Button label="Log a New Record" icon="trophy-outline" full size="lg" onPress={openSheet} />

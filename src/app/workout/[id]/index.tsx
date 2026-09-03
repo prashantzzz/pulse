@@ -32,6 +32,62 @@ import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptic
 import { presentActiveWorkoutNotification, dismissActiveWorkoutNotification } from '../../../lib/notifications';
 import type { ActiveWorkout, Workout, WorkoutExercise } from '../../../types';
 
+// ---------------------------------------------------------------------------
+// Notification dedup helpers — MODULE LEVEL (persist across component remounts)
+//
+// The standard pattern for workout tracker apps: notifications are driven by
+// actual store state mutations (via Zustand subscribe), never by React render
+// cycles or component mount/unmount events. A module-level key prevents
+// re-posting when the notification content hasn't changed (e.g. navigating
+// back from the log screen, app foreground, screen remount via router.replace).
+// ---------------------------------------------------------------------------
+
+/** Opaque key of the last content posted to the live notification. */
+let _lastNotifKey = '';
+
+/** Build a string key from the fields that should trigger a notification update. */
+function buildNotifKey(w: ActiveWorkout): string {
+  const rt = w.restTimer;
+  const isResting = !!rt && (rt.paused ? (rt.remainingSecWhenPaused ?? 0) : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))) > 0;
+  const dSets = w.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
+  return `${w.id}|${w.title}|${w.paused}|${dSets}|${isResting}|${rt?.paused ?? false}`;
+}
+
+/** Compute and post the live workout notification. Only call when content has actually changed. */
+function postWorkoutNotification(w: ActiveWorkout): void {
+  const rt = w.restTimer;
+  const curSLeft = rt
+    ? rt.paused
+      ? (rt.remainingSecWhenPaused ?? 0)
+      : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))
+    : 0;
+  const isResting = !!rt && curSLeft > 0;
+  const cEx = w.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? w.exercises[w.exercises.length - 1];
+  const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
+  const dSets = w.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
+  const tSets = w.exercises.reduce((s, we) => s + we.sets.length, 0);
+
+  let info = '';
+  if (isResting && rt) {
+    // Title already shows "Resting · WorkoutTitle" — body shows the next set without kg×reps
+    // Strip the parenthetical "(80 kg × 10 reps)" added by the store so notification stays clean
+    const stripped = rt.nextSetInfo ? rt.nextSetInfo.replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
+    info = stripped ? `Up next: ${stripped}` : '';
+  } else {
+    info = tSets > 0
+      ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
+      : 'Workout in progress';
+  }
+
+  presentActiveWorkoutNotification({
+    workoutTitle: w.title,
+    currentSetInfo: info,
+    isPaused: w.paused ?? false,
+    isResting,
+    workoutId: w.id,
+  });
+}
+
 /**
  * Animated collapsible Exercise Card using global accordion animations.
  */
@@ -211,14 +267,13 @@ function RestPopupModal({
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onSkip}>
       <View style={styles.restModalOverlay}>
-        {/* Blurred & Dimmed Backdrop — Tap backdrop or button to dismiss */}
-        <Pressable
+        {/* Dimmed Backdrop — intentionally non-interactive so accidental taps don't skip rest */}
+        <View
           style={[
             StyleSheet.absoluteFill,
             styles.restModalBackdrop,
             Platform.OS === 'web' && ({ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any),
           ]}
-          onPress={onSkip}
         />
 
         {/* Animated Rest Popup Card */}
@@ -411,100 +466,59 @@ export default function ActiveWorkoutScreen() {
     if (storeRestTimer && !storeRestTimer.paused && secondsLeft <= 0 && prevSecondsLeftRef.current > 0) {
       clearRestTimer();
       hapticsSuccess();
-      toast('Rest complete — ready for next set!');
+      // Don't tell the user to get ready for a next set if there are none left
+      if (doneSets < totalSets) {
+        toast('Rest complete — ready for next set!');
+      }
     }
     prevSecondsLeftRef.current = secondsLeft;
-  }, [secondsLeft, storeRestTimer, clearRestTimer]);
+  }, [secondsLeft, storeRestTimer, clearRestTimer, doneSets, totalSets]);
 
-  // Keep live notification synced with current exercise and sets progress.
-  // Only fires when meaningful state changes: set completed, paused/resumed, rest started/stopped.
-  // secondsLeft is intentionally excluded — the notification shows a static resting message;
-  // the live countdown is shown in the in-app RestPopupModal only.
+  // ---------------------------------------------------------------------------
+  // Notification sync — Zustand subscribe + module-level dedup
+  //
+  // We subscribe to the store rather than using a useEffect with deps.
+  // This fires ONLY on actual state mutations (set completed, pause, rest start)
+  // — never on React renders, component remounts, or app foreground events.
+  // The module-level _lastNotifKey prevents re-posting when nothing changed
+  // (e.g. router.replace remounting this screen from the log screen, or the
+  // user switching between apps without completing a set).
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!activeWorkout || activeWorkout.id !== id) {
-      dismissActiveWorkoutNotification();
-      return;
-    }
-
-    const isResting = !!storeRestTimer && secondsLeft > 0;
-    const currentEx = activeWorkout.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? activeWorkout.exercises[activeWorkout.exercises.length - 1];
-    const currentExName = currentEx ? EXERCISE_MAP[currentEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
-
-    let currentSetInfo = '';
-    if (isResting && storeRestTimer) {
-      // Static resting message — no live countdown so the notification doesn't re-fire every second
-      const nextInfo = storeRestTimer.nextSetInfo ? ` · Up next: ${storeRestTimer.nextSetInfo}` : '';
-      currentSetInfo = `Resting · ${storeRestTimer.exerciseName}${nextInfo}`;
-    } else {
-      currentSetInfo = totalSets > 0
-        ? (doneSets < totalSets ? `Set ${doneSets + 1} · ${currentExName}` : 'All sets completed')
-        : 'Workout in progress';
-    }
-
-    presentActiveWorkoutNotification({
-      workoutTitle: activeWorkout.title,
-      currentSetInfo,
-      isPaused: activeWorkout.paused,
-      isResting,
-      workoutId: activeWorkout.id,
+    // Subscribe to Zustand store — fires on state mutations only, not renders
+    const unsub = usePulse.subscribe((state) => {
+      const curr = state.activeWorkout;
+      if (!curr || curr.id !== id) return;
+      const key = buildNotifKey(curr);
+      if (key === _lastNotifKey) return; // Content unchanged — skip
+      _lastNotifKey = key;
+      postWorkoutNotification(curr);
     });
-  }, [
-    activeWorkout?.id,
-    activeWorkout?.paused,
-    activeWorkout?.title,
-    doneSets,
-    totalSets,
-    !!storeRestTimer,
-    storeRestTimer?.paused,
-    // NOTE: secondsLeft intentionally omitted — notification uses static text, not live countdown
-  ]);
 
-  // Clean up notification on unmount if workout has completed or been discarded
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
+    // AppState: ensure notification is in the shade when user minimizes.
+    // Only fires on 'background' — never on 'active' (app foreground) which
+    // previously caused a redundant pop on every app open.
+    const appStateSub = AppState.addEventListener('change', (state) => {
       const curr = usePulse.getState().activeWorkout;
       if (!curr || curr.id !== id) {
         dismissActiveWorkoutNotification();
         return;
       }
-      // Only post notification when going to background — ensures notification is present in the shade.
-      // On 'active' (returning to app), the screen-mounted useEffect above handles any required sync.
       if (state === 'background') {
-        const rt = curr.restTimer;
-        const curSecondsLeft = rt
-          ? rt.paused
-            ? (rt.remainingSecWhenPaused ?? 0)
-            : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))
-          : 0;
-        const isResting = !!rt && curSecondsLeft > 0;
-        const cEx = curr.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? curr.exercises[curr.exercises.length - 1];
-        const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
-        const dSets = curr.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
-        const tSets = curr.exercises.reduce((s, we) => s + we.sets.length, 0);
-
-        let cInfo = '';
-        if (isResting && rt) {
-          const nextInfo = rt.nextSetInfo ? ` · Up next: ${rt.nextSetInfo}` : '';
-          cInfo = `Resting · ${rt.exerciseName}${nextInfo}`;
-        } else {
-          cInfo = tSets > 0
-            ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
-            : 'Workout in progress';
-        }
-
-        presentActiveWorkoutNotification({
-          workoutTitle: curr.title,
-          currentSetInfo: cInfo,
-          isPaused: curr.paused,
-          isResting,
-          workoutId: curr.id,
-        });
+        // Always post when going to background to guarantee the notification
+        // exists in the shade. Reset the key so the next foreground transition
+        // (which correctly does nothing) doesn't see a stale key.
+        _lastNotifKey = buildNotifKey(curr);
+        postWorkoutNotification(curr);
       }
     });
 
     return () => {
-      sub.remove();
+      unsub();
+      appStateSub.remove();
+      // Only dismiss if the workout is fully done or cancelled
       if (!usePulse.getState().activeWorkout) {
+        _lastNotifKey = '';
         dismissActiveWorkoutNotification();
       }
     };

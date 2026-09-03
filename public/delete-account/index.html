@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account & Data Deletion - NextRep</title>
+  <style>
+    :root {
+      --bg: #0A0B0D;
+      --surface1: #121418;
+      --surface2: #1A1D24;
+      --accent: #FF8C00;
+      --text: #F3F4F6;
+      --text-dim: #9CA3AF;
+      --border: #242933;
+      --red: #EF4444;
+      --red-soft: rgba(239, 68, 68, 0.12);
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 32px 16px;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      font-size: 28px;
+      margin: 0 0 6px 0;
+      color: var(--text);
+    }
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 14px;
+      margin: 0;
+    }
+    .hero-card {
+      background-color: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background-color: var(--surface1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-size: 18px;
+      margin: 0 0 12px 0;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 15px;
+      margin: 14px 0 8px 0;
+      color: var(--accent);
+    }
+    p {
+      margin: 0 0 12px 0;
+      color: var(--text-dim);
+      font-size: 15px;
+    }
+    ol, ul {
+      margin: 0 0 12px 0;
+      padding-left: 20px;
+      color: var(--text-dim);
+      font-size: 15px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .btn {
+      display: inline-block;
+      background-color: var(--accent);
+      color: #0A0B0D;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      margin-top: 8px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--red-soft);
+      color: var(--red);
+      margin-bottom: 10px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+      margin: 0 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>NextRep &mdash; Account & Data Deletion</h1>
+      <p class="subtitle">NextRep: Gym Workout Tracker &bull; Developer: NextRep</p>
+    </div>
+
+    <div class="hero-card">
+      <p style="margin: 0; color: var(--text); font-weight: 500;">
+        NextRep gives you complete ownership and control over your personal fitness and account data. You can delete your data at any time directly in the app or submit a deletion request via this page.
+      </p>
+    </div>
+
+    <!-- Section 1: How to delete within the app -->
+    <div class="card">
+      <h2>1. In-App Instant Data Deletion</h2>
+      <p>If you have the NextRep app installed, you can wipe all your workout records and local cache instantly:</p>
+      <ol>
+        <li>Open <strong>NextRep</strong> on your Android device.</li>
+        <li>Tap the <strong>Profile</strong> tab &rarr; tap <strong>Settings</strong> (gear icon).</li>
+        <li>Scroll to the <strong>Your Data</strong> section.</li>
+        <li>Tap <strong style="color: var(--red);">Clear all data</strong> and confirm.</li>
+      </ol>
+      <p><em>All workouts, sets, exercise records, body measurements, and local session caches are immediately and permanently erased from your device.</em></p>
+    </div>
+
+    <!-- Section 2: How to delete your cloud account -->
+    <div class="card">
+      <h2>2. Cloud Account & Associated Data Deletion Request</h2>
+      <p>If you created a cloud account (via Email or Google OAuth) and wish to permanently delete your account, authentication credentials, and all synchronized cloud backups:</p>
+
+      <h3>Step-by-Step Request Instructions:</h3>
+      <ol>
+        <li>Send an email to <strong style="color: var(--text);">support@nextrep.fit</strong> or <strong style="color: var(--text);">prashant.coder.dev@gmail.com</strong>.</li>
+        <li>Use the subject line: <code style="color: var(--accent); background: var(--surface2); padding: 2px 6px; border-radius: 4px;">Account Deletion Request - NextRep</code>.</li>
+        <li>Include the <strong>email address</strong> associated with your NextRep cloud account.</li>
+      </ol>
+      <p>Our team verifies account ownership and processes complete permanent deletion within <strong>7 business days</strong>.</p>
+    </div>
+
+    <!-- Section 3: Data Deletion & Retention Breakdown -->
+    <div class="card">
+      <h2>3. Types of Data Deleted vs. Retained</h2>
+      
+      <h3>Data Types Permanently Deleted:</h3>
+      <ul>
+        <li><strong>Account Authentication:</strong> User ID, email address, display name, and hashed auth records.</li>
+        <li><strong>Workout History:</strong> Logged workouts, exercises, set numbers, weights, reps, RPE, and notes.</li>
+        <li><strong>Body Measurements:</strong> Weight records, body fat percentages, and body dimension logs.</li>
+        <li><strong>Social & Challenge Data:</strong> Friend connections, active challenges, and leaderboard entries.</li>
+        <li><strong>Storage:</strong> Custom avatar photos uploaded to our cloud storage.</li>
+      </ul>
+
+      <h3>Data Retained:</h3>
+      <ul>
+        <li><strong>None:</strong> We do not retain any residual personal data or fitness records once account deletion is executed.</li>
+      </ul>
+
+      <h3>Data Retention Period:</h3>
+      <ul>
+        <li><strong>Immediate for local data:</strong> Cleared on-device instantly upon clicking "Clear all data".</li>
+        <li><strong>Within 7 days for cloud accounts:</strong> Full database record purging, storage cleanup, and authentication profile deletion upon receipt of your deletion request.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="text-align: center;">
+      <h2>Need Help?</h2>
+      <p>Contact our developer support team directly for any data or privacy assistance.</p>
+      <a class="btn" href="mailto:support@nextrep.fit?subject=Account%20Deletion%20Request%20-%20NextRep">Email Deletion Request</a>
+    </div>
+
+    <div class="footer">
+      <p>&copy; 2026 NextRep. All rights reserved.</p>
+      <p>
+        <a href="/privacy">Privacy Policy</a> &bull; 
+        <a href="/terms">Terms of Service</a> &bull;
+        <a href="/delete-account">Account Deletion</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

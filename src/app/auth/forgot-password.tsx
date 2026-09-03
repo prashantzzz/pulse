@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -27,6 +28,19 @@ export default function ForgotPasswordScreen() {
   const onboarded = usePulse((s) => s.onboarded);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/auth/login' as never);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   useEffect(() => {
     if (isInitialized && isAuthenticated) {

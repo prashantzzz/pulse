@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { Button, Card, Row, Screen, ScreenHeader, Tag } from '../../components/ui';
@@ -18,10 +19,27 @@ export default function ReplayScreen() {
   const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/history' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   if (!workout) {
     return (
       <Screen>
-        <ScreenHeader title="Replay" back />
+        <ScreenHeader title="Replay" back onBack={handleBack} />
         <View style={{ padding: spacing.lg }}>
           <T variant="body" dim>
             Workout not found.
@@ -41,7 +59,7 @@ export default function ReplayScreen() {
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Workout Replay" subtitle={formatDate(workout.startTime)} back />
+      <ScreenHeader title="Workout Replay" subtitle={formatDate(workout.startTime)} back onBack={handleBack} />
 
       <View>
         <Card gradient="charcoal" style={{ padding: spacing.lg }}>

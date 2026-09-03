@@ -47,7 +47,7 @@ export default function SettingsScreen() {
   const [importPreview, setImportPreview] = useState<CsvImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Intercept phone back button to dismiss open bottom sheets
+  // Intercept phone back button to dismiss open bottom sheets or return to Profile
   useEffect(() => {
     const onBackPress = () => {
       if (editName) {
@@ -74,12 +74,17 @@ export default function SettingsScreen() {
         setImportPreview(null);
         return true;
       }
-      return false;
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/profile' as never);
+      }
+      return true;
     };
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [editName, editGender, editAccent, confirmClear, confirmSignOut, importPreview]);
+  }, [editName, editGender, editAccent, confirmClear, confirmSignOut, importPreview, router]);
 
   const exportCSV = async () => {
     if (workouts.length === 0) {
@@ -174,7 +179,17 @@ export default function SettingsScreen() {
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Settings" back />
+      <ScreenHeader
+        title="Settings"
+        back
+        onBack={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/profile' as never);
+          }
+        }}
+      />
 
       <View style={{ gap: spacing.md }}>
         {/* Account / Cloud Section */}

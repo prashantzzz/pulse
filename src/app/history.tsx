@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, ScrollView, StyleSheet } from 'react-native';
 
 import { EmptyState } from '../components/misc';
 import { Chip, Screen, ScreenHeader } from '../components/ui';
@@ -17,6 +17,23 @@ export default function HistoryScreen() {
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState('All');
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/home' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   // sort once for the list and reuse the order for per-card "previous workout"
   // lookups — sorting inside the render loop was O(n² log n) per render
   const sorted = [...workouts].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
@@ -26,7 +43,7 @@ export default function HistoryScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="History" subtitle={`${workouts.length} workouts logged`} back />
+      <ScreenHeader title="History" subtitle={`${workouts.length} workouts logged`} back onBack={handleBack} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

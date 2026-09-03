@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { Avatar } from '../components/misc';
@@ -27,10 +27,27 @@ export default function LeaderboardScreen() {
   const workouts = usePulse((s) => s.workouts);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('This Week');
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/home' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   if (LEADERBOARD_COMING_SOON) {
     return (
       <Screen scroll>
-        <ScreenHeader title="Leaderboard" subtitle="Global & Friends" back />
+        <ScreenHeader title="Leaderboard" subtitle="Global & Friends" back onBack={handleBack} />
         <View style={styles.comingSoonContainer}>
           <View style={styles.comingSoonGlowBox}>
             <LinearGradient
@@ -103,6 +120,7 @@ export default function LeaderboardScreen() {
         title="Leaderboard"
         subtitle={realFriends.length > 0 ? `You're ranked #${myRank}` : `Your Score: ${myScore}`}
         back
+        onBack={handleBack}
       />
       <View>
         <Row gap={8}>
