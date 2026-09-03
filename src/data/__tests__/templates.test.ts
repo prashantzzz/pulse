@@ -1,5 +1,5 @@
 import { EXERCISE_MAP } from '../exercises';
-import { PROGRAM_TEMPLATES, templateToPlans } from '../templates';
+import { PROGRAM_TEMPLATES, templateToPlans, validateCuratedTemplates } from '../templates';
 
 describe('Workout Program Templates Library', () => {
   it('should include all 9 evidence-based program combinations', () => {
@@ -17,6 +17,23 @@ describe('Workout Program Templates Library', () => {
       'advanced-4day',
       'advanced-5day',
     ]);
+  });
+
+  it('should pass comprehensive validateCuratedTemplates validation', () => {
+    const result = validateCuratedTemplates(PROGRAM_TEMPLATES);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it('should enforce that NO curated workout day contains more than 5 exercises (strictly 1–5)', () => {
+    for (const template of PROGRAM_TEMPLATES) {
+      for (const day of template.days) {
+        expect(day.exercises.length).toBeGreaterThanOrEqual(1);
+        expect(day.exercises.length).toBeLessThanOrEqual(5);
+        // All 9 designed templates have exactly 5 exercises
+        expect(day.exercises.length).toBe(5);
+      }
+    }
   });
 
   it('should mark the 3 recommended baseline programs correctly', () => {
@@ -41,15 +58,19 @@ describe('Workout Program Templates Library', () => {
     }
   });
 
-  it('should accurately convert a ProgramTemplate into WorkoutPlan format', () => {
+  it('should accurately convert a ProgramTemplate into WorkoutPlan format with fresh UUIDs and cloned arrays', () => {
     const beginner3 = PROGRAM_TEMPLATES.find((t) => t.id === 'beginner-3day')!;
-    const plans = templateToPlans(beginner3);
+    const plans1 = templateToPlans(beginner3);
+    const plans2 = templateToPlans(beginner3);
 
-    expect(plans).toHaveLength(3);
-    expect(plans[0].title).toBe('Full Body A');
-    expect(plans[0].exercises).toHaveLength(5);
-    expect(plans[0].exercises[0].exerciseId).toBe('squat');
-    expect(plans[0].exercises[0].sets).toBe(3);
-    expect(plans[0].exercises[0].targetReps).toBe('6-8');
+    expect(plans1).toHaveLength(3);
+    expect(plans1[0].title).toBe('Full Body A');
+    expect(plans1[0].exercises).toHaveLength(5);
+    expect(plans1[0].exercises[0].exerciseId).toBe('squat');
+    expect(plans1[0].exercises[0].sets).toBe(3);
+    expect(plans1[0].exercises[0].targetReps).toBe('6-8');
+
+    // Generated IDs must be unique per instantiation
+    expect(plans1[0].id).not.toBe(plans2[0].id);
   });
 });

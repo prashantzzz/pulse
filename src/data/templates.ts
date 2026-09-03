@@ -1,5 +1,6 @@
 import { genUuid } from '../lib/uuid';
 import type { Difficulty, MuscleGroup, WorkoutPlan } from '../types';
+import { EXERCISE_MAP } from './exercises';
 
 export interface TemplateDay {
   id: string;
@@ -113,7 +114,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Leg Press, Incline DB Press, Cable Row & Arms',
         exercises: [
           { exerciseId: 'leg-press', sets: 3, targetReps: '8-12' },
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-12' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-12' },
           { exerciseId: 'seated-cable-row', sets: 3, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
           { exerciseId: 'bicep-curl', sets: 2, targetReps: '10-15' },
@@ -183,7 +184,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders', 'Triceps'],
         focusDescription: 'Incline Press, Pulldown, Cable Row & Triceps',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-12' },
           { exerciseId: 'seated-cable-row', sets: 2, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
@@ -255,7 +256,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Goblet Squat, Incline Press, Pulldown & RDL',
         exercises: [
           { exerciseId: 'goblet-squat', sets: 2, targetReps: '8-12' },
-          { exerciseId: 'incline-bench-press', sets: 2, targetReps: '8-12' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 2, targetReps: '8-12' },
           { exerciseId: 'lat-pulldown', sets: 2, targetReps: '8-12' },
           { exerciseId: 'romanian-deadlift', sets: 2, targetReps: '10-12' },
           { exerciseId: 'lateral-raise', sets: 2, targetReps: '12-15' },
@@ -268,7 +269,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders', 'Triceps'],
         focusDescription: 'Incline Press, Cable Row, Pulldown & Triceps',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'seated-cable-row', sets: 3, targetReps: '8-12' },
           { exerciseId: 'lat-pulldown', sets: 2, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
@@ -326,7 +327,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Leg Press, Incline Press, Barbell Row & Arms',
         exercises: [
           { exerciseId: 'leg-press', sets: 3, targetReps: '8-12' },
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-12' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-12' },
           { exerciseId: 'barbell-row', sets: 3, targetReps: '6-10' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
           { exerciseId: 'bicep-curl', sets: 2, targetReps: '10-15' },
@@ -372,7 +373,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         exercises: [
           { exerciseId: 'bench-press', sets: 3, targetReps: '5-8' },
           { exerciseId: 'barbell-row', sets: 3, targetReps: '6-10' },
-          { exerciseId: 'incline-bench-press', sets: 2, targetReps: '8-12' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 2, targetReps: '8-12' },
           { exerciseId: 'lat-pulldown', sets: 2, targetReps: '8-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
         ],
@@ -398,7 +399,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders'],
         focusDescription: 'Incline Press, Lat Pulldown, Cable Row & Delts',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-12' },
           { exerciseId: 'seated-cable-row', sets: 3, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
@@ -442,7 +443,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Bench Press, Incline DB, Shoulder Press & Triceps',
         exercises: [
           { exerciseId: 'bench-press', sets: 3, targetReps: '5-8' },
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-12' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 2, targetReps: '8-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
           { exerciseId: 'triceps-pushdown', sets: 2, targetReps: '10-15' },
@@ -483,7 +484,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders', 'Biceps'],
         focusDescription: 'Incline Press, Barbell Row, Lat Pulldown & Arms',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'barbell-row', sets: 3, targetReps: '6-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '10-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
@@ -541,7 +542,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Deadlift (3x), Incline DB Press (4x), Pulldown & Split Squat',
         exercises: [
           { exerciseId: 'deadlift', sets: 3, targetReps: '3-5' },
-          { exerciseId: 'incline-bench-press', sets: 4, targetReps: '6-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 4, targetReps: '6-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-12' },
           { exerciseId: 'bulgarian-split-squat', sets: 3, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 3, targetReps: '8-12' },
@@ -585,7 +586,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         exercises: [
           { exerciseId: 'bench-press', sets: 4, targetReps: '4-6' },
           { exerciseId: 'barbell-row', sets: 4, targetReps: '5-8' },
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
         ],
@@ -611,7 +612,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders'],
         focusDescription: 'Incline Press (4x), Lat Pulldown (4x), Seated Row & Delts',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 4, targetReps: '6-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 4, targetReps: '6-10' },
           { exerciseId: 'lat-pulldown', sets: 4, targetReps: '8-12' },
           { exerciseId: 'seated-cable-row', sets: 3, targetReps: '8-12' },
           { exerciseId: 'shoulder-press', sets: 3, targetReps: '8-12' },
@@ -657,7 +658,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         focusDescription: 'Heavy Bench Press (4x), Incline Press, Shoulder Press & Triceps',
         exercises: [
           { exerciseId: 'bench-press', sets: 4, targetReps: '4-6' },
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '6-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '6-10' },
           { exerciseId: 'shoulder-press', sets: 3, targetReps: '8-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
           { exerciseId: 'triceps-pushdown', sets: 3, targetReps: '10-15' },
@@ -698,7 +699,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
         muscles: ['Chest', 'Back', 'Shoulders', 'Biceps'],
         focusDescription: 'Incline Press, Lat Pulldown, Cable Row, Lateral Raise & Arms',
         exercises: [
-          { exerciseId: 'incline-bench-press', sets: 3, targetReps: '8-10' },
+          { exerciseId: 'incline-dumbbell-bench-press', sets: 3, targetReps: '8-10' },
           { exerciseId: 'lat-pulldown', sets: 3, targetReps: '8-12' },
           { exerciseId: 'seated-cable-row', sets: 3, targetReps: '8-12' },
           { exerciseId: 'lateral-raise', sets: 3, targetReps: '12-20' },
@@ -731,7 +732,7 @@ export function templateToPlans(template: ProgramTemplate): WorkoutPlan[] {
     id: genUuid(),
     title: d.title,
     emoji: d.emoji,
-    muscles: d.muscles,
+    muscles: [...d.muscles],
     exercises: d.exercises.map((e) => ({
       exerciseId: e.exerciseId,
       sets: e.sets,
@@ -739,3 +740,90 @@ export function templateToPlans(template: ProgramTemplate): WorkoutPlan[] {
     })),
   }));
 }
+
+export interface TemplateValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Development-time and test-time validation specifically for curated resistance templates.
+ * Enforces data quality, canonical exercise references, and the <= 5 exercises/day rule
+ * without placing artificial constraints on user-created custom builder routines.
+ */
+export function validateCuratedTemplates(
+  templates: ProgramTemplate[] = PROGRAM_TEMPLATES,
+): TemplateValidationResult {
+  const errors: string[] = [];
+  const seenTemplateIds = new Set<string>();
+
+  for (const t of templates) {
+    if (!t.id || seenTemplateIds.has(t.id)) {
+      errors.push(`Duplicate or missing template id: "${t.id}"`);
+    }
+    seenTemplateIds.add(t.id);
+
+    if (!['Beginner', 'Intermediate', 'Advanced'].includes(t.experience)) {
+      errors.push(`Template "${t.id}" has invalid experience: "${t.experience}"`);
+    }
+
+    if (![3, 4, 5].includes(t.daysPerWeek)) {
+      errors.push(`Template "${t.id}" has invalid daysPerWeek: ${t.daysPerWeek}`);
+    }
+
+    if (t.days.length !== t.daysPerWeek) {
+      errors.push(
+        `Template "${t.id}" days length (${t.days.length}) does not match daysPerWeek (${t.daysPerWeek})`,
+      );
+    }
+
+    const seenDayIds = new Set<string>();
+    for (let dIdx = 0; dIdx < t.days.length; dIdx++) {
+      const day = t.days[dIdx];
+      if (!day.id || seenDayIds.has(day.id)) {
+        errors.push(`Template "${t.id}" has duplicate/missing day id: "${day.id}"`);
+      }
+      seenDayIds.add(day.id);
+
+      if (day.exercises.length === 0 || day.exercises.length > 5) {
+        errors.push(
+          `Template "${t.id}" day "${day.title}" has ${day.exercises.length} exercises (must be 1–5)`,
+        );
+      }
+
+      const seenExIds = new Set<string>();
+      for (let eIdx = 0; eIdx < day.exercises.length; eIdx++) {
+        const spec = day.exercises[eIdx];
+        if (!spec.exerciseId || !EXERCISE_MAP[spec.exerciseId]) {
+          errors.push(
+            `Template "${t.id}" day "${day.title}" has unknown exercise id: "${spec.exerciseId}"`,
+          );
+        }
+        if (seenExIds.has(spec.exerciseId)) {
+          errors.push(
+            `Template "${t.id}" day "${day.title}" has duplicate exercise slot: "${spec.exerciseId}"`,
+          );
+        }
+        seenExIds.add(spec.exerciseId);
+
+        if (!spec.sets || spec.sets <= 0) {
+          errors.push(
+            `Template "${t.id}" day "${day.title}" exercise "${spec.exerciseId}" has invalid sets: ${spec.sets}`,
+          );
+        }
+
+        if (!spec.targetReps || !/^\d+[-–]\d+$/.test(spec.targetReps)) {
+          errors.push(
+            `Template "${t.id}" day "${day.title}" exercise "${spec.exerciseId}" has invalid targetReps: "${spec.targetReps}"`,
+          );
+        }
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+

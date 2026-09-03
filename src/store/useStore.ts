@@ -13,10 +13,11 @@ import {
   removeFavoriteFromCloud,
   pushManualPRToCloud,
   removeManualPRFromCloud,
-  flushOfflineSyncQueue,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { SEED_PLANS } from '../data/seed';
+import { templateToPlans } from '../data/templates';
+import { recommendTemplate } from '../lib/recommendations';
 import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
 import { getDefaultSetValues, previousSet, getRecommendedRestSeconds } from '../lib/stats';
@@ -153,15 +154,27 @@ export const usePulse = create<PulseState>()(
       },
 
       completeOnboarding: (profile) => {
+        const currentPlans = get().plans;
+        let activePlans = currentPlans;
+        if (!currentPlans || currentPlans.length === 0) {
+          const rec = recommendTemplate(profile);
+          activePlans = templateToPlans(rec.modifiedTemplate);
+        }
         set({
           onboarded: true,
           profile,
           seeded: true,
+          plans: activePlans,
           workouts: get().workouts,
           measurements: get().measurements,
           favorites: get().favorites,
           friends: get().friends,
         });
+        if (activePlans !== currentPlans && activePlans.length > 0) {
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) pushAllPlansToCloud(user.id, activePlans).catch(() => {});
+          }).catch(() => {});
+        }
       },
 
       toggleFavorite: (exerciseId) =>

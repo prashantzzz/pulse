@@ -1864,7 +1864,7 @@ export const EXERCISE_ALIASES: Record<string, string[]> = {
   'goblet-squat': ['goblet squat dumbbell', 'dumbbell goblet squat'],
   'hack-squat': ['hack squat machine'],
   deadlift: ['conventional deadlift', 'barbell deadlift'],
-  'romanian-deadlift': ['rdl', 'romanian dead lift', 'barbell romanian deadlift'],
+  'romanian-deadlift': ['rdl', 'romanian dead lift', 'barbell romanian deadlift', 'dumbbell romanian deadlift', 'db rdl'],
   'hip-thrust': ['barbell hip thrust', 'hip thrust barbell'],
   'leg-press': ['horizontal leg press', 'leg press machine', 'sled press', 'leg press horizontal'],
   'leg-extension': ['leg extension machine'],
