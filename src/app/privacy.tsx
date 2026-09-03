@@ -117,7 +117,7 @@ export default function PrivacyPolicyScreen() {
         <PolicySection
           icon="mail-outline"
           title="7. Contact & Support"
-          body="If you have any questions, feedback, or requests regarding this Privacy Policy or your data, please contact developer support via email at support@nextrep.fit or through our website."
+          body="If you have any questions, feedback, or requests regarding this Privacy Policy or your data, please contact developer support via email at prasmatic.help@gmail.com or through our website."
         />
       </View>
     </Screen>
