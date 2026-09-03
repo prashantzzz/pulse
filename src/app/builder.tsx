@@ -282,7 +282,7 @@ export default function BuilderScreen() {
               </T>
               {drafts.length > 0 ? (
                 <T variant="micro" muted>
-                  Tap sets to edit · tap name for guide
+                  Tap sets to edit
                 </T>
               ) : null}
             </Row>

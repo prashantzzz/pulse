@@ -280,11 +280,15 @@ export default function LogSetScreen() {
 
       <View style={styles.bottomBar}>
         <Button label="Complete Set" icon="checkmark" full size="lg" onPress={finish} />
-        <Pressable onPress={saveOnly} style={{ marginTop: spacing.sm }}>
-          <T variant="smallMedium" dim center>
-            Save
-          </T>
-        </Pressable>
+        <Button
+          label="Save"
+          variant="dark"
+          icon="save-outline"
+          full
+          size="md"
+          onPress={saveOnly}
+          style={styles.saveBtn}
+        />
       </View>
     </View>
   );
@@ -410,5 +414,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    gap: 8,
+  },
+  saveBtn: {
+    height: 44,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.borderBright,
+    borderRadius: radius.md,
   },
 });

@@ -17,6 +17,7 @@ import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '../components/misc';
+import { AuthLoadingScreen } from '../components/auth-loading';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { applyAccent, colors } from '../theme';
@@ -67,6 +68,7 @@ export default function RootLayout() {
   const initializeAuth = useAuth((s) => s.initialize);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
+  const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
   const segments = useSegments();
   const router = useRouter();
 
@@ -141,6 +143,8 @@ export default function RootLayout() {
   // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {
     if (!fontsLoaded || !hydrated || !isInitialized) return;
+    // CRITICAL: Do not route or show onboarding while the user's cloud status is being verified!
+    if (isVerifyingUser) return;
 
     const segList = segments as string[];
     const inAuthGroup = segList[0] === 'auth';
@@ -160,17 +164,19 @@ export default function RootLayout() {
         router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
       }
     }
-  }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, segments, router]);
+  }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, isVerifyingUser, segments, router]);
 
   // apply the user's accent palette when it changes
   useEffect(() => {
     applyAccent(accentKey);
   }, [accentKey]);
 
-  if (!fontsLoaded || !hydrated) {
+  if (!fontsLoaded || !hydrated || isVerifyingUser) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <StatusBar style="light" />
+        {isVerifyingUser ? <AuthLoadingScreen /> : null}
+        <ToastHost />
       </View>
     );
   }

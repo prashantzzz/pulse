@@ -1,12 +1,14 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { toast } from '../../components/misc';
+import { AuthLoadingScreen } from '../../components/auth-loading';
 import { T } from '../../components/Text';
 import { handleAuthUrl } from '../../lib/auth';
 import { syncUserDataFromCloud } from '../../lib/sync';
+import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 
@@ -19,6 +21,7 @@ export default function AuthCallbackScreen() {
     let mounted = true;
 
     async function processCallback() {
+      useAuth.setState({ isVerifyingUser: true });
       try {
         const webUrl = typeof window !== 'undefined' && window.location?.href ? window.location.href : null;
         const nativeUrl = await Linking.getInitialURL();
@@ -29,6 +32,7 @@ export default function AuthCallbackScreen() {
           if (session?.user && mounted) {
             toast('Signed in successfully');
             await syncUserDataFromCloud(session.user.id);
+            useAuth.setState({ isVerifyingUser: false });
             const isUserOnboarded = usePulse.getState().onboarded;
             if (isUserOnboarded || onboarded) {
               router.replace('/(tabs)/home');
@@ -38,11 +42,14 @@ export default function AuthCallbackScreen() {
             return;
           }
         }
+        useAuth.setState({ isVerifyingUser: false });
         // If already signed in or no specific URL parameters
         if (mounted) {
-          router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
+          const isUserOnboarded = usePulse.getState().onboarded;
+          router.replace(isUserOnboarded || onboarded ? '/(tabs)/home' : '/onboarding');
         }
       } catch (err: unknown) {
+        useAuth.setState({ isVerifyingUser: false });
         if (mounted) {
           const msg = (err as { message?: string }).message ?? 'Authentication callback failed.';
           setErrorMsg(msg);
@@ -62,12 +69,10 @@ export default function AuthCallbackScreen() {
   }, [onboarded, router]);
 
   return (
-    <View style={styles.root}>
-      <ActivityIndicator size="large" color={colors.accent} />
-      <T variant="body" dim style={{ marginTop: spacing.md }}>
-        {errorMsg ? errorMsg : 'Completing sign in...'}
-      </T>
-    </View>
+    <AuthLoadingScreen
+      title="Completing sign in..."
+      subtitle={errorMsg ? errorMsg : 'Setting up your profile & workouts'}
+    />
   );
 }
 

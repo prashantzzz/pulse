@@ -207,7 +207,7 @@ export function TodayWorkoutCard({
   isLongLayoff?: boolean;
   onResume?: () => void;
 }) {
-  useAccent();
+  const accentKey = useAccent();
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
@@ -221,7 +221,7 @@ export function TodayWorkoutCard({
 
     return (
       <View style={[styles.heroCard, { borderColor: `${colors.accent}66` }]}>
-        <LinearGradient colors={[accentTint(colors.accent, 0.22), colors.bg]} style={StyleSheet.absoluteFill} />
+        <LinearGradient key={`active-${accentKey}`} colors={[accentTint(colors.accent, 0.22), colors.bg]} style={StyleSheet.absoluteFill} />
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}2E` }]} />
         <View style={{ padding: spacing.lg, gap: 10 }}>
           <Row align="space-between">
@@ -236,7 +236,7 @@ export function TodayWorkoutCard({
             <StatPill icon="layers-outline" text={`${completedSets}/${totalSets} sets done`} />
           </Row>
           <Pressable onPress={onResume} style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.9 }]}>
-            <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+            <LinearGradient key={`cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
             <T variant="bodySemi" style={{ color: colors.bg, fontSize: 16 }}>
               Resume Workout
             </T>
@@ -247,17 +247,17 @@ export function TodayWorkoutCard({
     );
   }
 
-  // ── COMPLETED TODAY HERO (OPTION A: RECOVERY & SUBTLE PREVIEW) ─────────────
+  // ── COMPLETED TODAY HERO ──────────────────────────────────────────────────
   if (completedWorkout) {
     const st = workoutStats(completedWorkout);
     return (
       <>
-        <View style={[styles.heroCard, { borderColor: `${colors.emerald}4D` }]}>
-          <LinearGradient colors={[accentTint(colors.emerald, 0.18), colors.bg]} style={StyleSheet.absoluteFill} />
-          <View style={[styles.heroGlow, { backgroundColor: `${colors.emerald}1A` }]} />
+        <View style={[styles.heroCard, { borderColor: `${colors.accent}4D` }]}>
+          <LinearGradient key={`completed-${accentKey}`} colors={[accentTint(colors.accent, 0.18), colors.bg]} style={StyleSheet.absoluteFill} />
+          <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
           <View style={{ padding: spacing.lg, gap: 12 }}>
             <Row align="space-between">
-              <Tag label="COMPLETED TODAY 🎉" color={colors.emerald} bg={`${colors.emerald}1F`} />
+              <Tag label="COMPLETED TODAY 🎉" color={colors.accent} bg={colors.accentSoft} />
               <T variant="micro" muted>
                 Time to recover
               </T>
@@ -272,10 +272,14 @@ export function TodayWorkoutCard({
             {plan ? (
               <Pressable
                 onPress={() => setShowPreviewModal(true)}
-                style={({ pressed }) => [styles.nextUpPreviewBtn, pressed && { opacity: 0.85 }]}>
+                style={({ pressed }) => [
+                  styles.nextUpPreviewBtn,
+                  { backgroundColor: `${colors.accent}14`, borderColor: `${colors.accent}33` },
+                  pressed && { opacity: 0.85 },
+                ]}>
                 <Row align="space-between" style={{ width: '100%' }}>
                   <Row gap={8} align="center">
-                    <View style={styles.previewSparkle}>
+                    <View style={[styles.previewSparkle, { backgroundColor: `${colors.accent}2E` }]}>
                       <Ionicons name="sparkles" size={12} color={colors.accent} />
                     </View>
                     <View>
@@ -348,7 +352,7 @@ export function TodayWorkoutCard({
                     onStart(plan);
                   }}
                   style={({ pressed }) => [styles.heroCta, { marginTop: spacing.md }, pressed && { opacity: 0.9 }]}>
-                  <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+                  <LinearGradient key={`preview-cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
                   <T variant="bodySemi" style={{ color: colors.bg, fontSize: 15 }}>
                     Start Workout Early
                   </T>
@@ -372,7 +376,7 @@ export function TodayWorkoutCard({
   return (
     <>
       <View style={[styles.heroCard, { borderColor: `${colors.accent}2E` }]}>
-        <LinearGradient colors={[accentTint(colors.accent, 0.16), colors.bg]} style={StyleSheet.absoluteFill} />
+        <LinearGradient key={`ready-${accentKey}`} colors={[accentTint(colors.accent, 0.16), colors.bg]} style={StyleSheet.absoluteFill} />
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
         {first ? (
           <View style={styles.heroArt} pointerEvents="none">
@@ -423,7 +427,7 @@ export function TodayWorkoutCard({
             </View>
           ) : null}
           <Pressable onPress={() => onStart(plan)} style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.9 }]}>
-            <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+            <LinearGradient key={`start-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
             <T variant="bodySemi" style={{ color: colors.bg, fontSize: 16 }}>
               Start Workout
             </T>
@@ -611,10 +615,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   nextUpPreviewBtn: {
-    backgroundColor: `${colors.accent}12`,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: `${colors.accent}33`,
     paddingVertical: 10,
     paddingHorizontal: spacing.md,
   },
@@ -622,7 +624,6 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: `${colors.accent}2E`,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -650,10 +651,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   nextUpPreviewBox: {
-    backgroundColor: `${colors.accent}14`,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: `${colors.accent}33`,
     paddingVertical: 8,
     paddingHorizontal: spacing.md,
     marginTop: 2,
@@ -662,12 +661,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.accentSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: `${colors.accent}33`,
   },
   modalBackdrop: {
     flex: 1,

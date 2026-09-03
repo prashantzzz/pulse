@@ -29,6 +29,7 @@ import type { WorkoutPlan } from '../../types';
 export default function HomeScreen() {
   // subscribe so this screen re-renders (and recreates its children) live on accent change
   useAccent();
+  const accentKey = usePulse((s) => s.accentKey);
   const router = useRouter();
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
@@ -118,7 +119,7 @@ export default function HomeScreen() {
       {/* today's workout hero */}
       {smartPlanResult.state === 'NO_PLANS' ? (
         <View style={{ marginTop: spacing.lg }}>
-          <Card gradient="charcoal" style={{ padding: spacing.lg, borderRadius: radius.xxl, borderWidth: 1, borderColor: `${colors.accent}33` }}>
+          <Card key={`starter-${accentKey}`} gradient="charcoal" style={{ padding: spacing.lg, borderRadius: radius.xxl, borderWidth: 1, borderColor: `${colors.accent}33` }}>
             <Row align="space-between" style={{ marginBottom: spacing.xs }}>
               <Tag label="Get Started" color={colors.accent} bg={colors.accentSoft} />
               <T variant="micro" muted>
@@ -134,7 +135,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => router.push('/workouts' as never)}
               style={({ pressed }) => [styles.starterCta, pressed && { opacity: 0.9 }]}>
-              <LinearGradient colors={[...gradients.accent]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+              <LinearGradient key={`starter-cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
               <T variant="bodySemi" style={{ color: colors.bg, fontSize: 14.5 }}>
                 Browse Workout Templates
               </T>
@@ -145,6 +146,7 @@ export default function HomeScreen() {
       ) : (
         <View style={{ marginTop: spacing.lg }}>
           <TodayWorkoutCard
+            key={`hero-${accentKey}`}
             plan={smartPlanResult.plan ?? smartPlanResult.nextUpPlan}
             prevWorkout={smartPlanResult.prevEquivalent}
             plans={plans}

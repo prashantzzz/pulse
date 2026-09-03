@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 
-import { colors, gradients, radius } from '../theme';
+import { colors, gradients, radius, useAccent } from '../theme';
 import type { MuscleGroup } from '../types';
 
 type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -76,10 +76,14 @@ export function ExerciseThumb({
   rounded?: number;
   useThemeAccent?: boolean;
 }) {
+  const accentKey = useAccent();
   const g = GROUP_GRADIENT[muscle] ?? 'accentVertical';
-  const colorsList = useThemeAccent ? gradients.accent : gradients[g];
+  const colorsList: [string, string] = useThemeAccent
+    ? [gradients.accent[0], gradients.accent[1]]
+    : [gradients[g][0], gradients[g][1]];
   return (
     <LinearGradient
+      key={`${accentKey}-${useThemeAccent}`}
       colors={colorsList}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
