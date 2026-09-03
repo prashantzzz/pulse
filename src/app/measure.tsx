@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { Stepper, toast } from '../components/misc';
@@ -9,11 +10,29 @@ import { colors, radius, spacing, useAccent } from '../theme';
 
 export default function MeasureScreen() {
   useAccent();
+  const router = useRouter();
   const addMeasurement = usePulse((s) => s.addMeasurement);
   const profile = usePulse((s) => s.profile);
   const setProfile = usePulse((s) => s.setProfile);
   const weightUnit = usePulse((s) => s.weightUnit);
   const measurements = usePulse((s) => s.measurements);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/progress' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const last = measurements[measurements.length - 1];
   const [height, setHeight] = useState(profile?.heightCm ?? 175);
@@ -42,7 +61,7 @@ export default function MeasureScreen() {
 
   return (
     <Screen scroll>
-      <ScreenHeader title="Body Measurement" subtitle="Track the changes that matter" back />
+      <ScreenHeader title="Body Measurement" subtitle="Track the changes that matter" back onBack={handleBack} />
       <View style={{ gap: spacing.md }}>
         {/* Live BMI Banner */}
         {liveBmi ? (

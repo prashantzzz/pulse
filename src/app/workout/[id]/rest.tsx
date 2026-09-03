@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { CountdownRing } from '../../../components/ring';
 import { T } from '../../../components/Text';
@@ -21,6 +21,27 @@ export default function RestTimerScreen() {
   const [done, setDone] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customSec, setCustomSec] = useState(150);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/workout/${id}` as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (customOpen) {
+        setCustomOpen(false);
+        return true;
+      }
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [customOpen, router, id]);
 
   useEffect(() => {
     if (paused || done) return;
@@ -49,7 +70,7 @@ export default function RestTimerScreen() {
       <Screen scroll contentStyle={{ paddingTop: layout.screenTopPad, alignItems: 'center' }}>
         {/* header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={colors.textDim} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>

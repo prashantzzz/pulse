@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../components/Text';
 import { BottomSheet, EmptyState } from '../components/misc';
@@ -28,6 +28,27 @@ export default function LibraryScreen() {
   const [equipment, setEquipment] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<string[]>([]);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/workouts' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (filterOpen) {
+        setFilterOpen(false);
+        return true;
+      }
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [filterOpen, router]);
+
   const results = searchExercises({ query, slugs, equipment, difficulty });
   const activeFilters = slugs.length + equipment.length + difficulty.length;
 
@@ -48,6 +69,7 @@ export default function LibraryScreen() {
         title="Exercise Library"
         subtitle={`${results.length} exercises`}
         back
+        onBack={handleBack}
         right="options-outline"
         rightLabel="Filter exercises"
         onRight={() => setFilterOpen(true)}

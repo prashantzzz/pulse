@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import { T } from '../components/Text';
 import { Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
 import { colors, radius, spacing, useAccent } from '../theme';
@@ -9,19 +9,30 @@ export default function PrivacyPolicyScreen() {
   useAccent();
   const router = useRouter();
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/profile' as never);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   return (
     <Screen scroll contentStyle={styles.container}>
       <ScreenHeader
         title="Privacy Policy"
         subtitle="Last updated: September 2026"
         back
-        onBack={() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/profile' as never);
-          }
-        }}
+        onBack={handleBack}
       />
 
       <Card style={styles.heroCard}>

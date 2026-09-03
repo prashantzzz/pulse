@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../../../components/Text';
 import { BottomSheet, Stepper, toast } from '../../../components/misc';
@@ -17,7 +17,7 @@ const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
 export default function LogSetScreen() {
   useAccent();
-  const { exercise, set } = useLocalSearchParams<{ id: string; exercise: string; set: string }>();
+  const { id, exercise, set } = useLocalSearchParams<{ id: string; exercise: string; set: string }>();
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const workouts = usePulse((s) => s.workouts);
@@ -37,10 +37,35 @@ export default function LogSetScreen() {
   const [barWeight, setBarWeight] = useState(20);
   const [platesTarget, setPlatesTarget] = useState(weight);
 
+  useEffect(() => {
+    const onBackPress = () => {
+      if (platesOpen) {
+        setPlatesOpen(false);
+        return true;
+      }
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace(`/workout/${id}` as never);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [platesOpen, router, id]);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/workout/${id}` as never);
+    }
+  };
+
   if (!workout || !we || !current || !ex) {
     return (
       <Screen>
-        <ScreenHeader title="Log Set" back />
+        <ScreenHeader title="Log Set" back onBack={handleBack} />
         <View style={{ padding: spacing.lg }}>
           <T variant="body" dim>
             This set is no longer available.
@@ -112,7 +137,7 @@ export default function LogSetScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Screen scroll contentStyle={{ paddingBottom: 160, paddingTop: layout.screenTopPad }}>
-        <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back />
+        <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back onBack={handleBack} />
 
         <View>
           <Pressable

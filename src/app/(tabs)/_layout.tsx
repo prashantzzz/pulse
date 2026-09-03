@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { Animated, BackHandler, Dimensions, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 
@@ -47,10 +47,19 @@ function PulseTabBar({
   useAccent();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
     if (Platform.OS === 'android') {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        // Only intercept if we are actively viewing a top-level tab screen.
+        // If a stack screen (settings, workout, gym-mode, history, etc.) is open,
+        // do not intercept — allow that screen or stack navigator to handle back.
+        const isTabScreen = segments[0] === '(tabs)' && segments.length <= 2;
+        if (!isTabScreen) {
+          return false;
+        }
+
         const currentRoute = state?.routeNames?.[state?.index] ?? 'home';
         if (currentRoute !== 'home') {
           router.replace('/(tabs)/home');
@@ -61,7 +70,7 @@ function PulseTabBar({
       });
       return () => sub.remove();
     }
-  }, [state?.index, state?.routeNames, router]);
+  }, [segments, state?.index, state?.routeNames, router]);
 
   return (
     <View
