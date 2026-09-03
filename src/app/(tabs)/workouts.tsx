@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -20,6 +20,12 @@ import {
   type ProgramTemplate,
   type TemplateDay,
 } from '../../data/templates';
+import {
+  recommendTemplate,
+  type CardioGuidance,
+  type CoachingTip,
+  type RecommendationResult,
+} from '../../lib/recommendations';
 import { usePulse } from '../../store/useStore';
 import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { Difficulty, WorkoutPlan } from '../../types';
@@ -33,10 +39,32 @@ export default function WorkoutsScreen() {
   const startWorkout = usePulse((s) => s.startWorkout);
   const plans = usePulse((s) => s.plans);
   const setPlans = usePulse((s) => s.setPlans);
+  const profile = usePulse((s) => s.profile);
 
   const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
-  const [expFilter, setExpFilter] = useState<ExperienceFilter>('All');
-  const [daysFilter, setDaysFilter] = useState<DaysFilter>('All');
+
+  // Compute personalized template recommendation from canonical user profile
+  const recommendation = useMemo(() => {
+    return recommendTemplate({
+      experienceLevel: profile?.experience,
+      daysPerWeek: profile?.frequencyPerWeek,
+      goals: profile?.goal,
+    });
+  }, [profile?.experience, profile?.frequencyPerWeek, profile?.goal]);
+
+  // Default filters to the user's current onboarding profile for instant relevance
+  const defaultExp: ExperienceFilter = profile?.experience ?? 'All';
+  const defaultDays: DaysFilter =
+    profile?.frequencyPerWeek === 3
+      ? '3 Days'
+      : profile?.frequencyPerWeek === 4
+      ? '4 Days'
+      : profile?.frequencyPerWeek === 5
+      ? '5 Days'
+      : 'All';
+
+  const [expFilter, setExpFilter] = useState<ExperienceFilter>(defaultExp);
+  const [daysFilter, setDaysFilter] = useState<DaysFilter>(defaultDays);
 
   // Modal states
   const [replaceTarget, setReplaceTarget] = useState<ProgramTemplate | null>(null);
@@ -63,7 +91,7 @@ export default function WorkoutsScreen() {
     setReplaceTarget(null);
   };
 
-  // Filter templates
+  // Filter templates for the "All Templates" browsing section
   const filteredTemplates = PROGRAM_TEMPLATES.filter((t) => {
     if (expFilter !== 'All' && t.experience !== expFilter) return false;
     if (daysFilter !== 'All') {
@@ -160,59 +188,86 @@ export default function WorkoutsScreen() {
         </View>
       ) : (
         /* Tab: Templates */
-        <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-          {/* Filter 1: Experience */}
-          <View style={{ gap: 6 }}>
-            <T variant="micro" dim style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Experience Level
-            </T>
-            <Row gap={8} wrap>
-              {(['All', 'Beginner', 'Intermediate', 'Advanced'] as const).map((lvl) => (
-                <Chip
-                  key={lvl}
-                  label={lvl}
-                  selected={expFilter === lvl}
-                  onPress={() => setExpFilter(lvl)}
-                />
-              ))}
+        <View style={{ marginTop: spacing.lg, gap: spacing.xl }}>
+          {/* Top Section: Recommended Hero Card */}
+          <View style={{ gap: spacing.sm }}>
+            <Row align="space-between" style={{ paddingHorizontal: 2 }}>
+              <T variant="label" accent style={{ letterSpacing: 0.8 }}>
+                YOUR RECOMMENDED PLAN
+              </T>
+              <T variant="micro" dim>
+                Based on your profile
+              </T>
             </Row>
+
+            <RecommendedHeroCard
+              recommendation={recommendation}
+              onUse={() => handleApplyTemplate(recommendation.modifiedTemplate)}
+            />
           </View>
 
-          {/* Filter 2: Days / Week */}
-          <View style={{ gap: 6, marginTop: 4 }}>
-            <T variant="micro" dim style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-              Training Frequency
-            </T>
-            <Row gap={8} wrap>
-              {(['All', '3 Days', '4 Days', '5 Days'] as const).map((d) => (
-                <Chip
-                  key={d}
-                  label={d}
-                  selected={daysFilter === d}
-                  onPress={() => setDaysFilter(d)}
+          {/* Bottom Section: All Templates Browser */}
+          <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
+            <View style={{ gap: 4 }}>
+              <T variant="h3">All Templates</T>
+              <T variant="micro" dim>
+                Browse all 9 evidence-based splits or filter by experience and days
+              </T>
+            </View>
+
+            {/* Filter 1: Experience */}
+            <View style={{ gap: 6 }}>
+              <T variant="micro" dim style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                Experience Level
+              </T>
+              <Row gap={8} wrap>
+                {(['All', 'Beginner', 'Intermediate', 'Advanced'] as const).map((lvl) => (
+                  <Chip
+                    key={lvl}
+                    label={lvl}
+                    selected={expFilter === lvl}
+                    onPress={() => setExpFilter(lvl)}
+                  />
+                ))}
+              </Row>
+            </View>
+
+            {/* Filter 2: Days / Week */}
+            <View style={{ gap: 6, marginTop: 2 }}>
+              <T variant="micro" dim style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                Training Frequency
+              </T>
+              <Row gap={8} wrap>
+                {(['All', '3 Days', '4 Days', '5 Days'] as const).map((d) => (
+                  <Chip
+                    key={d}
+                    label={d}
+                    selected={daysFilter === d}
+                    onPress={() => setDaysFilter(d)}
+                  />
+                ))}
+              </Row>
+            </View>
+
+            {/* Template Cards List */}
+            <View style={{ marginTop: spacing.xs, gap: spacing.lg }}>
+              {filteredTemplates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onUse={() => handleApplyTemplate(template)}
                 />
               ))}
-            </Row>
-          </View>
 
-          {/* Template Cards List */}
-          <View style={{ marginTop: spacing.sm, gap: spacing.lg }}>
-            {filteredTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onUse={() => handleApplyTemplate(template)}
-              />
-            ))}
-
-            {filteredTemplates.length === 0 ? (
-              <Card style={{ padding: spacing.xl, alignItems: 'center' }}>
-                <Ionicons name="filter-outline" size={32} color={colors.textMuted} />
-                <T variant="body" dim center style={{ marginTop: 8 }}>
-                  No templates match the selected filter combination.
-                </T>
-              </Card>
-            ) : null}
+              {filteredTemplates.length === 0 ? (
+                <Card style={{ padding: spacing.xl, alignItems: 'center' }}>
+                  <Ionicons name="filter-outline" size={32} color={colors.textMuted} />
+                  <T variant="body" dim center style={{ marginTop: 8 }}>
+                    No templates match the selected filter combination.
+                  </T>
+                </Card>
+              ) : null}
+            </View>
           </View>
         </View>
       )}
@@ -221,7 +276,7 @@ export default function WorkoutsScreen() {
       <BottomSheet
         visible={replaceTarget != null}
         onClose={() => setReplaceTarget(null)}
-        title="Replace active plan?">
+        title="Replace your current plan?">
         {replaceTarget ? (
           <View style={{ gap: spacing.md }}>
             <View style={styles.warningBox}>
@@ -231,11 +286,11 @@ export default function WorkoutsScreen() {
                   Existing Plan Overwrite
                 </T>
                 <T variant="small" dim style={{ marginTop: 4, lineHeight: 18 }}>
-                  You currently have {plans.length} workout day{plans.length > 1 ? 's' : ''} in My Plans. Using{' '}
+                  This will replace your existing workout plan with{' '}
                   <T variant="smallSemi" style={{ color: colors.text }}>
                     {replaceTarget.title} ({replaceTarget.days.length} days)
-                  </T>{' '}
-                  will replace your active routine with this template.
+                  </T>
+                  . Your completed workout history will not be deleted.
                 </T>
               </View>
             </View>
@@ -323,6 +378,199 @@ export default function WorkoutsScreen() {
         </View>
       </BottomSheet>
     </Screen>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recommended Hero Card Component
+// ---------------------------------------------------------------------------
+
+function RecommendedHeroCard({
+  recommendation,
+  onUse,
+}: {
+  recommendation: RecommendationResult;
+  onUse: () => void;
+}) {
+  const [tipsOpen, setTipsOpen] = useState(false);
+  const template = recommendation.modifiedTemplate;
+  const totalExercises = template.days.reduce((sum, d) => sum + d.exercises.length, 0);
+  const totalSets = template.days.reduce(
+    (sum, d) => sum + d.exercises.reduce((sSum, e) => sSum + e.sets, 0),
+    0,
+  );
+  const allMuscles = [...new Set(template.days.flatMap((d) => d.muscles))];
+
+  return (
+    <View style={styles.heroCard}>
+      {/* Header Banner */}
+      <View style={styles.templateHeader}>
+        <Row align="space-between">
+          <Row gap={6} wrap style={{ flex: 1 }}>
+            <Tag label="Recommended Pick" color={colors.gold} bg={colors.goldSoft} />
+            <Tag label={template.experience} color={colors.accent} bg={colors.accentSoft} />
+            <Tag label={`${template.daysPerWeek} Days`} color={colors.textDim} bg={colors.surface3} />
+            <Tag label={recommendation.emphasisBadge} color={colors.cyan} bg={`${colors.cyan}1E`} />
+          </Row>
+          <T variant="micro" muted>
+            {template.durationLabel}
+          </T>
+        </Row>
+
+        <T variant="h2" style={{ marginTop: 12 }}>
+          {template.title}
+        </T>
+
+        <T variant="small" dim style={{ marginTop: 4, lineHeight: 19 }}>
+          {recommendation.emphasisDescription}
+        </T>
+
+        <Row gap={4} wrap style={{ marginTop: 10 }}>
+          {allMuscles.map((m) => (
+            <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
+          ))}
+        </Row>
+
+        <Row align="space-between" style={{ marginTop: 10 }}>
+          <T variant="micro" muted>
+            {template.days.length} workouts · {totalExercises} exercises · {totalSets} weekly sets
+          </T>
+        </Row>
+      </View>
+
+      {/* Plan Coaching Tips Accordion */}
+      <View style={styles.heroTipsSection}>
+        <Pressable
+          onPress={() => {
+            animateLayout();
+            setTipsOpen((o) => !o);
+          }}
+          style={styles.heroTipsHeader}>
+          <Row gap={8} align="center" style={{ flex: 1 }}>
+            <Ionicons name="bulb-outline" size={16} color={colors.gold} />
+            <T variant="smallSemi" style={{ color: colors.gold }}>
+              Plan Tips & Guidelines ({recommendation.coachingTips.length})
+            </T>
+          </Row>
+          <AnimatedChevron isOpen={tipsOpen} size={16} color={colors.gold} />
+        </Pressable>
+
+        <CollapsibleContent isOpen={tipsOpen} style={styles.heroTipsBody}>
+          <View style={{ gap: 8, paddingTop: 6 }}>
+            {recommendation.coachingTips.map((tip, i) => (
+              <View key={i} style={styles.tipCard}>
+                <T variant="micro" accent style={{ fontWeight: '700' }}>
+                  {tip.title}
+                </T>
+                <T variant="micro" dim style={{ marginTop: 2, lineHeight: 16 }}>
+                  {tip.desc}
+                </T>
+              </View>
+            ))}
+          </View>
+        </CollapsibleContent>
+      </View>
+
+      {/* Dedicated Cardio & Activity Guidance (outside resistance exercises) */}
+      {recommendation.cardioGuidance ? (
+        <CardioGuidanceCard guidance={recommendation.cardioGuidance} />
+      ) : null}
+
+      {/* Divider */}
+      <View style={styles.templateDivider} />
+
+      {/* Collapsible Day Preview Cards */}
+      <View style={styles.daysListWrap}>
+        <T variant="label" dim style={{ marginBottom: 4 }}>
+          WORKOUT DAYS ({template.days.length})
+        </T>
+        {template.days.map((day, idx) => (
+          <CollapsibleTemplateDay key={day.id} day={day} index={idx} />
+        ))}
+      </View>
+
+      {/* Hero CTA Button */}
+      <View style={styles.templateFooter}>
+        <Pressable
+          onPress={onUse}
+          style={({ pressed }) => [styles.useTemplateBtn, pressed && { opacity: 0.88 }]}>
+          <LinearGradient
+            colors={[...gradients.accent]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
+          />
+          <T variant="bodySemi" style={{ color: colors.bg, fontSize: 14.5 }}>
+            Use This Template
+          </T>
+          <Ionicons name="arrow-forward" size={16} color={colors.bg} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dedicated Cardio Guidance Card Component
+// ---------------------------------------------------------------------------
+
+function CardioGuidanceCard({ guidance }: { guidance: CardioGuidance }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <View style={styles.cardioCard}>
+      <Pressable
+        onPress={() => {
+          animateLayout();
+          setOpen((o) => !o);
+        }}
+        style={styles.cardioHeader}>
+        <Row gap={8} align="center" style={{ flex: 1 }}>
+          <View style={styles.cardioIconWrap}>
+            <Ionicons name="heart-outline" size={16} color={colors.cyan} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Row gap={6} align="center">
+              <T variant="smallSemi">{guidance.title}</T>
+              <Tag label={guidance.weeklySessions} color={colors.cyan} bg={`${colors.cyan}1E`} />
+            </Row>
+            <T variant="micro" dim numberOfLines={1} style={{ marginTop: 2 }}>
+              {guidance.subtitle}
+            </T>
+          </View>
+        </Row>
+        <AnimatedChevron isOpen={open} size={16} color={colors.cyan} />
+      </Pressable>
+
+      <CollapsibleContent isOpen={open} style={styles.cardioBody}>
+        <View style={{ gap: 8, paddingTop: 6 }}>
+          {guidance.sessions.map((sess, idx) => (
+            <View key={idx} style={styles.cardioSessionRow}>
+              <Row align="space-between">
+                <T variant="smallSemi" style={{ color: colors.text }}>
+                  {sess.name}
+                </T>
+                <T variant="micro" accent>
+                  {sess.duration}
+                </T>
+              </Row>
+              <T variant="micro" dim style={{ marginTop: 2 }}>
+                {sess.activity} · <T variant="micro" muted>{sess.intensity}</T>
+              </T>
+              <T variant="micro" muted style={{ marginTop: 4, lineHeight: 15 }}>
+                {sess.notes}
+              </T>
+            </View>
+          ))}
+
+          {guidance.coachingNotes.map((note, idx) => (
+            <T key={idx} variant="micro" dim style={{ lineHeight: 16, fontStyle: 'italic' }}>
+              💡 {note}
+            </T>
+          ))}
+        </View>
+      </CollapsibleContent>
+    </View>
   );
 }
 
@@ -514,6 +762,69 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1.5,
+    borderColor: `${colors.accent}55`,
+    overflow: 'hidden',
+  },
+  heroTipsSection: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: `${colors.gold}33`,
+    overflow: 'hidden',
+  },
+  heroTipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  heroTipsBody: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  tipCard: {
+    backgroundColor: colors.surface3,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  cardioCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: `${colors.cyan}33`,
+    overflow: 'hidden',
+  },
+  cardioHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  cardioIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: `${colors.cyan}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardioBody: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  cardioSessionRow: {
+    backgroundColor: colors.surface3,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
   },
   templateCard: {
     backgroundColor: colors.surface,

@@ -9,15 +9,15 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 ## Key Features
 
 - **Exercise Library & Detail Guides** — Coached exercises searchable by muscle, equipment, and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
-- **Evidence-Based Templates & My Plans** — Select from structured workout routines (PPL, Upper/Lower, Full Body, Arnold Split) with expandable exercise previews, or edit and maintain your own routines in *My Plans*.
+- **Evidence-Based Templates & Recommendation System** — 9 curated resistance templates (3×3 matrix: Beginner/Intermediate/Advanced × 3/4/5 days, strictly 1–5 exercises/day) tailored by a pure, commutative goal-modifier engine (Muscle, Strength, Weight Loss, Endurance, Health) with dedicated cardio guidance add-ons, personalized hero recommendations, and safe active routine replacement that strictly preserves completed workout history.
 - **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping.
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage.
-- **Active Workout & Live Notifications** — Start workouts with set logging (weight/reps/RPE/notes), automated rest timers, and silent ongoing live notifications with `'Pause'`/`'Resume'` and `'Finish'` action buttons and strict post-completion dismissal.
+- **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal.
 - **Progress Analytics & Heatmap** — All-time cumulative muscle development heatmap (with primary and secondary fractional volume crediting), estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
 - **Friend Challenges & Social** — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
-- **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
+- **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Full verification guard ensuring smooth post-auth transitions without onboarding flashes, bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
 - **CSV Import / Export** — Export and import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
-- **Dynamic Theming & Ambient Background** — 8 live accent color palettes (default: Mint) with atmospheric radial glow.
+- **Dynamic Theming & Ambient Background** — 8 live accent color palettes (default: Mint) with real-time UI propagation across home cards, muscle graphics, and gradients.
 
 ---
 
@@ -59,6 +59,9 @@ src/
 │   ├── ui.tsx            # Design-system primitives: Button, Card, Chip,
 │   │                     # Screen, ScreenHeader, Section, Row, Icon, ...
 │   ├── misc.tsx          # Avatar, BottomSheet, Stepper, EmptyState, Toast
+│   ├── workout-card.tsx  # TodayWorkoutCard & split preview components
+│   ├── muscle-icon.tsx   # Exercise thumbnails & muscle glyphs
+│   ├── auth-loading.tsx  # Native-feel auth verification splash/loader
 │   ├── Text.tsx          # <T> text component bound to the type system
 │   ├── charts.tsx        # Line / bar / donut / sparkline (svg)
 │   └── progress/         # Progress screen tabs (one file per tab)
@@ -69,6 +72,7 @@ src/
 │   └── seed.ts           # Demo profile, plans, workouts, friends
 │
 ├── lib/                  # Pure business logic (no React, fully unit-tested)
+│   ├── recommendations.ts # Pure recommendation & goal modifier engine, cardio guidance
 │   ├── stats.ts          # Volume, 1RM, PRs, streaks, analytics engine
 │   ├── csv.ts            # CSV export/import, fuzzy exercise resolution
 │   ├── sync.ts           # Supabase cloud sync + validated offline queue
@@ -154,7 +158,7 @@ File-based routing via `expo-router` (root `Stack` in `src/app/_layout.tsx`, tab
 | `/` | Splash → onboarding or home |
 | `/(tabs)/home`, `workouts`, `log`, `progress`, `profile` | Bottom tabs |
 | `/exercise/[id]` | Exercise detail / form guide |
-| `/workout/[id]` (+ `/summary`) | Active workout flow + live status notification |
+| `/workout/[id]` (+ `/log`, `/rest`, `/summary`) | Active workout flow, set logger, rest timer + live status notification |
 | `/auth/login`, `/signup`, `/forgot-password`, `/reset-password`, `/callback` | Auth screens |
 | `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
 
@@ -252,7 +256,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (must be 0 errors)
-npm test           # jest — unit + security regression tests
+npm test           # jest — 13 unit, integration, and security regression test suites (175 tests)
 ```
 
 ### Database Migrations
@@ -269,7 +273,7 @@ Migrations live in `supabase/migrations/` and are applied in timestamp order. Th
 # Preview build (internal APK testing)
 eas build --platform android --profile preview
 
-# Production build (AAB release for Google Play)
+# Production build (AAB release for Google Play with auto next version bump)
 eas build --platform android --profile production
 
 # Local Android execution

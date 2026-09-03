@@ -314,7 +314,8 @@ export type OfflineMutation =
   | { type: 'delete_workout'; userId: string; workoutId: string; timestamp: number }
   | { type: 'wipe_user_workouts'; userId: string; timestamp: number }
   | { type: 'upsert_measurement'; userId: string; measurement: BodyMeasurement; timestamp: number }
-  | { type: 'upsert_profile'; userId: string; profile: Partial<UserProfile>; timestamp: number };
+  | { type: 'upsert_profile'; userId: string; profile: Partial<UserProfile>; timestamp: number }
+  | { type: 'push_all_plans'; userId: string; plans: WorkoutPlan[]; timestamp: number };
 
 async function getOfflineQueue(): Promise<OfflineMutation[]> {
   try {
@@ -395,6 +396,8 @@ export async function flushOfflineSyncQueue(): Promise<boolean> {
           const { upsertProfile } = await import('./auth');
           const res = await upsertProfile(item.userId, item.profile);
           success = !!res;
+        } else if (item.type === 'push_all_plans') {
+          success = await directPushAllPlansToCloud(item.userId, item.plans);
         }
       } catch (err) {
         console.warn('Error processing queued mutation:', err);
@@ -620,10 +623,14 @@ export async function removePlanFromCloud(userId: string, planId: string): Promi
 export async function pushAllPlansToCloud(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
   if (!userId) return false;
   try {
-    await directPushAllPlansToCloud(userId, plans);
+    const success = await directPushAllPlansToCloud(userId, plans);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans, timestamp: Date.now() });
+    }
     return true;
   } catch {
-    return false;
+    await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans, timestamp: Date.now() });
+    return true;
   }
 }
 
