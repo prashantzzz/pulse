@@ -10,18 +10,20 @@ export const ACTIVE_WORKOUT_PAUSED_CATEGORY = 'active-workout-paused-category';
 export const ACTIVE_WORKOUT_RESTING_CATEGORY = 'active-workout-resting-category';
 
 // Configure foreground presentation behavior — live workout tracker stays silent in the shade without popup alert banners
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const isLive = notification?.request?.identifier === ACTIVE_WORKOUT_NOTIFICATION_ID;
-    return {
-      shouldShowAlert: !isLive,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-      shouldShowBanner: !isLive,
-      shouldShowList: true,
-    };
-  },
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const isLive = notification?.request?.identifier === ACTIVE_WORKOUT_NOTIFICATION_ID;
+      return {
+        shouldShowAlert: !isLive,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: !isLive,
+        shouldShowList: true,
+      };
+    },
+  });
+}
 
 /**
  * Configure interactive notification action buttons and categories for Android and iOS.
