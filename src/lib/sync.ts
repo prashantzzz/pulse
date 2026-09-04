@@ -5,6 +5,7 @@
  * bidirectionally between Supabase and the local Zustand `usePulse` store.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { usePulse } from '../store/useStore';
 import { SEED_PLANS } from '../data/seed';
@@ -144,7 +145,7 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       .order('date', { ascending: false });
 
     // 5. Fetch Workouts with nested Exercises and Sets
-    const { data: workoutsData, error: workoutsErr } = await (supabase.from('workouts') as any)
+    const { data: workoutsData } = await (supabase.from('workouts') as any)
       .select(`
         id,
         title,
@@ -220,6 +221,7 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           exerciseId: e.exercise_id,
           sets: e.target_sets || 3,
           targetReps: e.target_reps || '8-12',
+          targetWeightKg: e.target_weight != null ? Number(e.target_weight) : null,
         })),
     }));
 
@@ -305,7 +307,6 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
 /**
  * Offline Sync Queue & Cloud Sync System
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OFFLINE_QUEUE_KEY = '@nextrep_offline_sync_queue';
 
@@ -313,6 +314,7 @@ export type OfflineMutation =
   | { type: 'upsert_workout'; userId: string; workout: Workout; timestamp: number }
   | { type: 'delete_workout'; userId: string; workoutId: string; timestamp: number }
   | { type: 'wipe_user_workouts'; userId: string; timestamp: number }
+  | { type: 'wipe_all_user_data'; userId: string; timestamp: number }
   | { type: 'upsert_measurement'; userId: string; measurement: BodyMeasurement; timestamp: number }
   | { type: 'upsert_profile'; userId: string; profile: Partial<UserProfile>; timestamp: number }
   | { type: 'push_all_plans'; userId: string; plans: WorkoutPlan[]; timestamp: number };
@@ -390,6 +392,8 @@ export async function flushOfflineSyncQueue(): Promise<boolean> {
           success = await directDeleteWorkoutFromCloud(item.userId, item.workoutId);
         } else if (item.type === 'wipe_user_workouts') {
           success = await directWipeUserWorkoutsInCloud(item.userId);
+        } else if (item.type === 'wipe_all_user_data') {
+          success = await directWipeAllUserDataInCloud(item.userId);
         } else if (item.type === 'upsert_measurement') {
           success = await directPushMeasurementToCloud(item.userId, item.measurement);
         } else if (item.type === 'upsert_profile') {
@@ -544,6 +548,7 @@ async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise
       order_index: idx,
       target_sets: e.sets || 3,
       target_reps: e.targetReps || '8-12',
+      target_weight: e.targetWeightKg ?? null,
     }));
 
     if (exercisesToInsert.length > 0) {
@@ -659,6 +664,52 @@ export async function wipeUserWorkoutsInCloud(userId: string): Promise<boolean> 
   } catch {
     await enqueueOfflineMutation({ type: 'wipe_user_workouts', userId, timestamp: Date.now() });
     return true;
+  }
+}
+
+async function directWipeAllUserDataInCloud(userId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const results = await Promise.allSettled([
+      (supabase.from('workouts') as any).delete().eq('user_id', userId),
+      (supabase.from('workout_plans') as any).delete().eq('user_id', userId),
+      (supabase.from('body_measurements') as any).delete().eq('user_id', userId),
+      (supabase.from('user_favorite_exercises') as any).delete().eq('user_id', userId),
+      (supabase.from('manual_prs') as any).delete().eq('user_id', userId),
+      (supabase.from('user_goals') as any).delete().eq('user_id', userId),
+      (supabase.from('profiles') as any).update({
+        height_cm: null,
+        weight_kg: null,
+        onboarded: false,
+        goal: [],
+        preferred_training_style: [],
+        training_age_months: 0,
+        equipment: [],
+      }).eq('id', userId),
+    ]);
+
+    const criticalFailed = results.some(
+      (r) => r.status === 'rejected' || (r.status === 'fulfilled' && (r.value as any)?.error)
+    );
+    return !criticalFailed;
+  } catch {
+    return false;
+  }
+}
+
+export async function wipeAllUserDataInCloud(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  // Always clear offline mutation queue so old pending workouts/measurements don't get flushed back
+  await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY).catch(() => {});
+  try {
+    const success = await directWipeAllUserDataInCloud(userId);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'wipe_all_user_data', userId, timestamp: Date.now() });
+    }
+    return success;
+  } catch {
+    await enqueueOfflineMutation({ type: 'wipe_all_user_data', userId, timestamp: Date.now() });
+    return false;
   }
 }
 

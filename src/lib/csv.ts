@@ -348,13 +348,6 @@ const SET_TYPE_FROM_CSV: Record<string, SetType> = {
   cardio: 'cardio',
 };
 
-function num(v: string): number | null {
-  const t = (v ?? '').trim();
-  if (t === '') return null;
-  const n = Number(t.replace(',', '.'));
-  return Number.isNaN(n) ? null : n;
-}
-
 function headerToIndex(row: string[]): Record<string, number> {
   const idx: Record<string, number> = {};
   row.forEach((h, i) => {

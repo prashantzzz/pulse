@@ -51,9 +51,6 @@ export function computeAchievements(workouts: Workout[]): Achievement[] {
   const anySetAtLeast = (kg: number) =>
     workouts.some((w) => w.exercises.some((we) => we.sets.some((s) => (s.weightKg ?? 0) >= kg)));
   const biggestWorkoutVolume = workouts.reduce((best, w) => Math.max(best, workoutStats(w).volumeKg), 0);
-  const hasCardio = workouts.some((w) =>
-    w.exercises.some((we) => EXERCISE_MAP[we.exerciseId]?.muscleGroup === 'Cardio'),
-  );
 
   const benchSets = countSetsOf(PUSH_CHEST);
   const squatSets = countSetsOf(SQUAT_FAMILY);

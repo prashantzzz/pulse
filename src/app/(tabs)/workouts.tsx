@@ -71,7 +71,7 @@ export default function WorkoutsScreen() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const begin = (plan: WorkoutPlan) => {
-    const w = startWorkout(plan.title, plan.exercises);
+    const w = startWorkout(plan.title, plan.exercises, plan.id);
     router.push(`/workout/${w.id}`);
   };
 
