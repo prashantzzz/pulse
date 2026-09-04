@@ -82,7 +82,7 @@ export default function RootLayout() {
 
   // Request notification permissions, setup categories, and schedule/cancel daily evening reminder
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || Platform.OS === 'web') return;
     async function setupNotifications() {
       const granted = await requestNotificationPermissions();
       if (!granted) return;

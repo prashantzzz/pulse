@@ -66,6 +66,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
+    "build": "expo export -p web && node scripts/post-build-web.js",
     "build:web": "expo export -p web && node scripts/post-build-web.js",
     "build:apk": "eas build --platform android --profile preview"
   },

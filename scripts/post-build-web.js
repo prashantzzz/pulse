@@ -18,11 +18,22 @@ if (fs.existsSync(indexHtml)) {
   console.log('✓ Copied dist/index.html -> dist/404.html');
 }
 
-// 2. Copy root vercel.json to dist/vercel.json
-if (fs.existsSync(vercelJson)) {
-  fs.copyFileSync(vercelJson, path.join(distDir, 'vercel.json'));
-  console.log('✓ Copied vercel.json -> dist/vercel.json');
-}
+// 2. Generate dist/vercel.json with SPA rewrites
+const distVercelConfig = {
+  cleanUrls: true,
+  trailingSlash: false,
+  rewrites: [
+    { source: '/privacy', destination: '/privacy.html' },
+    { source: '/privacy/', destination: '/privacy.html' },
+    { source: '/terms', destination: '/terms.html' },
+    { source: '/terms/', destination: '/terms.html' },
+    { source: '/delete-account', destination: '/delete-account.html' },
+    { source: '/delete-account/', destination: '/delete-account.html' },
+    { source: '/((?!assets|_expo|favicon.ico|metadata.json|privacy|terms|delete-account).*)', destination: '/index.html' },
+  ],
+};
+fs.writeFileSync(path.join(distDir, 'vercel.json'), JSON.stringify(distVercelConfig, null, 2), 'utf8');
+console.log('✓ Generated dist/vercel.json');
 
 // 3. Recursively copy all files and folders from public/ to dist/
 function copyRecursive(src, dest) {
