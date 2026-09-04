@@ -17,13 +17,15 @@ import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 
 export default function ExerciseDetailScreen() {
   useAccent();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fromRunning } = useLocalSearchParams<{ id: string; fromRunning?: string }>();
   const router = useRouter();
   const favorites = usePulse((s) => s.favorites);
   const toggleFavorite = usePulse((s) => s.toggleFavorite);
   const startWorkout = usePulse((s) => s.startWorkout);
   const profile = usePulse((s) => s.profile);
   const workouts = usePulse((s) => s.workouts);
+  const activeWorkout = usePulse((s) => s.activeWorkout);
+  const isFromRunningWorkout = Boolean(fromRunning) && Boolean(activeWorkout) && !activeWorkout?.endTime;
   const [addSheet, setAddSheet] = useState(false);
 
   // Handle hardware back press cleanly when this screen is active
@@ -36,6 +38,8 @@ export default function ExerciseDetailScreen() {
         }
         if (router.canGoBack()) {
           router.back();
+        } else if (isFromRunningWorkout && activeWorkout) {
+          router.replace(`/workout/${activeWorkout.id}` as never);
         } else {
           router.replace('/(tabs)/workouts' as never);
         }
@@ -43,7 +47,7 @@ export default function ExerciseDetailScreen() {
       };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => sub.remove();
-    }, [addSheet, router])
+    }, [addSheet, router, isFromRunningWorkout, activeWorkout])
   );
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
@@ -77,12 +81,19 @@ export default function ExerciseDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
+      <Screen
+        scroll
+        contentStyle={{
+          paddingBottom: isFromRunningWorkout ? spacing.xl : layout.stackContentBottomPad,
+          paddingTop: layout.screenTopPad,
+        }}>
         <ScreenHeader
           back
           onBack={() => {
             if (router.canGoBack()) {
               router.back();
+            } else if (isFromRunningWorkout && activeWorkout) {
+              router.replace(`/workout/${activeWorkout.id}` as never);
             } else {
               router.replace('/library' as never);
             }
@@ -225,7 +236,14 @@ export default function ExerciseDetailScreen() {
                 <T variant="small" dim style={{ fontSize: 12, marginBottom: spacing.sm }}>
                   Same movement, different setup — one is clearly recommended.
                 </T>
-                <Card onPress={() => router.push(`/exercise/${top.id}` as never)} style={{ padding: spacing.md, marginBottom: spacing.sm }}>
+                <Card
+                  onPress={() =>
+                    router.push({
+                      pathname: '/exercise/[id]',
+                      params: { id: top.id, ...(fromRunning ? { fromRunning } : {}) },
+                    } as never)
+                  }
+                  style={{ padding: spacing.md, marginBottom: spacing.sm }}>
                   <Row align="space-between">
                     <Row gap={12}>
                       <View style={[styles.swapRec, { backgroundColor: colors.accent }]}>
@@ -244,7 +262,14 @@ export default function ExerciseDetailScreen() {
                 {rest.length > 0 ? (
                   <Row gap={8} wrap>
                     {rest.map((alt) => (
-                      <Pressable key={alt.id} onPress={() => router.push(`/exercise/${alt.id}` as never)}>
+                      <Pressable
+                        key={alt.id}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/exercise/[id]',
+                            params: { id: alt.id, ...(fromRunning ? { fromRunning } : {}) },
+                          } as never)
+                        }>
                         <Tag label={alt.name} color={colors.cyan} bg={colors.cyanSoft} />
                       </Pressable>
                     ))}
@@ -256,40 +281,44 @@ export default function ExerciseDetailScreen() {
         </View>
       </Screen>
 
-      {/* fixed bottom CTA */}
-      <View style={styles.ctaBar}>
-        <Button label="Add to Workout" icon="add" full size="lg" onPress={() => setAddSheet(true)} />
-      </View>
-
-      <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} title={exercise.name}>
-        <View style={{ gap: spacing.sm }}>
-          <Pressable onPress={quickStart} style={styles.sheetOption}>
-            <Icon name="play-circle" size={22} color={colors.accent} />
-            <View style={{ flex: 1 }}>
-              <T variant="bodySemi">Quick workout</T>
-              <T variant="small" dim style={{ fontSize: 12 }}>
-                3 sets · {exercise.repRange}
-              </T>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setAddSheet(false);
-              router.push({ pathname: '/builder', params: { add: exercise.id } });
-            }}
-            style={styles.sheetOption}>
-            <Icon name="create-outline" size={22} color={colors.accent} />
-            <View style={{ flex: 1 }}>
-              <T variant="bodySemi">Add to a custom workout</T>
-              <T variant="small" dim style={{ fontSize: 12 }}>
-                Open the builder with {exercise.name} pre-added
-              </T>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
+      {/* fixed bottom CTA (hidden when opened from within an active running workout) */}
+      {!isFromRunningWorkout && (
+        <View style={styles.ctaBar}>
+          <Button label="Add to Workout" icon="add" full size="lg" onPress={() => setAddSheet(true)} />
         </View>
-      </BottomSheet>
+      )}
+
+      {!isFromRunningWorkout && (
+        <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} title={exercise.name}>
+          <View style={{ gap: spacing.sm }}>
+            <Pressable onPress={quickStart} style={styles.sheetOption}>
+              <Icon name="play-circle" size={22} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <T variant="bodySemi">Quick workout</T>
+                <T variant="small" dim style={{ fontSize: 12 }}>
+                  3 sets · {exercise.repRange}
+                </T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setAddSheet(false);
+                router.push({ pathname: '/builder', params: { add: exercise.id } });
+              }}
+              style={styles.sheetOption}>
+              <Icon name="create-outline" size={22} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <T variant="bodySemi">Add to a custom workout</T>
+                <T variant="small" dim style={{ fontSize: 12 }}>
+                  Open the builder with {exercise.name} pre-added
+                </T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </BottomSheet>
+      )}
     </View>
   );
 }

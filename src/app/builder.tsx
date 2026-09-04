@@ -30,6 +30,7 @@ interface DraftExercise {
   exerciseId: string;
   sets: number;
   targetReps: string;
+  targetWeightKg?: number | null;
 }
 
 const REP_PRESETS = ['4-6', '6-10', '8-12', '10-15', '12-20'];
@@ -54,10 +55,11 @@ export default function BuilderScreen() {
         exerciseId: e.exerciseId,
         sets: e.sets,
         targetReps: e.targetReps,
+        targetWeightKg: e.targetWeightKg ?? null,
       }));
     }
     if (add && EXERCISE_MAP[add]) {
-      return [{ exerciseId: add, sets: 3, targetReps: '8-12' }];
+      return [{ exerciseId: add, sets: 3, targetReps: '8-12', targetWeightKg: null }];
     }
     return [];
   });
@@ -70,11 +72,12 @@ export default function BuilderScreen() {
           exerciseId: e.exerciseId,
           sets: e.sets,
           targetReps: e.targetReps,
+          targetWeightKg: e.targetWeightKg ?? null,
         })),
       );
     }
     if (add && EXERCISE_MAP[add]) {
-      return JSON.stringify([{ exerciseId: add, sets: 3, targetReps: '8-12' }]);
+      return JSON.stringify([{ exerciseId: add, sets: 3, targetReps: '8-12', targetWeightKg: null }]);
     }
     return '[]';
   });
@@ -200,6 +203,7 @@ export default function BuilderScreen() {
           exerciseId: d.exerciseId,
           sets: d.sets,
           targetReps: d.targetReps,
+          targetWeightKg: d.targetWeightKg ?? null,
         })),
       };
       updatePlan(plan.id, updatedPlan);
@@ -218,6 +222,7 @@ export default function BuilderScreen() {
         exerciseId: d.exerciseId,
         sets: d.sets,
         targetReps: d.targetReps,
+        targetWeightKg: d.targetWeightKg ?? null,
       })),
     };
 
@@ -317,7 +322,7 @@ export default function BuilderScreen() {
                           <Row gap={6} align="center">
                             <View style={styles.setsPill}>
                               <T variant="micro" accent style={{ fontWeight: '700' }}>
-                                {d.sets} sets × {d.targetReps} reps
+                                {d.sets} sets × {d.targetReps} reps{d.targetWeightKg != null ? ` · ${d.targetWeightKg} kg` : ''}
                               </T>
                               <Ionicons name="pencil" size={10} color={colors.accent} style={{ marginLeft: 3 }} />
                             </View>
@@ -556,6 +561,28 @@ export default function BuilderScreen() {
                 }
                 min={1}
                 max={8}
+                size="md"
+              />
+            </Row>
+
+            <Row align="space-between" style={{ paddingVertical: 4 }}>
+              <View>
+                <T variant="bodySemi">Target Weight</T>
+                <T variant="micro" dim>
+                  Optional starting weight (kg)
+                </T>
+              </View>
+              <Stepper
+                value={editingDraft.targetWeightKg ?? 0}
+                onChange={(v) =>
+                  setDrafts((prev) =>
+                    prev.map((d, i) => (i === editingIndex ? { ...d, targetWeightKg: v > 0 ? v : null } : d)),
+                  )
+                }
+                min={0}
+                max={400}
+                step={2.5}
+                decimals={1}
                 size="md"
               />
             </Row>

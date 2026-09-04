@@ -170,6 +170,8 @@ export interface Workout {
   endTime: string;
   exercises: WorkoutExercise[];
   source?: 'seed' | 'user';
+  /** originating plan ID if started from a WorkoutPlan */
+  planId?: string | null;
   /** pause/resume state for an in-progress workout (never persisted to history) */
   paused?: boolean;
   pausedAt?: string | null;
@@ -214,13 +216,20 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
+export interface WorkoutPlanExercise {
+  exerciseId: string;
+  sets: number;
+  targetReps: string;
+  targetWeightKg?: number | null;
+}
+
 /** A workout plan (template) the user can start or build */
 export interface WorkoutPlan {
   id: string;
   title: string;
   muscles: string[];
   emoji: string;
-  exercises: { exerciseId: string; sets: number; targetReps: string }[];
+  exercises: WorkoutPlanExercise[];
 }
 
 // ---------------------------------------------------------------------------

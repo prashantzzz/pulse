@@ -195,7 +195,7 @@ export default function ReplayScreen() {
           size="lg"
           style={{ marginTop: spacing.lg }}
           onPress={() => {
-            const w = startWorkout(workout.title, workoutRepeatSpecs(workout));
+            const w = startWorkout(workout.title, workoutRepeatSpecs(workout), workout.planId);
             router.push(`/workout/${w.id}`);
           }}
         />

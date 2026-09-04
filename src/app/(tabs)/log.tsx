@@ -31,7 +31,7 @@ export default function LogScreen() {
 
   const begin = (plan: WorkoutPlan) => {
     setPlanSheet(false);
-    const w = startWorkout(plan.title, plan.exercises);
+    const w = startWorkout(plan.title, plan.exercises, plan.id);
     router.push(`/workout/${w.id}`);
   };
 

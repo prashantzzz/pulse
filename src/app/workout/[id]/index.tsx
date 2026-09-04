@@ -173,7 +173,7 @@ function ExerciseAccordionCard({
 
       <CollapsibleContent isOpen={isOpen} style={{ gap: 6, marginTop: spacing.sm }}>
         <Row align="space-between" style={{ paddingHorizontal: 12, marginBottom: 2 }}>
-          <T variant="micro" muted style={{ fontSize: 10, width: 64 }}>
+          <T variant="micro" muted style={{ fontSize: 10, width: 46 }}>
             SET
           </T>
           <T variant="micro" muted style={{ fontSize: 10, flex: 1, paddingHorizontal: 4 }}>
@@ -686,7 +686,12 @@ export default function ActiveWorkoutScreen() {
               nextExerciseId={nextExercise?.id}
               nextIncompleteSetId={nextIncompleteSet?.id}
               onToggleExpand={() => toggleExpanded(isOpen ? null : we.id)}
-              onOpenExercise={() => router.push(`/exercise/${we.exerciseId}` as never)}
+              onOpenExercise={() =>
+                router.push({
+                  pathname: '/exercise/[id]',
+                  params: { id: we.exerciseId, fromRunning: '1' },
+                } as never)
+              }
               onQuickComplete={quickComplete}
             />
           );

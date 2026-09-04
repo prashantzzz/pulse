@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { BackHandler, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
@@ -41,6 +41,7 @@ export default function SettingsScreen() {
   const [editGender, setEditGender] = useState(false);
   const [editAccent, setEditAccent] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [haptics, setHaptics] = useState(true);
   const [autoRest, setAutoRest] = useState(true);
@@ -63,7 +64,9 @@ export default function SettingsScreen() {
         return true;
       }
       if (confirmClear) {
-        setConfirmClear(false);
+        if (!isClearing) {
+          setConfirmClear(false);
+        }
         return true;
       }
       if (confirmSignOut) {
@@ -84,7 +87,7 @@ export default function SettingsScreen() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [editName, editGender, editAccent, confirmClear, confirmSignOut, importPreview, router]);
+  }, [editName, editGender, editAccent, confirmClear, isClearing, confirmSignOut, importPreview, router]);
 
   const exportCSV = async () => {
     if (workouts.length === 0) {
@@ -617,20 +620,40 @@ export default function SettingsScreen() {
       </BottomSheet>
 
       {/* confirm clear */}
-      <BottomSheet visible={confirmClear} onClose={() => setConfirmClear(false)} title="Clear all data?">
+      <BottomSheet visible={confirmClear} onClose={() => { if (!isClearing) setConfirmClear(false); }} title="Clear all data?">
         <T variant="body" dim>
-          This removes every workout, measurement and achievement from this device. This can&apos;t be undone.
+          This removes every workout, measurement and achievement from this device and the cloud. This can&apos;t be undone.
         </T>
         <Pressable
-          onPress={() => {
-            clearAllData();
-            setConfirmClear(false);
-            toast('All data cleared');
+          disabled={isClearing}
+          onPress={async () => {
+            setIsClearing(true);
+            try {
+              await clearAllData();
+              toast('All data cleared');
+              setConfirmClear(false);
+            } catch (err) {
+              console.warn('Error clearing data:', err);
+              toast('Failed to clear all data');
+            } finally {
+              setIsClearing(false);
+            }
           }}
-          style={[styles.saveBtn, { backgroundColor: colors.red, marginTop: spacing.lg }]}>
-          <T variant="bodySemi" style={{ color: colors.bg }}>
-            Yes, clear everything
-          </T>
+          style={[
+            styles.saveBtn,
+            {
+              backgroundColor: colors.red,
+              marginTop: spacing.lg,
+              opacity: isClearing ? 0.7 : 1,
+            },
+          ]}>
+          {isClearing ? (
+            <ActivityIndicator size="small" color={colors.bg} />
+          ) : (
+            <T variant="bodySemi" style={{ color: colors.bg }}>
+              Yes, clear everything
+            </T>
+          )}
         </Pressable>
       </BottomSheet>
 

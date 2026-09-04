@@ -1,4 +1,4 @@
-import type { Exercise, MuscleSlug } from '../types';
+import type { Exercise } from '../types';
 
 /**
  * PULSE exercise knowledge base.
@@ -85,7 +85,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Start lighter than your flat bench — upper chest is weaker', 'Keep the bar path over the mid-upper chest'],
     progression: ['Add 2.5 kg weekly', 'Pair with flat pressing for balanced growth'],
     safety: ['Use a spotter — the incline position makes bailing harder'],
-    alternatives: ['dumbbell-bench-press', 'machine-press', 'push-up'],
+    alternatives: ['incline-dumbbell-bench-press', 'dumbbell-bench-press', 'machine-press', 'push-up'],
   }),
   ex({
     id: 'chest-fly', name: 'Chest Fly', muscleGroup: 'Chest', secondaryMuscles: ['Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['deltoids'],
@@ -104,7 +104,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Use light weights — the stretch does the work', 'Keep elbows fixed at ~15° bend'],
     progression: ['Slow the eccentric to 3 seconds', 'Use cables for constant tension'],
     safety: ['Stop the range where the shoulder feels pinched', 'Never bounce out of the bottom'],
-    alternatives: ['cable-fly', 'machine-fly', 'bench-press'],
+    alternatives: ['cable-fly', 'pec-deck', 'incline-dumbbell-fly', 'bench-press'],
   }),
   ex({
     id: 'machine-press', name: 'Machine Chest Press', muscleGroup: 'Chest', secondaryMuscles: ['Triceps', 'Shoulders'], targetSlugs: ['chest'], secondarySlugs: ['triceps', 'deltoids'],
@@ -407,7 +407,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Light weight, high reps — form is everything', 'Think "elbows high, hands apart at the end"'],
     progression: ['Increase reps before increasing weight', 'Add them as a daily shoulder-health ritual'],
     safety: ['Don\'t yank the rope — control the return'],
-    alternatives: ['rear-delt-fly', 'band-face-pull'],
+    alternatives: ['rear-delt-fly', 'upright-row', 'seated-cable-row'],
   }),
   ex({
     id: 'machine-row', name: 'Machine Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'trapezius'],
@@ -520,7 +520,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Use bodyweight until the pattern is clean', 'Keep the neck neutral'],
     progression: ['Hold a plate across your chest', 'Add a 2-second pause at the top'],
     safety: ['Never hyperextend — stop at neutral spine'],
-    alternatives: ['good-morning', 'romanian-deadlift', 'hyperextension'],
+    alternatives: ['good-morning', 'romanian-deadlift', 'deadlift'],
   }),
   ex({
     id: 'shrug', name: 'Barbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius'], secondarySlugs: ['forearm', 'neck'],
@@ -539,7 +539,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Start with a weight you can shrug 12 clean reps', 'Shrug straight up — no circles'],
     progression: ['Add 2.5 kg per session', 'Pause 2 seconds at the top'],
     safety: ['Keep the neck relaxed — don\'t press the head down'],
-    alternatives: ['dumbbell-shrug', 'rack-pull', 'deadlift'],
+    alternatives: ['dumbbell-shrug', 'deadlift', 'barbell-row'],
   }),
   ex({
     id: 'dumbbell-shrug', name: 'Dumbbell Shrug', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius'], secondarySlugs: ['forearm', 'neck'],
@@ -578,7 +578,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Squeeze your glutes to protect the lower back', 'Start seated if balance is an issue'],
     progression: ['Add 2 kg per session', 'Try a 2-second pause at the top', 'Rotate in strict barbell presses'],
     safety: ['Never arch violently — if you must, the weight is too heavy'],
-    alternatives: ['machine-press', 'arnold-press', 'push-press'],
+    alternatives: ['arnold-press', 'machine-shoulder-press', 'cable-lateral-raise'],
   }),
   ex({
     id: 'arnold-press', name: 'Arnold Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'], targetSlugs: ['deltoids'], secondarySlugs: ['triceps', 'trapezius'],
@@ -597,7 +597,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Use light dumbbells to learn the rotation', 'Keep the core tight throughout'],
     progression: ['Slow the lowering to 3 seconds', 'Add a pause at the bottom'],
     safety: ['Keep the shoulders away from the ears — no shrugging'],
-    alternatives: ['shoulder-press', 'machine-press', 'push-press'],
+    alternatives: ['shoulder-press', 'machine-shoulder-press', 'lateral-raise'],
   }),
   ex({
     id: 'lateral-raise', name: 'Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius'],
@@ -616,7 +616,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Light weight — 5–8 kg is plenty', 'Do them early in the session, before fatigue sets in'],
     progression: ['Slow the negative to 3 seconds', 'Use partial reps at the top for extra volume'],
     safety: ['Keep the arc in front of the body, not behind'],
-    alternatives: ['cable-lateral-raise', 'machine-lateral-raise'],
+    alternatives: ['cable-lateral-raise', 'upright-row', 'front-raise'],
   }),
   ex({
     id: 'rear-delt-fly', name: 'Rear Delt Fly', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius', 'upper-back'],
@@ -635,7 +635,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Use very light weight', 'Chest up, spine neutral'],
     progression: ['Pause 2 seconds at the top', 'Use cables for constant tension'],
     safety: ['Keep the neck long — no looking up'],
-    alternatives: ['face-pull', 'band-face-pull'],
+    alternatives: ['face-pull', 'seated-cable-row', 't-bar-row'],
   }),
   ex({
     id: 'machine-shoulder-press', name: 'Machine Shoulder Press', muscleGroup: 'Shoulders', secondaryMuscles: ['Triceps'], targetSlugs: ['deltoids'], secondarySlugs: ['triceps'],
@@ -654,7 +654,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Set the seat height first', 'Keep the back against the pad'],
     progression: ['Add weight each session', 'Slow the lowering to 3 seconds'],
     safety: ['Use the safety stops on heavy sets'],
-    alternatives: ['shoulder-press', 'arnold-press', 'push-press'],
+    alternatives: ['shoulder-press', 'arnold-press', 'cable-lateral-raise'],
   }),
   ex({
     id: 'cable-lateral-raise', name: 'Cable Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius'],
@@ -673,7 +673,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Use a light plate — tension is constant', 'Keep a slight elbow bend'],
     progression: ['Slow the negative to 3 seconds', 'Do partial reps at the top for extra volume'],
     safety: ['Keep the arc in front of the body'],
-    alternatives: ['lateral-raise', 'machine-lateral-raise', 'upright-row'],
+    alternatives: ['lateral-raise', 'upright-row', 'plate-front-raise'],
   }),
   ex({
     id: 'front-raise', name: 'Dumbbell Front Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Chest'], targetSlugs: ['deltoids'], secondarySlugs: ['chest'],
@@ -1036,7 +1036,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Master the RDL and hip hinge first', 'Keep the bar in contact with your legs'],
     progression: ['Add 2.5 kg per session', 'Use a mixed grip or straps when grip fails'],
     safety: ['Never pull with a rounded spine', 'Use a platform or bumper plates'],
-    alternatives: ['romanian-deadlift', 'trap-bar-deadlift', 'hyperextension'],
+    alternatives: ['romanian-deadlift', 'sumo-deadlift', 'hyperextension'],
   }),
   ex({
     id: 'leg-press', name: 'Leg Press', muscleGroup: 'Quads', secondaryMuscles: ['Glutes'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'adductors'],
@@ -1378,7 +1378,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Learn the sumo stance with light weight', 'Drive the knees out hard'],
     progression: ['Add 2.5 kg per session', 'Use straps when grip fails'],
     safety: ['Never pull with a rounded spine', 'Use a platform or bumper plates'],
-    alternatives: ['deadlift', 'trap-bar-deadlift', 'hip-thrust'],
+    alternatives: ['deadlift', 'romanian-deadlift', 'hip-thrust'],
   }),
   ex({
     id: 'donkey-kick', name: 'Donkey Kick', muscleGroup: 'Glutes', secondaryMuscles: ['Core'], targetSlugs: ['gluteal'], secondarySlugs: ['hamstring', 'abs'],
@@ -1474,7 +1474,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Start with 3 × 30 seconds', 'Keep a straight line from head to heels'],
     progression: ['Add time or sets', 'Progress to side planks and weighted planks'],
     safety: ['Stop if the lower back aches — reset your position'],
-    alternatives: ['crunch', 'russian-twist', 'hanging-raise'],
+    alternatives: ['crunch', 'russian-twist', 'hanging-leg-raise'],
   }),
   ex({
     id: 'crunch', name: 'Cable Crunch', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['abs'], secondarySlugs: [],
@@ -1493,7 +1493,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Keep the hips still — only the spine curls', 'Light weight, controlled reps'],
     progression: ['Add weight', 'Slow the negative to 3 seconds'],
     safety: ['No neck pulling — hands lightly behind the head'],
-    alternatives: ['plank', 'russian-twist', 'hanging-raise'],
+    alternatives: ['plank', 'russian-twist', 'hanging-leg-raise'],
   }),
   ex({
     id: 'russian-twist', name: 'Russian Twist', muscleGroup: 'Core', secondaryMuscles: [], targetSlugs: ['obliques', 'abs'], secondarySlugs: [],
@@ -1512,7 +1512,7 @@ export const EXERCISES: Exercise[] = [
     beginner: ['Start with bodyweight', 'Feet on the floor first, lift them later'],
     progression: ['Add weight', 'Slow the tempo'],
     safety: ['Keep the spine tall — no slumping'],
-    alternatives: ['plank', 'crunch', 'hanging-raise'],
+    alternatives: ['plank', 'crunch', 'hanging-leg-raise'],
   }),
   ex({
     id: 'hanging-leg-raise', name: 'Hanging Leg Raise', muscleGroup: 'Core', secondaryMuscles: ['Shoulders', 'Forearms'], targetSlugs: ['abs'], secondarySlugs: ['forearm', 'obliques'],
@@ -1942,10 +1942,19 @@ export function resolveExercise(exerciseIdOrName: string | undefined | null): Ex
  * swap is always available for custom/imported exercises too.
  */
 export function swapOptions(exercise: Exercise, limit = 4): Exercise[] {
-  const curated = exercise.alternatives.map((id) => EXERCISE_MAP[id]).filter((e): e is Exercise => Boolean(e));
+  const curated = exercise.alternatives
+    .filter((id) => id !== exercise.id)
+    .map((id) => EXERCISE_MAP[id])
+    .filter((e): e is Exercise => Boolean(e));
   if (curated.length >= limit) return curated.slice(0, limit);
+  const targetSlugs = exercise.targetSlugs;
   const fallback = EXERCISES.filter(
-    (e) => e.id !== exercise.id && e.muscleGroup === exercise.muscleGroup && e.movement === exercise.movement && !curated.includes(e),
+    (e) =>
+      e.id !== exercise.id &&
+      !curated.some((c) => c.id === e.id) &&
+      e.muscleGroup === exercise.muscleGroup &&
+      (e.movement === exercise.movement ||
+        (targetSlugs && e.targetSlugs?.some((s) => targetSlugs.includes(s)))),
   );
   return [...curated, ...fallback].slice(0, limit);
 }

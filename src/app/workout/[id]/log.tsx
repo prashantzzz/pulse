@@ -119,7 +119,7 @@ export default function LogSetScreen() {
   const saveOnly = () => {
     patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
     hapticsLight();
-    toast('Values saved');
+    toast('Values saved to workout');
     router.back();
   };
 
@@ -141,7 +141,12 @@ export default function LogSetScreen() {
 
         <View>
           <Pressable
-            onPress={() => router.push(`/exercise/${ex.id}` as never)}
+            onPress={() =>
+              router.push({
+                pathname: '/exercise/[id]',
+                params: { id: ex.id, fromRunning: '1' },
+              } as never)
+            }
             hitSlop={4}
             style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
             <Card gradient="charcoal" style={{ padding: spacing.md }}>

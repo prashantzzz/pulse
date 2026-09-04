@@ -162,7 +162,7 @@ export default function HomeScreen() {
             onStart={(targetPlan) => {
               const p = targetPlan ?? smartPlanResult.plan ?? smartPlanResult.nextUpPlan ?? plans[0];
               if (p) {
-                const w = startWorkout(p.title, p.exercises);
+                const w = startWorkout(p.title, p.exercises, p.id);
                 router.push(`/workout/${w.id}`);
               }
             }}
@@ -303,7 +303,7 @@ export default function HomeScreen() {
             onStartPlan={(planId) => {
               const p = plans.find((x) => x.id === planId);
               if (!p) return;
-              const w = startWorkout(p.title, p.exercises);
+              const w = startWorkout(p.title, p.exercises, p.id);
               router.push(`/workout/${w.id}`);
             }}
             onViewExercise={(id) => router.push(`/exercise/${id}` as never)}

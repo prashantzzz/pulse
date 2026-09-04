@@ -17,8 +17,8 @@ export function SetTypeTag({ type }: { type: SetType }) {
   const c = colors2[type];
   if (type === 'working') return null;
   return (
-    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: `${c.color}22` }}>
-      <T variant="micro" style={{ color: c.color, fontSize: 10 }}>
+    <View style={{ paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 6, backgroundColor: `${c.color}22` }}>
+      <T variant="micro" style={{ color: c.color, fontSize: 9 }}>
         {c.label}
       </T>
     </View>
@@ -74,8 +74,8 @@ export function SetRow({
         isNext && !completed && { borderColor: colors.accent, borderWidth: 1.2 },
         pressed && { opacity: 0.85 },
       ]}>
-      <View style={{ width: 64, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <T variant="smallMedium" muted style={{ fontSize: 13 }}>
+      <View style={{ width: 46, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <T variant="smallMedium" muted style={{ fontSize: 12.5 }} numberOfLines={1}>
           {completed ? (
             <Ionicons name="checkmark" size={16} color={colors.accent} />
           ) : (
@@ -86,7 +86,11 @@ export function SetRow({
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: 4 }}>
-        <T variant="small" style={{ fontSize: 12.5, color: prev ? colors.textDim : colors.textMuted }}>
+        <T
+          variant="small"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={{ fontSize: 12, color: prev ? colors.textDim : colors.textMuted }}>
           {prevDisplay}
         </T>
       </View>

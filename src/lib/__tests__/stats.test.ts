@@ -8,7 +8,6 @@ import {
   detectPRs,
   e1rm,
   getDefaultSetValues,
-  calculatePlanSimilarity,
   getRecommendedRestSeconds,
   getSmartTodayPlan,
   getTrainingEfficiency,

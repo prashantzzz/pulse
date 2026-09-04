@@ -737,6 +737,7 @@ export function templateToPlans(template: ProgramTemplate): WorkoutPlan[] {
       exerciseId: e.exerciseId,
       sets: e.sets,
       targetReps: e.targetReps,
+      targetWeightKg: null,
     })),
   }));
 }

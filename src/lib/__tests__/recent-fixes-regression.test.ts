@@ -80,6 +80,20 @@ describe('Recent Fixes Regression & Negative Test Suite', () => {
       expect(usePulse.getState().accentKey).toBe('mint');
       expect(colors.accent).toBe(ACCENTS.mint.accent);
     });
+
+    it('ensures Completed Today hero card colors adapt to the active theme instead of hardcoded green', () => {
+      usePulse.getState().setAccent('coral');
+      expect(colors.accent).toBe(ACCENTS.coral.accent);
+      expect(colors.accent).not.toBe(colors.emerald);
+
+      usePulse.getState().setAccent('sky');
+      expect(colors.accent).toBe(ACCENTS.sky.accent);
+      expect(colors.accent).not.toBe(colors.emerald);
+
+      usePulse.getState().setAccent('rose');
+      expect(colors.accent).toBe(ACCENTS.rose.accent);
+      expect(colors.accent).not.toBe(colors.emerald);
+    });
   });
 
   describe('Set Logger: Save vs Complete', () => {

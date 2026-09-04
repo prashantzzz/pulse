@@ -272,7 +272,7 @@ export default function SummaryScreen() {
             size="lg"
             style={{ marginTop: spacing.xl }}
             onPress={() => {
-              const w = startWorkout(workout.title, workoutRepeatSpecs(workout));
+              const w = startWorkout(workout.title, workoutRepeatSpecs(workout), workout.planId);
               router.replace(`/workout/${w.id}`);
             }}
           />

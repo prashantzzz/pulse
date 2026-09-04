@@ -6,6 +6,7 @@ import {
   pushMeasurementToCloud,
   pushWorkoutToCloud,
   wipeUserWorkoutsInCloud,
+  wipeAllUserDataInCloud,
   pushPlanToCloud,
   pushAllPlansToCloud,
   removePlanFromCloud,
@@ -32,6 +33,7 @@ import type {
   Workout,
   WorkoutExercise,
   WorkoutPlan,
+  WorkoutPlanExercise,
 } from '../types';
 
 let uid = 1;
@@ -56,6 +58,8 @@ interface PulseState {
   friends: Friend[];
   /** personal records logged manually (outside a session) */
   manualPRs: ManualPR[];
+  /** User-remembered preferred/last weights and reps for exercises */
+  exerciseDefaults: Record<string, { weightKg: number; reps: number }>;
   activeWorkout: ActiveWorkout | null;
 
   setHydrated: () => void;
@@ -70,7 +74,8 @@ interface PulseState {
   /** Create an active workout from a plan (or raw exercise specs) */
   startWorkout: (
     title: string,
-    exercises: { exerciseId: string; sets: number; targetReps: string }[],
+    exercises: (WorkoutPlanExercise | { exerciseId: string; sets: number; targetReps: string; targetWeightKg?: number | null })[],
+    planId?: string | null,
   ) => Workout;
   /** Patch a set within the active workout */
   patchSet: (exerciseId: string, setId: string, patch: Partial<ExerciseSet>) => void;
@@ -116,7 +121,7 @@ interface PulseState {
   importWorkouts: (imported: Workout[]) => void;
   /** Overwrite workout history with new set */
   replaceWorkouts: (imported: Workout[]) => void;
-  clearAllData: () => void;
+  clearAllData: () => Promise<void>;
   /** Clear all local user session state upon logout without cloud data deletion */
   clearSessionCache: () => void;
 }
@@ -136,6 +141,7 @@ export const usePulse = create<PulseState>()(
       favorites: [],
       friends: [],
       manualPRs: [],
+      exerciseDefaults: {},
       activeWorkout: null,
 
       setHydrated: () => set({ hydrated: true }),
@@ -222,11 +228,16 @@ export const usePulse = create<PulseState>()(
 
       setFriends: (friends) => set({ friends }),
 
-      startWorkout: (title, specs) => {
+      startWorkout: (title, specs, planId) => {
         const now = new Date();
         const profile = get().profile;
         const workouts = get().workouts;
         const experience = profile?.experience ?? 'Beginner';
+        const plans = get().plans;
+        const matchedPlan = plans.find(
+          (p) => (planId && p.id === planId) || p.title.trim().toLowerCase() === title.trim().toLowerCase(),
+        );
+        const resolvedPlanId = planId ?? matchedPlan?.id ?? null;
 
         const active: ActiveWorkout = {
           id: genId('aw'),
@@ -235,7 +246,12 @@ export const usePulse = create<PulseState>()(
           startTime: now.toISOString(),
           endTime: now.toISOString(),
           source: 'user',
+          planId: resolvedPlanId,
           exercises: specs.map((spec, i) => {
+            const planEx = matchedPlan?.exercises.find((pe) => pe.exerciseId === spec.exerciseId);
+            const targetWeight = spec.targetWeightKg ?? planEx?.targetWeightKg;
+            const targetReps = spec.targetReps ?? planEx?.targetReps ?? '8-12';
+
             const sets: ExerciseSet[] = Array.from({ length: spec.sets }, (_, si) => {
               const setIndex = si + 1;
               const isWarmup = si === 0 && spec.sets > 3;
@@ -244,15 +260,23 @@ export const usePulse = create<PulseState>()(
                 spec.exerciseId,
                 setIndex,
                 experience,
-                spec.targetReps,
-                isWarmup
+                targetReps,
+                isWarmup,
               );
+              const remembered = get().exerciseDefaults?.[spec.exerciseId];
+              const weightKg =
+                targetWeight != null
+                  ? targetWeight
+                  : (prev?.weightKg ?? remembered?.weightKg ?? defaults.weightKg);
+
+              const reps = prev?.reps ?? remembered?.reps ?? defaults.reps;
+
               return {
                 id: genId('s'),
                 setIndex,
                 setType: isWarmup ? 'warmup' : 'working',
-                weightKg: prev?.weightKg ?? defaults.weightKg,
-                reps: prev?.reps ?? defaults.reps,
+                weightKg,
+                reps,
                 distanceKm: null,
                 durationSec: null,
                 rpe: null,
@@ -268,7 +292,7 @@ export const usePulse = create<PulseState>()(
               order: i + 1,
               notes: null,
               plannedSets: spec.sets,
-              targetReps: spec.targetReps,
+              targetReps,
               sets,
             };
           }),
@@ -281,16 +305,87 @@ export const usePulse = create<PulseState>()(
         set((s) => {
           if (!s.activeWorkout) return s;
           const clearingRest = patch.completed === false;
-          return {
-            activeWorkout: {
-              ...s.activeWorkout,
-              restTimer: clearingRest ? null : s.activeWorkout.restTimer,
-              exercises: s.activeWorkout.exercises.map((we) =>
-                we.exerciseId === exerciseId
-                  ? { ...we, sets: we.sets.map((st) => (st.id === setId ? { ...st, ...patch } : st)) }
-                  : we,
-              ),
+
+          const targetEx = s.activeWorkout.exercises.find((we) => we.exerciseId === exerciseId);
+          const targetSet = targetEx?.sets.find((st) => st.id === setId);
+          const oldWeight = targetSet?.weightKg;
+
+          const updatedExercises = s.activeWorkout.exercises.map((we) => {
+            if (we.exerciseId !== exerciseId) return we;
+            return {
+              ...we,
+              sets: we.sets.map((st) => {
+                if (st.id === setId) {
+                  return { ...st, ...patch };
+                }
+                // Auto-propagate weight to subsequent uncompleted sets if they were still at old weight
+                if (
+                  patch.weightKg != null &&
+                  !st.completed &&
+                  st.setIndex > (targetSet?.setIndex ?? 0) &&
+                  (st.weightKg === oldWeight || st.weightKg == null)
+                ) {
+                  return { ...st, weightKg: patch.weightKg };
+                }
+                return st;
+              }),
+            };
+          });
+
+          const nextActiveWorkout: ActiveWorkout = {
+            ...s.activeWorkout,
+            restTimer: clearingRest ? null : s.activeWorkout.restTimer,
+            exercises: updatedExercises,
+          };
+
+          // Update remembered exercise defaults
+          const currentDef = s.exerciseDefaults[exerciseId];
+          const nextExerciseDefaults = {
+            ...s.exerciseDefaults,
+            [exerciseId]: {
+              weightKg: patch.weightKg ?? targetSet?.weightKg ?? currentDef?.weightKg ?? 20,
+              reps: patch.reps ?? targetSet?.reps ?? currentDef?.reps ?? 10,
             },
+          };
+
+          // Persist to user's workout plan (their own workout!)
+          const planId = s.activeWorkout.planId;
+          const workoutTitle = s.activeWorkout.title;
+          let updatedPlans = s.plans;
+          let planToSync: WorkoutPlan | null = null;
+
+          const planIndex = s.plans.findIndex(
+            (p) => (planId && p.id === planId) || p.title.trim().toLowerCase() === workoutTitle.trim().toLowerCase(),
+          );
+
+          if (planIndex !== -1) {
+            const targetPlan = s.plans[planIndex];
+            const updatedPlanExercises = targetPlan.exercises.map((pe) => {
+              if (pe.exerciseId !== exerciseId) return pe;
+              return {
+                ...pe,
+                targetWeightKg: patch.weightKg != null ? patch.weightKg : pe.targetWeightKg,
+                targetReps: patch.reps != null ? String(patch.reps) : pe.targetReps,
+              };
+            });
+            const updatedPlan: WorkoutPlan = {
+              ...targetPlan,
+              exercises: updatedPlanExercises,
+            };
+            updatedPlans = s.plans.map((p, idx) => (idx === planIndex ? updatedPlan : p));
+            planToSync = updatedPlan;
+          }
+
+          if (planToSync) {
+            supabase.auth.getUser().then(({ data: { user } }) => {
+              if (user && planToSync) pushPlanToCloud(user.id, planToSync).catch(() => {});
+            }).catch(() => {});
+          }
+
+          return {
+            activeWorkout: nextActiveWorkout,
+            exerciseDefaults: nextExerciseDefaults,
+            plans: updatedPlans,
           };
         }),
 
@@ -651,24 +746,30 @@ export const usePulse = create<PulseState>()(
           return { workouts: fresh };
         }),
 
-      clearAllData: () => {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            wipeUserWorkoutsInCloud(user.id).catch(() => {});
+      clearAllData: async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            await wipeAllUserDataInCloud(user.id);
           }
-        }).catch(() => {});
-        set({
-          workouts: [],
-          plans: SEED_PLANS,
-          measurements: [],
-          favorites: [],
-          friends: [],
-          manualPRs: [],
-          activeWorkout: null,
-          profile: null,
-          onboarded: false,
-          seeded: true,
-        });
+        } catch (e) {
+          console.warn('Failed to wipe cloud data during clearAllData:', e);
+        } finally {
+          await AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
+          set({
+            workouts: [],
+            plans: SEED_PLANS,
+            measurements: [],
+            favorites: [],
+            friends: [],
+            manualPRs: [],
+            exerciseDefaults: {},
+            activeWorkout: null,
+            profile: null,
+            onboarded: false,
+            seeded: true,
+          });
+        }
       },
 
       clearSessionCache: () =>
@@ -680,6 +781,7 @@ export const usePulse = create<PulseState>()(
           favorites: [],
           friends: [],
           manualPRs: [],
+          exerciseDefaults: {},
           activeWorkout: null,
           onboarded: false,
           seeded: false,
@@ -700,6 +802,7 @@ export const usePulse = create<PulseState>()(
         favorites: s.favorites,
         friends: s.friends,
         manualPRs: s.manualPRs,
+        exerciseDefaults: s.exerciseDefaults,
         activeWorkout: s.activeWorkout,
       }),
       onRehydrateStorage: () => (state) => {
