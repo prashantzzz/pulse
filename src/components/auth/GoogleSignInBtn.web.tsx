@@ -39,7 +39,7 @@ export function GoogleSignInBtn({ onSuccess, onError, loading }: GoogleSignInBtn
           <>
             <Ionicons name="logo-google" size={20} color={colors.text} />
             <T variant="bodySemi" style={{ marginLeft: 10 }}>
-              Continue with Google
+              Continue with Google (Fallback)
             </T>
           </>
         )}
