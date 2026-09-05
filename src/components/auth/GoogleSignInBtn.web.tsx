@@ -1,15 +1,50 @@
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
-import { colors, radius } from '../../theme';
-import type { Session } from '@supabase/supabase-js';
+import { colors, radius, spacing } from '../../theme';
+import { T } from '../Text';
 import type { GoogleSignInBtnProps } from './GoogleSignInBtn';
 
 export function GoogleSignInBtn({ onSuccess, onError, loading }: GoogleSignInBtnProps) {
   const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
+  const handleFallbackAuth = async () => {
+    try {
+      const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectUrl },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      onError?.(err);
+    }
+  };
+
   if (!clientId) {
-    return null;
+    console.warn('Google Web Client ID missing in .env! Falling back to Supabase OAuth.');
+    return (
+      <Pressable
+        onPress={handleFallbackAuth}
+        disabled={loading}
+        style={({ pressed }) => [
+          styles.fallbackBtn,
+          pressed && { opacity: 0.85 },
+          loading && { opacity: 0.6 },
+        ]}>
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.text} />
+        ) : (
+          <>
+            <Ionicons name="logo-google" size={20} color={colors.text} />
+            <T variant="bodySemi" style={{ marginLeft: 10 }}>
+              Continue with Google
+            </T>
+          </>
+        )}
+      </Pressable>
+    );
   }
 
   return (
@@ -21,7 +56,8 @@ export function GoogleSignInBtn({ onSuccess, onError, loading }: GoogleSignInBtn
           </View>
         ) : null}
         
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', minHeight: 44 }}>
+          {/* Note: GoogleLogin width prop must be a number/pixel string, not a percentage */}
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
               if (credentialResponse.credential) {
@@ -47,7 +83,8 @@ export function GoogleSignInBtn({ onSuccess, onError, loading }: GoogleSignInBtn
             useOneTap
             theme="filled_black"
             shape="pill"
-            width="100%"
+            size="large"
+            width="320"
           />
         </div>
       </View>
@@ -60,10 +97,19 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
+    minHeight: 44,
     position: 'relative',
+  },
+  fallbackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.borderBright,
+    borderRadius: radius.pill,
+    height: 52,
+    paddingHorizontal: spacing.lg,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -72,7 +118,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderBright,
   }
 });
