@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import { Animated, BackHandler, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,19 +20,41 @@ export default function SummaryScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const workouts = usePulse((s) => s.workouts);
   const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
 
-  // Pressing phone hardware back takes user safely to Home
+  const hasNavigatedRef = useRef(false);
+
+  // Safely navigate back to the Workouts page without minimizing the app
+  const handleBackToWorkouts = useCallback(() => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    router.replace('/(tabs)/workouts' as never);
+  }, [router]);
+
+  // Pressing phone hardware back button on Android
   useEffect(() => {
     const onBackPress = () => {
-      router.replace('/(tabs)/home' as never);
+      handleBackToWorkouts();
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [router]);
+  }, [handleBackToWorkouts]);
+
+  // Phone back swipe gesture / screen removal (Android gesture navigation & iOS swipe)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (hasNavigatedRef.current) {
+        return;
+      }
+      e.preventDefault();
+      handleBackToWorkouts();
+    });
+    return unsubscribe;
+  }, [navigation, handleBackToWorkouts]);
 
   // Mature celebration entrance animation
   const badgeScale = useAnimatedValue(0.3);
@@ -108,7 +130,14 @@ export default function SummaryScreen() {
         <T variant="body" dim style={{ textAlign: 'center', marginTop: 120 }}>
           Workout not found.
         </T>
-        <Button label="Home" onPress={() => router.replace('/(tabs)/home' as never)} style={{ marginTop: 20, alignSelf: 'center' }} />
+        <Button
+          label="Home"
+          onPress={() => {
+            hasNavigatedRef.current = true;
+            router.replace('/(tabs)/home' as never);
+          }}
+          style={{ marginTop: 20, alignSelf: 'center' }}
+        />
       </View>
     );
   }
@@ -228,13 +257,18 @@ export default function SummaryScreen() {
                         <View>
                           <T variant="bodySemi">{p.exerciseName}</T>
                           <T variant="small" dim style={{ fontSize: 12 }}>
-                            Previous: {p.prevWeightKg != null ? `${p.prevWeightKg} kg × ${p.prevReps ?? '—'}` : 'First time'}
+                            Previous:{' '}
+                            {p.prevWeightKg != null && p.prevWeightKg > 0
+                              ? `${p.prevWeightKg} kg × ${p.prevReps ?? '—'}`
+                              : p.prevReps != null
+                              ? `${p.prevReps} reps`
+                              : 'First time'}
                           </T>
                         </View>
                       </Row>
                       <View style={{ alignItems: 'flex-end' }}>
                         <T variant="numSm" accent>
-                          {p.weightKg} × {p.reps}
+                          {p.weightKg > 0 ? `${p.weightKg} × ${p.reps}` : `${p.reps} reps`}
                         </T>
                         <T variant="micro" muted>
                           {p.kind} PR
@@ -272,11 +306,22 @@ export default function SummaryScreen() {
             size="lg"
             style={{ marginTop: spacing.xl }}
             onPress={() => {
+              hasNavigatedRef.current = true;
               const w = startWorkout(workout.title, workoutRepeatSpecs(workout), workout.planId);
               router.replace(`/workout/${w.id}`);
             }}
           />
-          <Button label="Done" variant="ghost" full size="lg" style={{ marginTop: spacing.sm }} onPress={() => router.replace('/(tabs)/home' as never)} />
+          <Button
+            label="Done"
+            variant="ghost"
+            full
+            size="lg"
+            style={{ marginTop: spacing.sm }}
+            onPress={() => {
+              hasNavigatedRef.current = true;
+              router.replace('/(tabs)/home' as never);
+            }}
+          />
         </Animated.View>
       </View>
     </ScrollView>

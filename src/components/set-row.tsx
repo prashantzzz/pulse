@@ -96,29 +96,44 @@ export function SetRow({
       </View>
 
       <Pressable onPress={onTap} hitSlop={8} style={styles.values}>
-        <T
-          variant="numSm"
-          style={{
-            color: completed ? colors.accent : weight != null ? colors.text : colors.textMuted,
-            minWidth: 32,
-            textAlign: 'right',
-            fontSize: 13,
-          }}>
-          {weight != null ? `${weight}k` : '–'}
-        </T>
-        <T variant="micro" muted style={{ fontSize: 11 }}>
-          ×
-        </T>
-        <T
-          variant="numSm"
-          style={{
-            color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted,
-            minWidth: 20,
-            textAlign: 'right',
-            fontSize: 13,
-          }}>
-          {reps != null ? reps : '–'}
-        </T>
+        {weight != null && weight > 0 ? (
+          <>
+            <T
+              variant="numSm"
+              style={{
+                color: completed ? colors.accent : colors.text,
+                minWidth: 32,
+                textAlign: 'right',
+                fontSize: 13,
+              }}>
+              {`${weight}k`}
+            </T>
+            <T variant="micro" muted style={{ fontSize: 11 }}>
+              ×
+            </T>
+            <T
+              variant="numSm"
+              style={{
+                color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted,
+                minWidth: 20,
+                textAlign: 'right',
+                fontSize: 13,
+              }}>
+              {reps != null ? reps : '–'}
+            </T>
+          </>
+        ) : (
+          <T
+            variant="numSm"
+            style={{
+              color: completed ? colors.accent : reps != null ? colors.text : colors.textMuted,
+              minWidth: 40,
+              textAlign: 'right',
+              fontSize: 13,
+            }}>
+            {reps != null ? `${reps} reps` : '–'}
+          </T>
+        )}
       </Pressable>
 
       <Pressable onPress={onToggle ?? onTap} hitSlop={10} style={styles.toggle}>

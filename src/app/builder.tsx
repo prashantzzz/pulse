@@ -128,14 +128,18 @@ export default function BuilderScreen() {
       return true;
     }
 
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/workouts' as never);
+    }
     return true;
   };
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', handleBack);
     return () => sub.remove();
-  });
+  }, [handleBack]);
 
   const toggleExercise = (exerciseId: string) => {
     const existingIdx = drafts.findIndex((d) => d.exerciseId === exerciseId);

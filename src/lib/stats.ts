@@ -90,15 +90,20 @@ export function bestForExercise(workouts: Workout[], exerciseId: string): Exerci
   let maxWeight: ExerciseBest['maxWeight'] | null = null;
   let maxReps: ExerciseBest['maxReps'] | null = null;
   let maxE1rm: ExerciseBest['maxE1rm'] | null = null;
+  const ex = EXERCISE_MAP[exerciseId];
+  const isBodyweightMovement = ex?.equipment === 'Bodyweight' || ex?.movement === 'Cardio';
+
   for (const w of workouts) {
     for (const we of w.exercises) {
       if (we.exerciseId !== exerciseId) continue;
       for (const s of we.sets) {
-        if (!s.completed || s.weightKg == null || s.reps == null) continue;
-        if (!maxWeight || s.weightKg > maxWeight.weightKg) maxWeight = { weightKg: s.weightKg, reps: s.reps, date: w.startTime };
-        if (!maxReps || s.reps > maxReps.reps) maxReps = { weightKg: s.weightKg, reps: s.reps, date: w.startTime };
-        const rm = e1rm(s.weightKg, s.reps);
-        if (!maxE1rm || rm > maxE1rm.e1rm) maxE1rm = { e1rm: rm, weightKg: s.weightKg, reps: s.reps, date: w.startTime };
+        if (!s.completed || s.reps == null) continue;
+        const weight = s.weightKg ?? (isBodyweightMovement ? 0 : null);
+        if (weight == null) continue;
+        if (!maxWeight || weight > maxWeight.weightKg) maxWeight = { weightKg: weight, reps: s.reps, date: w.startTime };
+        if (!maxReps || s.reps > maxReps.reps) maxReps = { weightKg: weight, reps: s.reps, date: w.startTime };
+        const rm = e1rm(weight, s.reps);
+        if (!maxE1rm || rm > maxE1rm.e1rm) maxE1rm = { e1rm: rm, weightKg: weight, reps: s.reps, date: w.startTime };
       }
     }
   }
@@ -126,12 +131,39 @@ export function detectPRs(workout: Workout, allWorkouts: Workout[]): PR[] {
   const prs: PR[] = [];
   for (const we of workout.exercises) {
     const ex = EXERCISE_MAP[we.exerciseId];
+    const isBodyweightMovement = ex?.equipment === 'Bodyweight' || ex?.movement === 'Cardio';
     const prevBest = bestForExercise(prior, we.exerciseId);
     for (const s of we.sets) {
-      if (!s.completed || s.weightKg == null || s.reps == null) continue;
-      const isWeightPr = !prevBest || s.weightKg > prevBest.maxWeight.weightKg;
+      if (!s.completed || s.reps == null) continue;
+      const weight = s.weightKg ?? (isBodyweightMovement ? 0 : null);
+      if (weight == null) continue;
+
+      if (weight === 0) {
+        const isRepsPr = !prevBest || s.reps > prevBest.maxReps.reps;
+        if (!isRepsPr) continue;
+        const prevReps = prevBest ? prevBest.maxReps.reps : null;
+        const deltaPct =
+          prevReps != null && prevReps > 0
+            ? Math.round(((s.reps - prevReps) / prevReps) * 1000) / 10
+            : 100;
+        prs.push({
+          exerciseId: we.exerciseId,
+          exerciseName: ex?.name ?? we.exerciseId,
+          weightKg: 0,
+          reps: s.reps,
+          prevWeightKg: prevBest ? 0 : null,
+          prevReps,
+          kind: 'Reps',
+          deltaPct,
+          workoutId: workout.id,
+          date: workout.endTime,
+        });
+        continue;
+      }
+
+      const isWeightPr = !prevBest || weight > prevBest.maxWeight.weightKg;
       const isRepsPr = !prevBest || s.reps > prevBest.maxReps.reps;
-      const rm = e1rm(s.weightKg, s.reps);
+      const rm = e1rm(weight, s.reps);
       const is1rmPr = !prevBest || rm > prevBest.maxE1rm.e1rm;
       if (!isWeightPr && !isRepsPr && !is1rmPr) continue;
       // compare against the previous best set by estimated strength so the
@@ -142,7 +174,7 @@ export function detectPRs(workout: Workout, allWorkouts: Workout[]): PR[] {
       prs.push({
         exerciseId: we.exerciseId,
         exerciseName: ex?.name ?? we.exerciseId,
-        weightKg: s.weightKg,
+        weightKg: weight,
         reps: s.reps,
         prevWeightKg: prev?.weightKg ?? null,
         prevReps: prev?.reps ?? null,

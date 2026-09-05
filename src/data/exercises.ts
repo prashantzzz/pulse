@@ -276,6 +276,25 @@ export const EXERCISES: Exercise[] = [
     safety: ['Place hands firmly on a non-slip surface', 'Stop if you feel shoulder impingement'],
     alternatives: ['push-up', 'incline-dumbbell-bench-press', 'dips'],
   }),
+  ex({
+    id: 'dumbbell-pullover', name: 'Dumbbell Pullover', muscleGroup: 'Chest', secondaryMuscles: ['Back', 'Triceps'], targetSlugs: ['chest', 'upper-back'], secondarySlugs: ['triceps'],
+    equipment: 'Dumbbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
+    location: 'Both', beginnerFriendly: false, animation: 'fly',
+    about: 'A classic golden-era upper-body builder that heavily stretches the lower pecs, serratus anterior, and lats simultaneously across an arc of motion.',
+    steps: [
+      ['Setup', 'Lie perpendicular across a flat bench with only your upper back supported, hips slightly lowered, feet planted. Hold one dumbbell with both hands in a diamond grip above your chest.'],
+      ['Arc Back', 'With a slight bend in your elbows, lower the dumbbell back in an arc over and behind your head until you feel a deep stretch in your chest and lats.'],
+      ['Pull Over', 'Contract your chest and lats to pull the dumbbell back up in the same arc until it is directly over your chest.'],
+      ['Squeeze', 'Pause and squeeze your chest and lats at the top before the next rep.'],
+    ],
+    mistakes: ['Bending elbows too much turning it into a triceps extension', 'Letting hips rise during the stretch', 'Using too heavy a weight and hyperextending the shoulders', 'Moving too fast on the stretch phase'],
+    breathing: 'Inhale deeply as the dumbbell lowers to expand the ribcage, exhale as you pull the dumbbell over.',
+    repRange: '10–15 reps',
+    beginner: ['Lie lengthwise flat on the bench first before trying cross-bench', 'Keep the elbow angle fixed throughout the movement', 'Focus on the stretch, not heavy weight'],
+    progression: ['Add 2 kg once you achieve 15 reps with perfect stretch', 'Pause for 2 seconds in the full stretch position'],
+    safety: ['Keep shoulders stable and avoid excessive shoulder hyperextension', 'Check dumbbell collar/weight security before holding overhead'],
+    alternatives: ['chest-fly', 'cable-fly', 'straight-arm-pulldown'],
+  }),
   // ----------------------------------------------------------------- BACK
   ex({
     id: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back'], secondarySlugs: ['biceps', 'forearm'],
@@ -389,6 +408,25 @@ export const EXERCISES: Exercise[] = [
     progression: ['Add 2.5 kg per session', 'Try a Yates row for heavier loading'],
     safety: ['Keep the spine rigid — drop the weight if form breaks'],
     alternatives: ['dumbbell-row', 'seated-cable-row', 'machine-row'],
+  }),
+  ex({
+    id: 'barbell-incline-row', name: 'Barbell Incline Row', muscleGroup: 'Back', secondaryMuscles: ['Biceps', 'Shoulders'], targetSlugs: ['upper-back', 'trapezius'], secondarySlugs: ['biceps', 'deltoids'],
+    equipment: 'Barbell', difficulty: 'Intermediate', type: 'Compound', movement: 'Pull', region: 'Upper',
+    location: 'Gym', beginnerFriendly: false, animation: 'row',
+    about: 'Performed lying chest-down on an incline bench or pulling a barbell along an inclined torso angle. Completely removes lower back spinal loading, allowing you to recruit the upper back, rhomboids, and lats to pure muscular failure.',
+    steps: [
+      ['Setup', 'Set an incline bench to roughly 30°–45°. Lie prone with your chest firmly supported against the pad, reaching down to grip the barbell shoulder-width apart.'],
+      ['Row', 'Pull your elbows up and back toward your hips, retracting your shoulder blades and driving the bar toward the underside of the bench.'],
+      ['Squeeze', 'Hold the peak contraction for a second, squeezing your mid-back and rhomboids.'],
+      ['Lower', 'Lower the barbell under control back to full arm extension without letting your shoulders drop forward.'],
+    ],
+    mistakes: ['Lifting your chest off the bench pad', 'Jerking the neck or head upward', 'Using momentum instead of back retraction', 'Cutting the range of motion at the top'],
+    breathing: 'Exhale as you row up, inhale as you lower the barbell.',
+    repRange: '8–12 reps',
+    beginner: ['Keep your chest glued to the pad throughout the set', 'Start with a lighter barbell to feel the upper back', 'Pull with your elbows, not your hands'],
+    progression: ['Progress in 2.5 kg increments', 'Incorporate a 2-second hold at peak contraction'],
+    safety: ['Ensure bench is securely locked into the incline notch', 'Place the barbell safely on the floor or rack between sets'],
+    alternatives: ['barbell-row', 'dumbbell-row', 't-bar-row', 'seated-cable-row'],
   }),
   ex({
     id: 'face-pull', name: 'Face Pull', muscleGroup: 'Back', secondaryMuscles: ['Shoulders'], targetSlugs: ['trapezius', 'deltoids'], secondarySlugs: ['upper-back'],
@@ -617,6 +655,25 @@ export const EXERCISES: Exercise[] = [
     progression: ['Slow the negative to 3 seconds', 'Use partial reps at the top for extra volume'],
     safety: ['Keep the arc in front of the body, not behind'],
     alternatives: ['cable-lateral-raise', 'upright-row', 'front-raise'],
+  }),
+  ex({
+    id: 'seated-dumbbell-lateral-raise', name: 'Seated Dumbbell Lateral Raise', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius'],
+    equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
+    location: 'Both', beginnerFriendly: true, animation: 'raise',
+    about: 'Seated positioning eliminates leg drive and hip sway, forcing the lateral deltoid to handle 100% of the load. The premier exercise for capping the side shoulders.',
+    steps: [
+      ['Setup', 'Sit on the edge of a flat bench with feet planted flat, holding dumbbells at your sides with a neutral grip and a slight forward lean at the hips.'],
+      ['Raise', 'Raise the dumbbells out to the sides in a slight forward diagonal (scapular plane) until your arms are parallel to the floor.'],
+      ['Squeeze', 'Hold for a brief beat at shoulder height, with elbows leading slightly higher than wrists.'],
+      ['Lower', 'Lower the dumbbells with control over 2 seconds back to your sides.'],
+    ],
+    mistakes: ['Shrugging the shoulders up into the ears', 'Using heavy weights and rocking the torso', 'Raising arms straight out to 90° rather than in the scapular plane', 'Swinging dumbbells up with momentum'],
+    breathing: 'Exhale on the raise, inhale on the descent.',
+    repRange: '12–20 reps',
+    beginner: ['Use light dumbbells — side delts respond best to controlled volume', 'Lead with your elbows, keeping wrists below elbows', 'Avoid shrugging'],
+    progression: ['Add a 1-second pause at the top', 'Increase reps toward 20 before moving up in weight', 'Superset with cable lateral raises'],
+    safety: ['Never force heavy weight on lateral raises — rotator cuff safety is paramount', 'Stop immediately if you feel a sharp pinch at the top of the shoulder'],
+    alternatives: ['lateral-raise', 'cable-lateral-raise', 'upright-row'],
   }),
   ex({
     id: 'rear-delt-fly', name: 'Rear Delt Fly', muscleGroup: 'Shoulders', secondaryMuscles: ['Back'], targetSlugs: ['deltoids'], secondarySlugs: ['trapezius', 'upper-back'],
@@ -848,6 +905,25 @@ export const EXERCISES: Exercise[] = [
     alternatives: ['bicep-curl', 'hammer-curl', 'preacher-curl'],
   }),
   ex({
+    id: 'cable-rope-hammer-curl', name: 'Cable Rope Hammer Curl', muscleGroup: 'Biceps', secondaryMuscles: ['Forearms'], targetSlugs: ['biceps'], secondarySlugs: ['forearm'],
+    equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Pull', region: 'Upper',
+    location: 'Gym', beginnerFriendly: true, animation: 'curl',
+    about: 'Attaching a rope to a low cable allows continuous tension through a neutral-grip curl. Primarily targets the brachialis (outer bicep) and brachioradialis (outer forearm), adding thickness to the upper and lower arm.',
+    steps: [
+      ['Setup', 'Attach a rope to the lowest cable pulley. Stand tall, grip the rope with palms facing each other, elbows pinned to your ribs.'],
+      ['Curl', 'Flex at the elbows to curl the rope upward toward your chest, keeping upper arms still.'],
+      ['Spread & Squeeze', 'Spread the rope ends apart at the top to peak the contraction on the outer biceps and forearms.'],
+      ['Lower', 'Lower under control over 2–3 seconds back to a full stretch.'],
+    ],
+    mistakes: ['Swinging your torso or using hip momentum', 'Letting elbows drift forward away from the body', 'Failing to control the negative'],
+    breathing: 'Exhale as you curl up, inhale as you lower.',
+    repRange: '10–15 reps',
+    beginner: ['Keep elbows locked by your sides throughout the set', 'Spread the handles at the top for peak activation'],
+    progression: ['Add a 1-second pause at the top of every rep', 'Slow the lowering tempo to 3 seconds'],
+    safety: ['Keep wrists neutral — do not bend wrists back under load'],
+    alternatives: ['hammer-curl', 'cable-curl', 'bicep-curl'],
+  }),
+  ex({
     id: 'triceps-pushdown', name: 'Triceps Pushdown', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
     equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
     location: 'Gym', beginnerFriendly: true, animation: 'pushdown',
@@ -884,6 +960,25 @@ export const EXERCISES: Exercise[] = [
     progression: ['Slow the lowering to 4 seconds', 'Use a rope cable for constant tension'],
     safety: ['Stop if the shoulder pinches — reduce the range'],
     alternatives: ['triceps-pushdown', 'skull-crusher', 'dips'],
+  }),
+  ex({
+    id: 'cable-overhead-triceps-extension', name: 'Cable Overhead Triceps Extension', muscleGroup: 'Triceps', secondaryMuscles: ['Shoulders'], targetSlugs: ['triceps'], secondarySlugs: ['deltoids'],
+    equipment: 'Cable', difficulty: 'Beginner', type: 'Isolation', movement: 'Push', region: 'Upper',
+    location: 'Gym', beginnerFriendly: true, animation: 'pushdown',
+    about: 'An evidence-based triceps builder that places the long head of the triceps under peak stretch by working overhead with continuous cable tension, minimizing elbow joint strain compared to free weights.',
+    steps: [
+      ['Setup', 'Attach a rope to a high or mid pulley. Face away from the stack, take a step forward into a staggered stance, and hold the rope overhead behind your neck.'],
+      ['Extend', 'Drive through your triceps to extend your arms forward and overhead until elbows lock out.'],
+      ['Spread', 'Spread the rope ends apart at full lockout for a peak triceps squeeze.'],
+      ['Lower', 'Carefully allow the elbows to bend back behind your head, getting a deep stretch in the long head.'],
+    ],
+    mistakes: ['Flaring the elbows excessively wide', 'Arching the lower back under load', 'Letting the cable pull you backwards', 'Restricting the stretch behind the head'],
+    breathing: 'Exhale as you extend forward, inhale as you bend your elbows back.',
+    repRange: '10–15 reps',
+    beginner: ['Use a staggered foot stance for stability', 'Keep elbows fixed in space like a hinge', 'Focus on the stretch at the bottom'],
+    progression: ['Add 2.5 kg once you hit 15 clean reps', 'Add a 2-second stretch pause behind the head'],
+    safety: ['Keep your core tight and ribs down to protect the spine', 'Step forward with control before pressing'],
+    alternatives: ['overhead-extension', 'triceps-pushdown', 'skull-crusher'],
   }),
   ex({
     id: 'skull-crusher', name: 'Skull Crusher (Lying Triceps Extension)', muscleGroup: 'Triceps', secondaryMuscles: [], targetSlugs: ['triceps'], secondarySlugs: [],
@@ -1227,6 +1322,25 @@ export const EXERCISES: Exercise[] = [
     progression: ['Add weight each session', 'Pause 2 seconds at the top'],
     safety: ['Never lock the knees at the top of the press'],
     alternatives: ['calf-raise', 'seated-calf-raise', 'single-leg-calf-raise'],
+  }),
+  ex({
+    id: 'dumbbell-standing-calf-raise', name: 'Dumbbell Standing Calf Raise', muscleGroup: 'Calves', secondaryMuscles: [], targetSlugs: ['calves'], secondarySlugs: ['tibialis'],
+    equipment: 'Dumbbell', difficulty: 'Beginner', type: 'Isolation', movement: 'Legs', region: 'Lower',
+    location: 'Both', beginnerFriendly: true, animation: 'calf',
+    about: 'Standing calf raises performed with dumbbells at your sides. Allows loaded calf training anywhere without requiring a specialized calf raise machine.',
+    steps: [
+      ['Setup', 'Stand upright with the balls of your feet on a raised block or step, heels hanging off, holding dumbbells at your sides.'],
+      ['Lower', 'Lower your heels slowly until you feel a full stretch in your gastrocnemius calves.'],
+      ['Raise', 'Drive forcefully through the balls of your feet, raising up as high onto your toes as possible.'],
+      ['Hold', 'Pause for a full second at the top of the contraction before lowering.'],
+    ],
+    mistakes: ['Bouncing out of the bottom stretch', 'Rushing reps without pausing at the top', 'Bending the knees during the raise'],
+    breathing: 'Exhale as you push up onto your toes, inhale as you lower your heels.',
+    repRange: '12–20 reps',
+    beginner: ['Hold one dumbbell and use the other hand on a wall for balance', 'Emphasize the deep stretch at the bottom'],
+    progression: ['Add 2-second holds at the peak', 'Increase dumbbell weight in 2 kg increments', 'Transition to single-leg dumbbell calf raises'],
+    safety: ['Ensure the step or block is stable and will not slip under load', 'Keep knees slightly soft, not hyperextended'],
+    alternatives: ['calf-raise', 'single-leg-calf-raise', 'seated-calf-raise'],
   }),
   ex({
     id: 'lunge', name: 'Dumbbell Lunge', muscleGroup: 'Quads', secondaryMuscles: ['Glutes', 'Core'], targetSlugs: ['quadriceps'], secondarySlugs: ['gluteal', 'hamstring', 'calves'],
@@ -1888,6 +2002,12 @@ export const EXERCISE_ALIASES: Record<string, string[]> = {
   'jump-rope': ['skipping', 'skipping rope'],
   burpees: ['burpee'],
   'battle-ropes': ['battle rope'],
+  'dumbbell-pullover': ['db pullover', 'chest pullover', 'lat pullover', 'pullover dumbbell'],
+  'barbell-incline-row': ['incline barbell row', 'chest supported barbell row', 'incline bench row', 'barbell incline row'],
+  'seated-dumbbell-lateral-raise': ['seated lateral raise', 'seated side raise', 'seated dumbbell side raise', 'seated side lateral raise'],
+  'cable-rope-hammer-curl': ['cable hammer curl', 'rope hammer curl', 'cable rope curl', 'cable curl with rope'],
+  'cable-overhead-triceps-extension': ['cable overhead triceps extension', 'rope overhead triceps extension', 'cable overhead extension'],
+  'dumbbell-standing-calf-raise': ['standing dumbbell calf raise', 'dumbbell calf raise', 'db calf raise'],
 };
 
 // Derive the per-exercise `aliases` field from the canonical map so every
@@ -1919,9 +2039,9 @@ export function resolveExercise(exerciseIdOrName: string | undefined | null): Ex
     if (ex.name.toLowerCase() === norm) return ex;
   }
 
-  // 4. Aliases lookup
+  // 4. Exact Aliases lookup
   for (const [id, aliases] of Object.entries(EXERCISE_ALIASES)) {
-    if (aliases.some((a) => a.toLowerCase() === norm || norm.includes(a.toLowerCase()))) {
+    if (aliases.some((a) => a.toLowerCase() === norm)) {
       return EXERCISE_MAP[id];
     }
   }
@@ -1930,6 +2050,13 @@ export function resolveExercise(exerciseIdOrName: string | undefined | null): Ex
   for (const ex of EXERCISES) {
     if (norm.includes(ex.name.toLowerCase()) || ex.name.toLowerCase().includes(norm)) {
       return ex;
+    }
+  }
+
+  // 6. Substring alias lookup (fallback for phrases containing an alias)
+  for (const [id, aliases] of Object.entries(EXERCISE_ALIASES)) {
+    if (aliases.some((a) => a.length >= 4 && norm.includes(a.toLowerCase()))) {
+      return EXERCISE_MAP[id];
     }
   }
 

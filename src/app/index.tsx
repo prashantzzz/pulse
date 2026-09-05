@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
 import { useEffect } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 
@@ -135,6 +136,10 @@ export default function SplashScreen() {
 
   return (
     <Animated.View style={[styles.root, { opacity: exitOpacity }]}>
+      <Head>
+        <title>NextRep</title>
+        <meta name="google-site-verification" content="vVBrobRRHCqwVUdK0Df9oFh0m0JRvcul6E8HRZrxwrE" />
+      </Head>
       <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg, colors.bg]} style={StyleSheet.absoluteFill} />
 
       {/* Ambient background glows */}

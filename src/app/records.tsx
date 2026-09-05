@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../components/Text';
@@ -31,13 +31,13 @@ export default function RecordsScreen() {
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/(tabs)/progress' as never);
     }
-  };
+  }, [router]);
 
   // Dismiss bottom sheet or navigate back on phone back press
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function RecordsScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [sheet, router]);
+  }, [sheet, handleBack]);
 
   const historyBests = [...new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId)))]
     .map((id) => ({ id, best: bestForExercise(workouts, id) }))
@@ -117,10 +117,10 @@ export default function RecordsScreen() {
                     </Row>
                     <View style={{ alignItems: 'flex-end', marginRight: spacing.sm }}>
                       <T variant="numSm" accent>
-                        {pr.weightKg} × {pr.reps}
+                        {pr.weightKg > 0 ? `${pr.weightKg} × ${pr.reps}` : `${pr.reps} reps`}
                       </T>
                       <T variant="micro" muted>
-                        {e1rm(pr.weightKg, pr.reps).toFixed(0)} kg est. 1RM
+                        {pr.weightKg > 0 ? `${e1rm(pr.weightKg, pr.reps).toFixed(0)} kg est. 1RM` : 'Bodyweight'}
                       </T>
                     </View>
                     <Pressable onPress={() => removeManualPR(pr.id)} hitSlop={10} accessibilityLabel={`Delete ${ex?.name ?? 'record'}`}>
@@ -152,12 +152,16 @@ export default function RecordsScreen() {
                       <View>
                         <T variant="bodySemi">{ex?.name ?? r.id}</T>
                         <T variant="small" dim style={{ fontSize: 12 }}>
-                          {r.best.maxWeight.weightKg} kg × {r.best.maxWeight.reps}
+                          {r.best.maxWeight.weightKg > 0
+                            ? `${r.best.maxWeight.weightKg} kg × ${r.best.maxWeight.reps}`
+                            : `${r.best.maxReps.reps} reps`}
                         </T>
                       </View>
                     </Row>
                     <T variant="numSm" accent>
-                      {r.best.maxE1rm.e1rm.toFixed(0)} kg
+                      {r.best.maxWeight.weightKg > 0
+                        ? `${r.best.maxE1rm.e1rm.toFixed(0)} kg`
+                        : `${r.best.maxReps.reps} reps`}
                     </T>
                   </Row>
                 </Card>
