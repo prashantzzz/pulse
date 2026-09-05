@@ -18,7 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
-import { formatAuthError, signInWithEmail, signInWithGoogle } from '../../lib/auth';
+import { formatAuthError, signInWithEmail } from '../../lib/auth';
+import { GoogleSignInBtn } from '../../components/auth/GoogleSignInBtn';
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
@@ -85,29 +86,20 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSuccess = async (session: any) => {
     setErrorMessage(null);
     setGoogleLoading(true);
     useAuth.setState({ isVerifyingUser: true });
 
     try {
-      const result = await signInWithGoogle();
-      if (result.cancelled) {
-        useAuth.setState({ isVerifyingUser: false });
-        return;
-      }
-      if (result.session?.user) {
-        toast('Signed in with Google');
-        await syncUserDataFromCloud(result.session.user.id);
-        const isUserOnboarded = usePulse.getState().onboarded;
-        useAuth.setState({ isVerifyingUser: false });
-        if (isUserOnboarded || onboarded) {
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/onboarding');
-        }
+      toast('Signed in with Google');
+      await syncUserDataFromCloud(session.user.id);
+      const isUserOnboarded = usePulse.getState().onboarded;
+      useAuth.setState({ isVerifyingUser: false });
+      if (isUserOnboarded || onboarded) {
+        router.replace('/(tabs)/home');
       } else {
-        useAuth.setState({ isVerifyingUser: false });
+        router.replace('/onboarding');
       }
     } catch (err: unknown) {
       useAuth.setState({ isVerifyingUser: false });
@@ -120,6 +112,12 @@ export default function LoginScreen() {
         useAuth.setState({ isVerifyingUser: false });
       }
     }
+  };
+
+  const handleGoogleError = (err: unknown) => {
+    const msg = formatAuthError(err);
+    setErrorMessage(msg);
+    toast(msg);
   };
 
   return (
@@ -167,25 +165,11 @@ export default function LoginScreen() {
 
           {/* Google Sign-in */}
           <View style={{ marginTop: spacing.xl }}>
-            <Pressable
-              onPress={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-              style={({ pressed }) => [
-                styles.googleBtn,
-                pressed && { opacity: 0.85 },
-                (googleLoading || loading) && { opacity: 0.6 },
-              ]}>
-              {googleLoading ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={20} color={colors.text} />
-                  <T variant="bodySemi" style={{ marginLeft: 10 }}>
-                    Continue with Google
-                  </T>
-                </>
-              )}
-            </Pressable>
+            <GoogleSignInBtn 
+              loading={googleLoading || loading} 
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
           </View>
 
           {/* Divider */}
