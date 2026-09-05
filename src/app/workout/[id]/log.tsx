@@ -28,8 +28,10 @@ export default function LogSetScreen() {
   const we = workout?.exercises.find((x) => x.exerciseId === exercise);
   const current = we?.sets.find((s) => s.id === set);
   const ex = exercise ? EXERCISE_MAP[exercise] : undefined;
-
-  const [weight, setWeight] = useState<number>(current?.weightKg ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? 20);
+  const isBodyweight = ex?.equipment === 'Bodyweight' || ex?.movement === 'Cardio';
+  const [weight, setWeight] = useState<number>(
+    current?.weightKg ?? (isBodyweight ? 0 : previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? 20),
+  );
   const [reps, setReps] = useState<number>(current?.reps ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.reps ?? 10);
   const [rpe, setRpe] = useState<number | null>(current?.rpe ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
@@ -77,7 +79,10 @@ export default function LogSetScreen() {
 
   const totalInExercise = we.sets.length;
   const prev = previousSet(workouts, ex.id, current.setIndex);
-  const suggestion = prev?.weightKg != null && prev.reps != null ? prev.weightKg + 2.5 : null;
+  const suggestion =
+    prev?.weightKg != null && prev.weightKg > 0 && prev.reps != null && ex.movement !== 'Cardio'
+      ? prev.weightKg + 2.5
+      : null;
   const suggestionReps = ex.repRange.match(/(\d+)\s*[-–]\s*(\d+)/);
   const suggestedRepLow = suggestionReps ? Number(suggestionReps[1]) : 8;
   const suggestedRepHigh = suggestionReps ? Number(suggestionReps[2]) : 12;
@@ -177,7 +182,7 @@ export default function LogSetScreen() {
                     LAST TIME
                   </T>
                   <T variant="bodySemi" style={{ marginTop: 2 }}>
-                    {prev.weightKg} kg × {prev.reps}
+                    {prev.weightKg != null && prev.weightKg > 0 ? `${prev.weightKg} kg × ${prev.reps}` : `${prev.reps} reps`}
                   </T>
                   {suggestion ? (
                     <T variant="smallMedium" accent style={{ marginTop: 4 }}>

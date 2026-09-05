@@ -1,5 +1,15 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
-import { EXERCISES, EXERCISE_MAP, swapOptions } from '../../data/exercises';
+import {
+  ANATOMY_SLUGS,
+  EQUIPMENT_OPTIONS,
+  EXERCISES,
+  EXERCISE_MAP,
+  MUSCLE_GROUPS,
+  resolveExercise,
+  searchExercises,
+  swapOptions,
+} from '../../data/exercises';
+import { getExerciseAnimation } from '../../data/exercise-animations';
 import type { Workout } from '../../types';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
@@ -147,6 +157,85 @@ describe('Exercise Swap Recommendations & Running Workout Context', () => {
       };
       const isFromRunningWorkout = computeIsFromRunningWorkout('1', completedWorkout);
       expect(isFromRunningWorkout).toBe(false);
+    });
+  });
+
+  describe('4. Exercise Animations & Catalog Additions', () => {
+    const newExerciseIds = [
+      'battle-ropes',
+      'shrug',
+      'mountain-climber',
+      'dead-bug',
+      'leg-press-calf-raise',
+      'dumbbell-standing-calf-raise',
+      'nordic-curl',
+      'glute-bridge',
+      'cable-kickback',
+      'ab-wheel-rollout',
+      'hack-squat',
+      'close-grip-bench-press',
+      'cable-rope-hammer-curl',
+      'cable-overhead-triceps-extension',
+      'barbell-incline-row',
+      'seated-dumbbell-lateral-raise',
+      'dumbbell-pullover',
+    ];
+
+    it('all 17 vital animation exercises resolve to valid video animation assets', () => {
+      for (const id of newExerciseIds) {
+        const anim = getExerciseAnimation(id);
+        expect(anim).toBeDefined();
+        expect(anim?.type).toBe('video');
+        expect(anim?.aspectRatio).toBeGreaterThan(0);
+        expect(anim?.source).toBeDefined();
+      }
+    });
+
+    it('new exercises have comprehensive library details, valid targets, and working alternatives', () => {
+      for (const id of [
+        'dumbbell-pullover',
+        'barbell-incline-row',
+        'seated-dumbbell-lateral-raise',
+        'cable-rope-hammer-curl',
+        'cable-overhead-triceps-extension',
+        'dumbbell-standing-calf-raise',
+      ]) {
+        const ex = EXERCISE_MAP[id];
+        expect(ex).toBeDefined();
+        expect(ex.name.length).toBeGreaterThan(0);
+        expect(ex.about.length).toBeGreaterThan(10);
+        expect(ex.steps.length).toBeGreaterThanOrEqual(3);
+        expect(ex.repRange).toMatch(/\d+/);
+        expect(ex.alternatives.length).toBeGreaterThan(0);
+        expect(ex.targetSlugs.length).toBeGreaterThan(0);
+        for (const alt of ex.alternatives) {
+          expect(EXERCISE_MAP[alt]).toBeDefined();
+          expect(alt).not.toBe(id);
+        }
+        expect(MUSCLE_GROUPS).toContain(ex.muscleGroup);
+        expect(EQUIPMENT_OPTIONS).toContain(ex.equipment);
+        for (const slug of ex.targetSlugs) {
+          expect(ANATOMY_SLUGS).toContain(slug);
+        }
+      }
+    });
+
+    it('resolves aliases and supports multi-parameter searching for new exercises', () => {
+      // Alias resolution
+      expect(resolveExercise('cable hammer curl')?.id).toBe('cable-rope-hammer-curl');
+      expect(resolveExercise('db pullover')?.id).toBe('dumbbell-pullover');
+      expect(resolveExercise('incline barbell row')?.id).toBe('barbell-incline-row');
+      expect(resolveExercise('seated lateral raise')?.id).toBe('seated-dumbbell-lateral-raise');
+      expect(resolveExercise('rope overhead triceps extension')?.id).toBe('cable-overhead-triceps-extension');
+      expect(resolveExercise('standing dumbbell calf raise')?.id).toBe('dumbbell-standing-calf-raise');
+
+      // Search exercises
+      expect(searchExercises({ query: 'pullover' }).some((e) => e.id === 'dumbbell-pullover')).toBe(true);
+      expect(searchExercises({ query: 'incline row' }).some((e) => e.id === 'barbell-incline-row')).toBe(true);
+      expect(searchExercises({ query: 'seated lateral' }).some((e) => e.id === 'seated-dumbbell-lateral-raise')).toBe(true);
+      expect(searchExercises({ query: 'rope hammer' }).some((e) => e.id === 'cable-rope-hammer-curl')).toBe(true);
+      expect(searchExercises({ query: 'overhead triceps' }).some((e) => e.id === 'cable-overhead-triceps-extension')).toBe(true);
+      expect(searchExercises({ query: 'standing calf' }).some((e) => e.id === 'dumbbell-standing-calf-raise')).toBe(true);
     });
   });
 });

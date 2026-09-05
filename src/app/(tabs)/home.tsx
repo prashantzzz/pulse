@@ -24,7 +24,6 @@ import {
 } from '../../lib/stats';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
-import type { WorkoutPlan } from '../../types';
 
 export default function HomeScreen() {
   // subscribe so this screen re-renders (and recreates its children) live on accent change
@@ -48,10 +47,8 @@ export default function HomeScreen() {
     acc.sets += st.sets;
     return acc;
   }, { volume: 0, sets: 0 });
-  const prevWeekWorkouts = workouts.filter((w) => {
-    const t = new Date(w.startTime).getTime();
-    return t >= Date.now() - 14 * 86400000 && t < Date.now() - 7 * 86400000;
-  });
+  const twoWeeks = workoutsInLastDays(workouts, 14);
+  const prevWeekWorkouts = twoWeeks.filter((w) => !week.some((cw) => cw.id === w.id));
   const prevWeekVolume = prevWeekWorkouts.reduce((sum, w) => sum + workoutStats(w).volumeKg, 0);
   const weekVolDelta = prevWeekVolume > 0
     ? Math.round(((weekStats.volume - prevWeekVolume) / prevWeekVolume) * 100)
@@ -242,11 +239,13 @@ export default function HomeScreen() {
                     {pr.exerciseName}
                   </T>
                   <T variant="h2" accent style={{ marginTop: 2 }}>
-                    {pr.weightKg} kg × {pr.reps}
+                    {pr.weightKg > 0 ? `${pr.weightKg} kg × ${pr.reps}` : `${pr.reps} reps`}
                   </T>
                   <T variant="small" dim style={{ marginTop: 2, fontSize: 12 }}>
-                    {pr.prevWeightKg != null
+                    {pr.prevWeightKg != null && pr.prevWeightKg > 0
                       ? `Previous best ${pr.prevWeightKg} kg × ${pr.prevReps ?? '—'} · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
+                      : pr.prevReps != null
+                      ? `Previous best ${pr.prevReps} reps · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
                       : `Your first ${pr.exerciseName} record — the story begins here.`}
                   </T>
                 </View>

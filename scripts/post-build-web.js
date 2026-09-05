@@ -10,10 +10,18 @@ if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
 
-// 1. Copy index.html to 404.html for SPA routing fallback
+// 1. Ensure Google Site Verification meta tag is present in index.html, then copy to 404.html
 const indexHtml = path.join(distDir, 'index.html');
 const notFoundHtml = path.join(distDir, '404.html');
+const googleMetaTag = '<meta name="google-site-verification" content="vVBrobRRHCqwVUdK0Df9oFh0m0JRvcul6E8HRZrxwrE" />';
+
 if (fs.existsSync(indexHtml)) {
+  let content = fs.readFileSync(indexHtml, 'utf8');
+  if (!content.includes('google-site-verification')) {
+    content = content.replace('</head>', `    ${googleMetaTag}\n  </head>`);
+    fs.writeFileSync(indexHtml, content, 'utf8');
+    console.log('✓ Injected google-site-verification meta tag into dist/index.html');
+  }
   fs.copyFileSync(indexHtml, notFoundHtml);
   console.log('✓ Copied dist/index.html -> dist/404.html');
 }

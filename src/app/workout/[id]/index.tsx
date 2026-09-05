@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -320,26 +320,46 @@ function RestPopupModal({
             ) : null}
           </View>
 
-          {/* Hero Circular Countdown Timer flanked parallel by Pause and +30s buttons */}
-          <Row align="center" style={{ justifyContent: 'space-between', marginVertical: spacing.md, paddingHorizontal: spacing.xs }}>
-            {/* Pause / Resume Button */}
-            <Pressable
-              onPress={onTogglePause}
-              style={({ pressed }) => [
-                styles.restSideBtn,
-                timer.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-                pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
-              ]}
-              hitSlop={8}>
-              <Ionicons
-                name={timer.paused ? 'play' : 'pause'}
-                size={22}
-                color={timer.paused ? colors.accent : colors.text}
-              />
-              <T variant="micro" muted style={{ fontSize: 10, marginTop: 2 }}>
-                {timer.paused ? 'Resume' : 'Pause'}
-              </T>
-            </Pressable>
+          {/* Circular Countdown Timer flanked on the left by stacked Pause and +30s buttons */}
+          <Row align="center" gap={spacing.lg} style={{ justifyContent: 'center', marginVertical: spacing.md }}>
+            {/* Left Action Column: Pause button & +30s button stacked vertically */}
+            <View style={{ gap: spacing.sm, alignItems: 'center' }}>
+              {/* Pause / Resume Button */}
+              <Pressable
+                onPress={onTogglePause}
+                style={({ pressed }) => [
+                  styles.restSideBtn,
+                  timer.paused && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+                  pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+                ]}
+                hitSlop={8}>
+                <Ionicons
+                  name={timer.paused ? 'play' : 'pause'}
+                  size={22}
+                  color={timer.paused ? colors.accent : colors.text}
+                />
+                <T variant="micro" muted style={{ fontSize: 10, marginTop: 2 }}>
+                  {timer.paused ? 'Resume' : 'Pause'}
+                </T>
+              </Pressable>
+
+              {/* +30s Add Time Button (placed directly below Pause button) */}
+              <Pressable
+                onPress={() => onAddSeconds(30)}
+                style={({ pressed }) => [
+                  styles.restSideBtn,
+                  { borderColor: `${colors.accent}4D` },
+                  pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+                ]}
+                hitSlop={8}>
+                <T variant="bodySemi" accent style={{ fontSize: 15 }}>
+                  +30s
+                </T>
+                <T variant="micro" muted style={{ fontSize: 10, marginTop: 1 }}>
+                  Add
+                </T>
+              </Pressable>
+            </View>
 
             {/* Circular Timer Ring */}
             <ProgressRing size={146} strokeWidth={8} progress={pct} color={colors.accent}>
@@ -352,23 +372,6 @@ function RestPopupModal({
                 </T>
               </View>
             </ProgressRing>
-
-            {/* +30s Add Time Button */}
-            <Pressable
-              onPress={() => onAddSeconds(30)}
-              style={({ pressed }) => [
-                styles.restSideBtn,
-                { borderColor: `${colors.accent}4D` },
-                pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
-              ]}
-              hitSlop={8}>
-              <T variant="bodySemi" accent style={{ fontSize: 15 }}>
-                +30s
-              </T>
-              <T variant="micro" muted style={{ fontSize: 10, marginTop: 1 }}>
-                Add
-              </T>
-            </Pressable>
           </Row>
 
           {/* Up Next Preview Card */}
@@ -423,22 +426,49 @@ export default function ActiveWorkoutScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
 
-  // Intercept phone hardware back button to show workout options sheet (Save/Pause/Discard) ONLY when focused
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        if (menuOpen) {
-          setMenuOpen(false);
-          return true;
-        }
-        setMenuOpen(true);
-        return true;
-      };
+  const navigation = useNavigation();
 
-      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => sub.remove();
-    }, [menuOpen])
-  );
+  // Safely navigate back to previous screen (or Workouts tab if history is empty) without minimizing the app
+  const handleBack = useCallback(() => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/workouts' as never);
+    }
+  }, [menuOpen, router]);
+
+  // Handle hardware back press on Android (crucial for 3-button navigation on budget/older devices)
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
+
+  // Handle gesture navigation / screen pop (Android edge-swipe & iOS swipe)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (menuOpen) {
+        // If options menu is open, intercept pop and close menu instead
+        e.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+      // If native stack has nowhere to go back to, intercept removal to avoid app minimizing
+      if (!router.canGoBack()) {
+        e.preventDefault();
+        router.replace('/(tabs)/workouts' as never);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, menuOpen, router]);
 
   const workout = activeWorkout && activeWorkout.id === id ? activeWorkout : workouts.find((w) => w.id === id);
 

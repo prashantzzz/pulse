@@ -260,6 +260,98 @@ describe('detectPRs', () => {
     const current = benchWorkout(95, 5, 1, '2026-08-11T09:00:00.000Z');
     expect(detectPRs(current, [prior, current])).toHaveLength(0);
   });
+
+  it('detects a first-time bodyweight exercise as a 100% Reps PR with 0kg weight', () => {
+    const burpeeSet = makeSet({ setIndex: 1, weightKg: 0, reps: 8 });
+    const workout = makeWorkout({
+      exercises: [makeWorkoutExercise('burpees', [burpeeSet])],
+      endTime: '2026-08-11T10:00:00.000Z',
+    });
+    const prs = detectPRs(workout, [workout]);
+    expect(prs).toHaveLength(1);
+    expect(prs[0]).toMatchObject({
+      exerciseId: 'burpees',
+      weightKg: 0,
+      reps: 8,
+      kind: 'Reps',
+      deltaPct: 100,
+      prevWeightKg: null,
+      prevReps: null,
+    });
+  });
+
+  it('detects a higher-rep bodyweight exercise as a Reps PR with correct rep delta and 0kg', () => {
+    const prior = makeWorkout({
+      exercises: [makeWorkoutExercise('burpees', [makeSet({ setIndex: 1, weightKg: 0, reps: 8 })])],
+      endTime: '2026-08-01T10:00:00.000Z',
+    });
+    const current = makeWorkout({
+      exercises: [makeWorkoutExercise('burpees', [makeSet({ setIndex: 1, weightKg: 0, reps: 10 })])],
+      endTime: '2026-08-11T10:00:00.000Z',
+    });
+    const prs = detectPRs(current, [prior, current]);
+    expect(prs).toHaveLength(1);
+    expect(prs[0]).toMatchObject({
+      exerciseId: 'burpees',
+      weightKg: 0,
+      reps: 10,
+      kind: 'Reps',
+      deltaPct: 25,
+      prevWeightKg: 0,
+      prevReps: 8,
+    });
+  });
+
+  it('does not report a PR for bodyweight exercise with lower or equal reps', () => {
+    const prior = makeWorkout({
+      exercises: [makeWorkoutExercise('burpees', [makeSet({ setIndex: 1, weightKg: 0, reps: 10 })])],
+      endTime: '2026-08-01T10:00:00.000Z',
+    });
+    const current = makeWorkout({
+      exercises: [makeWorkoutExercise('burpees', [makeSet({ setIndex: 1, weightKg: 0, reps: 8 })])],
+      endTime: '2026-08-11T10:00:00.000Z',
+    });
+    expect(detectPRs(current, [prior, current])).toHaveLength(0);
+  });
+
+  it('detects a Reps PR for bodyweight exercise when weightKg is null (legacy/imported sets)', () => {
+    const prior = makeWorkout({
+      exercises: [makeWorkoutExercise('push-up', [makeSet({ setIndex: 1, weightKg: null, reps: 15 })])],
+      endTime: '2026-08-01T10:00:00.000Z',
+    });
+    const current = makeWorkout({
+      exercises: [makeWorkoutExercise('push-up', [makeSet({ setIndex: 1, weightKg: null, reps: 20 })])],
+      endTime: '2026-08-11T10:00:00.000Z',
+    });
+    const prs = detectPRs(current, [prior, current]);
+    expect(prs).toHaveLength(1);
+    expect(prs[0]).toMatchObject({
+      exerciseId: 'push-up',
+      weightKg: 0,
+      reps: 20,
+      kind: 'Reps',
+      deltaPct: 33.3,
+      prevWeightKg: 0,
+      prevReps: 15,
+    });
+  });
+
+  it('correctly tracks weighted bodyweight sets as weight/1RM PRs without forcing weight to 0kg', () => {
+    const prior = makeWorkout({
+      exercises: [makeWorkoutExercise('dips', [makeSet({ setIndex: 1, weightKg: 10, reps: 6 })])],
+      endTime: '2026-08-01T10:00:00.000Z',
+    });
+    const current = makeWorkout({
+      exercises: [makeWorkoutExercise('dips', [makeSet({ setIndex: 1, weightKg: 20, reps: 6 })])],
+      endTime: '2026-08-11T10:00:00.000Z',
+    });
+    const prs = detectPRs(current, [prior, current]);
+    expect(prs).toHaveLength(1);
+    expect(prs[0].kind).toBe('1RM');
+    expect(prs[0].weightKg).toBe(20);
+    expect(prs[0].prevWeightKg).toBe(10);
+    expect(prs[0].reps).toBe(6);
+  });
 });
 
 describe('previousSet', () => {

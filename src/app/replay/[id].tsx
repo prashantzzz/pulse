@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -19,13 +19,13 @@ export default function ReplayScreen() {
   const startWorkout = usePulse((s) => s.startWorkout);
   const workout = workouts.find((w) => w.id === id);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/history' as never);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -34,7 +34,7 @@ export default function ReplayScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [router]);
+  }, [handleBack]);
 
   if (!workout) {
     return (
@@ -139,7 +139,13 @@ export default function ReplayScreen() {
                   {we.sets.filter((s) => s.completed).map((s, i) => (
                     <View key={s.id} style={styles.setChip}>
                       <T variant="smallSemi" style={{ fontSize: 12 }}>
-                        {s.weightKg != null ? `${s.weightKg} kg × ${s.reps ?? '—'}` : s.distanceKm != null ? `${s.distanceKm} km · ${Math.round((s.durationSec ?? 0) / 60)} min` : '✓'}
+                        {s.weightKg != null && s.weightKg > 0
+                          ? `${s.weightKg} kg × ${s.reps ?? '—'}`
+                          : s.reps != null
+                          ? `${s.reps} reps`
+                          : s.distanceKm != null
+                          ? `${s.distanceKm} km · ${Math.round((s.durationSec ?? 0) / 60)} min`
+                          : '✓'}
                       </T>
                       {s.setType !== 'working' ? (
                         <T variant="micro" muted style={{ fontSize: 9, marginLeft: 4 }}>
