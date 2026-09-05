@@ -10,7 +10,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 
 - **Exercise Library & Detail Guides** — Coached exercises searchable by muscle, equipment, and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
 - **Evidence-Based Templates & Recommendation System** — 9 curated resistance templates (3×3 matrix: Beginner/Intermediate/Advanced × 3/4/5 days, strictly 1–5 exercises/day) tailored by a pure, commutative goal-modifier engine (Muscle, Strength, Weight Loss, Endurance, Health) with dedicated cardio guidance add-ons, personalized hero recommendations, and safe active routine replacement that strictly preserves completed workout history. Curated reference templates remain strictly immutable.
-- **Workout Customization & Weight/Reps Persistence** — Real-time persistence of customized weights and reps into the athlete's personal routine (`plans`) and global exercise memory (`exerciseDefaults`). When an athlete modifies weights or reps during a workout session, values forward-propagate to subsequent uncompleted sets and persist to their routine even if the session is later discarded. Target weights are fully customizable in the Workout Builder and synced with Supabase cloud (`workout_plan_exercises.target_weight`).
+- **Workout Customization & Weight/Reps Persistence** — Real-time persistence of customized weights and reps into the athlete's personal routine (`plans`) and global exercise memory (`exerciseDefaults`). When an athlete modifies weights or reps during a workout session, values forward-propagate to subsequent uncompleted sets, synchronize across all plans and workout days containing that exercise, and persist to the user's DB even if the session is later discarded. Target weights are fully customizable in the Workout Builder and synced with Supabase cloud (`workout_plan_exercises.target_weight`).
 - **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping.
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage.
 - **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal.
@@ -124,10 +124,10 @@ Plan ──► startWorkout() ──► activeWorkout (store)
       ──► set logger (patchSet / completeSet)
             ├─► updates activeWorkout sets & auto-fills subsequent sets
             ├─► updates exerciseDefaults (global memory per exercise)
-            ├─► updates originating user plan in plans[] (targetWeightKg, targetReps)
-            └─► queues cloud sync for updated workout plan
+            ├─► synchronizes all user plans containing the exercise in plans[] (targetWeightKg, targetReps)
+            └─► queues/pushes cloud sync to Supabase (workout_plans & workout_plan_exercises)
       ──► cancelActiveWorkout() [Discard]
-            └─► leaves workout history clean, but preserves customized weights/reps in plans & exerciseDefaults
+            └─► leaves workout history clean, but preserves customized weights/reps across all plans & exerciseDefaults
       ──► finishWorkout() [Save & Finish]
             └─► persists to workouts[] (history) + updates stats/PRs
 ```
@@ -191,6 +191,8 @@ Local Cache (AsyncStorage)     Supabase Cloud Layer
 
 - **Offline Mutation Queue** — changes made offline are queued in `@nextrep_offline_sync_queue` and flushed on next sign-in. The queue validates that each mutation belongs to the currently authenticated user before executing.
 - **Account Isolation** — signing out immediately clears all local session state (`clearSessionCache()`), removes notifications, clears the mutation queue, and clears any pending deep-link invites.
+- **Clear All Data** — clears local and cloud workouts, active plans, routines, defaults, and measurements, resetting the app to a fresh-start state at `/onboarding`.
+- **Instant App Startup** — cached user sessions launch immediately from local state without blocking verification loaders; cloud sync and offline queues resolve non-blockingly in the background.
 - **Derived data** — metrics like volume, PRs, streaks, 1RM, and progress scores are computed on-the-fly by `src/lib/stats.ts`, keeping the database normalized.
 
 ### Authentication Flows

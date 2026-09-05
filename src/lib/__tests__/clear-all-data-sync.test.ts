@@ -2,7 +2,6 @@ import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/asy
 import { wipeAllUserDataInCloud, syncUserDataFromCloud } from '../sync';
 import { usePulse } from '../../store/useStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SEED_PLANS } from '../../data/seed';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
@@ -140,7 +139,7 @@ describe('Clear All Data & Cloud Wipe Verification', () => {
     expect(state.manualPRs).toHaveLength(0);
     expect(state.profile).toBeNull();
     expect(state.onboarded).toBe(false);
-    expect(state.plans).toEqual(SEED_PLANS);
+    expect(state.plans).toEqual([]);
 
     // Verify cloud wipe was called
     expect(mockDelete).toHaveBeenCalledWith('workouts', 'user_id', TEST_USER_ID);
@@ -155,7 +154,7 @@ describe('Clear All Data & Cloud Wipe Verification', () => {
     expect(state.measurements).toHaveLength(0);
     expect(state.favorites).toHaveLength(0);
     expect(state.manualPRs).toHaveLength(0);
-    expect(state.plans).toEqual(SEED_PLANS);
+    expect(state.plans).toEqual([]);
     expect(state.onboarded).toBe(false);
   });
 });

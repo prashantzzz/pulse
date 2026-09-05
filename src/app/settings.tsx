@@ -632,6 +632,7 @@ export default function SettingsScreen() {
               await clearAllData();
               toast('All data cleared');
               setConfirmClear(false);
+              router.replace('/onboarding' as never);
             } catch (err) {
               console.warn('Error clearing data:', err);
               toast('Failed to clear all data');

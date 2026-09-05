@@ -23,7 +23,6 @@ import {
 import {
   recommendTemplate,
   type CardioGuidance,
-  type CoachingTip,
   type RecommendationResult,
 } from '../../lib/recommendations';
 import { usePulse } from '../../store/useStore';
@@ -84,7 +83,7 @@ export default function WorkoutsScreen() {
   };
 
   const applyTemplateDirectly = (template: ProgramTemplate) => {
-    const newPlans = templateToPlans(template);
+    const newPlans = templateToPlans(template, usePulse.getState().exerciseDefaults);
     setPlans(newPlans);
     toast(`${template.title} activated!`);
     setTab('My Plans');
