@@ -245,6 +245,9 @@ export async function signInWithGoogle(): Promise<{ cancelled?: boolean; session
     provider: 'google',
     options: {
       redirectTo: redirectUrl,
+      queryParams: {
+        prompt: 'select_account', // Forces Google to show the account chooser on the web
+      },
     },
   });
   if (error) throw error;
@@ -292,6 +295,16 @@ export async function updatePassword(newPassword: string) {
  */
 export async function signOut() {
   if (!isSupabaseConfigured) return;
+
+  // Sign out of native Google session to force account picker on next login
+  if (Platform.OS !== 'web') {
+    try {
+      await GoogleSignin.signOut();
+    } catch (err) {
+      // User might not have signed in with Google natively; safe to ignore
+    }
+  }
+
   const { error } = await supabase.auth.signOut();
   if (error) {
     // Ignore offline error when signing out locally
