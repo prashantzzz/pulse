@@ -44,6 +44,7 @@ export default function BuilderScreen() {
   const addPlan = usePulse((s) => s.addPlan);
   const updatePlan = usePulse((s) => s.updatePlan);
   const removePlan = usePulse((s) => s.removePlan);
+  const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
 
   const plan = planParam ? plans.find((p) => p.id === planParam) : undefined;
 
@@ -59,7 +60,13 @@ export default function BuilderScreen() {
       }));
     }
     if (add && EXERCISE_MAP[add]) {
-      return [{ exerciseId: add, sets: 3, targetReps: '8-12', targetWeightKg: null }];
+      const def = usePulse.getState().exerciseDefaults[add];
+      return [{
+        exerciseId: add,
+        sets: 3,
+        targetReps: def?.reps != null ? String(def.reps) : '8-12',
+        targetWeightKg: def?.weightKg ?? null,
+      }];
     }
     return [];
   });
@@ -139,7 +146,7 @@ export default function BuilderScreen() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', handleBack);
     return () => sub.remove();
-  }, [handleBack]);
+  });
 
   const toggleExercise = (exerciseId: string) => {
     const existingIdx = drafts.findIndex((d) => d.exerciseId === exerciseId);
@@ -148,7 +155,16 @@ export default function BuilderScreen() {
       if (editingIndex === existingIdx) setEditingIndex(null);
       toast('Exercise removed from workout');
     } else {
-      setDrafts((prev) => [...prev, { exerciseId, sets: 3, targetReps: '8-12' }]);
+      const def = exerciseDefaults[exerciseId];
+      setDrafts((prev) => [
+        ...prev,
+        {
+          exerciseId,
+          sets: 3,
+          targetReps: def?.reps != null ? String(def.reps) : '8-12',
+          targetWeightKg: def?.weightKg ?? null,
+        },
+      ]);
       toast('Exercise added to workout');
     }
   };

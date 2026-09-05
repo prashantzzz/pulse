@@ -23,21 +23,37 @@ export default function LogSetScreen() {
   const workouts = usePulse((s) => s.workouts);
   const patchSet = usePulse((s) => s.patchSet);
   const completeSet = usePulse((s) => s.completeSet);
+  const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
 
   const workout = activeWorkout;
   const we = workout?.exercises.find((x) => x.exerciseId === exercise);
   const current = we?.sets.find((s) => s.id === set);
   const ex = exercise ? EXERCISE_MAP[exercise] : undefined;
   const isBodyweight = ex?.equipment === 'Bodyweight' || ex?.movement === 'Cardio';
+  const remembered = exercise ? exerciseDefaults?.[exercise] : undefined;
+
   const [weight, setWeight] = useState<number>(
-    current?.weightKg ?? (isBodyweight ? 0 : previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? 20),
+    current?.weightKg ?? (isBodyweight ? 0 : (remembered?.weightKg ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? 20)),
   );
-  const [reps, setReps] = useState<number>(current?.reps ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.reps ?? 10);
+  const [reps, setReps] = useState<number>(
+    current?.reps ?? remembered?.reps ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.reps ?? 10,
+  );
   const [rpe, setRpe] = useState<number | null>(current?.rpe ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
   const [platesOpen, setPlatesOpen] = useState(false);
   const [barWeight, setBarWeight] = useState(20);
   const [platesTarget, setPlatesTarget] = useState(weight);
+
+  const handleBack = () => {
+    if (current && ex && (weight !== current.weightKg || reps !== current.reps)) {
+      patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/workout/${id}` as never);
+    }
+  };
 
   useEffect(() => {
     const onBackPress = () => {
@@ -45,24 +61,12 @@ export default function LogSetScreen() {
         setPlatesOpen(false);
         return true;
       }
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace(`/workout/${id}` as never);
-      }
+      handleBack();
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [platesOpen, router, id]);
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(`/workout/${id}` as never);
-    }
-  };
+  });
 
   if (!workout || !we || !current || !ex) {
     return (

@@ -8,7 +8,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { usePulse } from '../store/useStore';
-import { SEED_PLANS } from '../data/seed';
 import { genUuid, isValidUuid } from './uuid';
 import type { BodyMeasurement, ExerciseSet, SetType, UserProfile, Workout, WorkoutExercise, WorkoutPlan } from '../types';
 
@@ -187,7 +186,8 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           exercise_id,
           order_index,
           target_sets,
-          target_reps
+          target_reps,
+          target_weight
         )
       `)
       .eq('user_id', userId);
@@ -285,10 +285,25 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       }
       const consolidatedPlans = Array.from(planMap.values());
 
+      // Merge exercise defaults from cloud plans so client state inherits cloud numbers
+      const mergedDefaults = { ...state.exerciseDefaults };
+      for (const p of consolidatedPlans) {
+        for (const e of p.exercises) {
+          if (e.targetWeightKg != null && !mergedDefaults[e.exerciseId]) {
+            const numericReps = parseInt(e.targetReps, 10);
+            mergedDefaults[e.exerciseId] = {
+              weightKg: e.targetWeightKg,
+              reps: !isNaN(numericReps) ? numericReps : 10,
+            };
+          }
+        }
+      }
+
       return {
         workouts: cloudWorkouts.length > 0 ? cloudWorkouts : state.workouts,
         measurements: effectiveMeasurements,
-        plans: consolidatedPlans.length > 0 ? consolidatedPlans : (state.plans.length > 0 ? state.plans : SEED_PLANS),
+        plans: consolidatedPlans.length > 0 ? consolidatedPlans : state.plans,
+        exerciseDefaults: mergedDefaults,
         favorites: effectiveFavorites,
         manualPRs: effectivePRs,
         profile: userProfile,
@@ -608,10 +623,14 @@ export async function pushWorkoutToCloud(userId: string, workout: Workout): Prom
 export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
   if (!userId) return false;
   try {
-    await directPushPlanToCloud(userId, plan);
+    const success = await directPushPlanToCloud(userId, plan);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
+    }
     return true;
   } catch {
-    return false;
+    await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
+    return true;
   }
 }
 

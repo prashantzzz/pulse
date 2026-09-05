@@ -7,7 +7,7 @@ import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 
 import { T } from '../components/Text';
-import { accentTint, colors, gradients, type, useAccent } from '../theme';
+import { accentTint, colors, type, useAccent } from '../theme';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 
@@ -104,25 +104,14 @@ export default function SplashScreen() {
   useEffect(() => {
     if (!hydrated || !isInitialized || isVerifyingUser) return;
 
-    const t = setTimeout(() => {
-      Animated.timing(exitOpacity, {
-        toValue: 0,
-        duration: 260,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }).start(() => {
-        if (!isAuthenticated) {
-          router.replace('/auth/login' as never);
-        } else if (onboarded) {
-          router.replace('/(tabs)/home');
-        } else {
-          router.replace('/onboarding');
-        }
-      });
-    }, 1850);
-
-    return () => clearTimeout(t);
-  }, [hydrated, isInitialized, isAuthenticated, isVerifyingUser, onboarded, router, exitOpacity]);
+    if (!isAuthenticated) {
+      router.replace('/auth/login' as never);
+    } else if (onboarded) {
+      router.replace('/(tabs)/home');
+    } else {
+      router.replace('/onboarding');
+    }
+  }, [hydrated, isInitialized, isAuthenticated, isVerifyingUser, onboarded, router]);
 
   const ambientScale = glowPulse.interpolate({
     inputRange: [0, 1],

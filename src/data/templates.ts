@@ -725,20 +725,27 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
 ];
 
 /**
- * Converts a ProgramTemplate's days to WorkoutPlan format for saving into `plans`
+ * Converts a ProgramTemplate's days to WorkoutPlan format for saving into `plans`.
+ * If exerciseDefaults are supplied, pre-fills the user's remembered working weights and reps.
  */
-export function templateToPlans(template: ProgramTemplate): WorkoutPlan[] {
+export function templateToPlans(
+  template: ProgramTemplate,
+  exerciseDefaults?: Record<string, { weightKg: number; reps: number }>,
+): WorkoutPlan[] {
   return template.days.map((d) => ({
     id: genUuid(),
     title: d.title,
     emoji: d.emoji,
     muscles: [...d.muscles],
-    exercises: d.exercises.map((e) => ({
-      exerciseId: e.exerciseId,
-      sets: e.sets,
-      targetReps: e.targetReps,
-      targetWeightKg: null,
-    })),
+    exercises: d.exercises.map((e) => {
+      const def = exerciseDefaults?.[e.exerciseId];
+      return {
+        exerciseId: e.exerciseId,
+        sets: e.sets,
+        targetReps: def?.reps != null ? String(def.reps) : e.targetReps,
+        targetWeightKg: def?.weightKg ?? null,
+      };
+    }),
   }));
 }
 

@@ -8,10 +8,19 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
 import type { Database } from './database.types';
 import { isSupabaseConfigured, supabase } from './supabase';
 import type { UserProfile } from '../types';
 import type { Session, User } from '@supabase/supabase-js';
+
+// Configure Google Sign-In for native platforms
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    // Required: Get this from Google Cloud Console (Web Client ID)
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '', 
+  });
+}
 
 // Complete any auth session on web if applicable
 WebBrowser.maybeCompleteAuthSession();
@@ -188,46 +197,58 @@ export async function signInWithGoogle(): Promise<{ cancelled?: boolean; session
     throw new Error('Supabase is not configured yet. Please provide your Supabase credentials in .env.');
   }
 
-  if (Platform.OS === 'web') {
-    const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-      },
-    });
-    if (error) throw error;
-    return {};
+  // Native Android / iOS implementation using @react-native-google-signin/google-signin
+  if (Platform.OS !== 'web') {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      if (isSuccessResponse(response)) {
+        const idToken = response.data?.idToken;
+
+        if (!idToken) {
+          throw new Error('No ID token present!');
+        }
+
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+
+        if (error) throw error;
+        return { session: data.session };
+      } else {
+        // sign in was cancelled by user
+        return { cancelled: true };
+      }
+    } catch (error: any) {
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            throw new Error('Sign in is in progress already');
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            throw new Error('Play services not available or outdated');
+          case statusCodes.SIGN_IN_CANCELLED:
+            return { cancelled: true };
+          default:
+            throw new Error('Some other error happened: ' + error.message);
+        }
+      } else {
+        throw new Error('An error occurred during Google sign in: ' + error?.message);
+      }
+    }
   }
 
-  // Native Android / iOS redirect using app custom scheme (nextrep://auth/callback)
-  const redirectUrl = Linking.createURL('auth/callback', { scheme: 'nextrep' });
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  // Web fallback using OAuth (redirects to Supabase)
+  const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: redirectUrl,
-      skipBrowserRedirect: true,
     },
   });
-
   if (error) throw error;
-  if (!data?.url) {
-    throw new Error('Could not obtain Google authentication URL.');
-  }
-
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-  if (result.type === 'success' && result.url) {
-    const session = await handleAuthUrl(result.url);
-    return { session };
-  }
-
-  if (result.type === 'cancel' || result.type === 'dismiss') {
-    return { cancelled: true };
-  }
-
-  return { cancelled: true };
+  return {};
 }
 
 /**

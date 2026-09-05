@@ -42,7 +42,7 @@ function mapRowToUserProfile(row: ProfileRow, currentProfile?: UserProfile | nul
   };
 }
 
-export const useAuth = create<AuthState>((set) => ({
+export const useAuth = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   isLoading: true,
@@ -111,21 +111,17 @@ export const useAuth = create<AuthState>((set) => ({
             session,
             user: session.user,
             isAuthenticated: true,
-            isVerifyingUser: true,
+            isVerifyingUser: false,
             isLoading: false,
+            isInitialized: true,
           });
 
-          try {
-            await Promise.race([
-              syncUserDataFromCloud(session.user.id),
-              new Promise((resolve) => setTimeout(resolve, 6000)),
-            ]);
-            await flushOfflineSyncQueue().catch(() => {});
-          } catch (err) {
-            console.warn('Error syncing cloud user on start:', err);
-          } finally {
-            set({ isVerifyingUser: false, isInitialized: true });
-          }
+          // Sync cloud user data and flush offline queue in the background
+          syncUserDataFromCloud(session.user.id)
+            .then(() => flushOfflineSyncQueue())
+            .catch((err) => {
+              console.warn('Error syncing cloud user on start:', err);
+            });
         } else {
           set({
             session: null,
@@ -149,6 +145,14 @@ export const useAuth = create<AuthState>((set) => ({
       const user = session?.user ?? null;
 
       if (event === 'SIGNED_IN' && user) {
+        const alreadyAuth = get().isAuthenticated && get().user?.id === user.id && !get().isVerifyingUser;
+
+        if (alreadyAuth) {
+          set({ session, user });
+          syncUserDataFromCloud(user.id).catch(() => {});
+          return;
+        }
+
         set({
           session,
           user,
@@ -168,7 +172,7 @@ export const useAuth = create<AuthState>((set) => ({
         } catch (err) {
           console.warn('Error syncing cloud user on SIGNED_IN:', err);
         } finally {
-          set({ isVerifyingUser: false });
+          set({ isVerifyingUser: false, isInitialized: true });
         }
       } else if (event === 'SIGNED_OUT') {
         dismissActiveWorkoutNotification().catch(() => {});

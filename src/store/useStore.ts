@@ -16,7 +16,6 @@ import {
   removeManualPRFromCloud,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
-import { SEED_PLANS } from '../data/seed';
 import { templateToPlans } from '../data/templates';
 import { recommendTemplate } from '../lib/recommendations';
 import { EXERCISE_MAP } from '../data/exercises';
@@ -136,7 +135,7 @@ export const usePulse = create<PulseState>()(
       weightUnit: 'kg',
       profile: null,
       workouts: [],
-      plans: SEED_PLANS,
+      plans: [],
       measurements: [],
       favorites: [],
       friends: [],
@@ -164,7 +163,7 @@ export const usePulse = create<PulseState>()(
         let activePlans = currentPlans;
         if (!currentPlans || currentPlans.length === 0) {
           const rec = recommendTemplate(profile);
-          activePlans = templateToPlans(rec.modifiedTemplate);
+          activePlans = templateToPlans(rec.modifiedTemplate, get().exerciseDefaults);
         }
         set({
           onboarded: true,
@@ -267,9 +266,16 @@ export const usePulse = create<PulseState>()(
               const weightKg =
                 targetWeight != null
                   ? targetWeight
-                  : (prev?.weightKg ?? remembered?.weightKg ?? defaults.weightKg);
+                  : (remembered?.weightKg ?? prev?.weightKg ?? defaults.weightKg);
 
-              const reps = prev?.reps ?? remembered?.reps ?? defaults.reps;
+              const numericTargetReps =
+                targetReps && !targetReps.includes('-') && !isNaN(Number(targetReps))
+                  ? Number(targetReps)
+                  : null;
+              const reps =
+                remembered?.reps ??
+                numericTargetReps ??
+                (prev?.reps ?? defaults.reps);
 
               return {
                 id: genId('s'),
@@ -340,45 +346,47 @@ export const usePulse = create<PulseState>()(
 
           // Update remembered exercise defaults
           const currentDef = s.exerciseDefaults[exerciseId];
+          const newWeight = patch.weightKg ?? targetSet?.weightKg ?? currentDef?.weightKg ?? 20;
+          const newReps = patch.reps ?? targetSet?.reps ?? currentDef?.reps ?? 10;
           const nextExerciseDefaults = {
             ...s.exerciseDefaults,
             [exerciseId]: {
-              weightKg: patch.weightKg ?? targetSet?.weightKg ?? currentDef?.weightKg ?? 20,
-              reps: patch.reps ?? targetSet?.reps ?? currentDef?.reps ?? 10,
+              weightKg: newWeight,
+              reps: newReps,
             },
           };
 
-          // Persist to user's workout plan (their own workout!)
-          const planId = s.activeWorkout.planId;
-          const workoutTitle = s.activeWorkout.title;
-          let updatedPlans = s.plans;
-          let planToSync: WorkoutPlan | null = null;
-
-          const planIndex = s.plans.findIndex(
-            (p) => (planId && p.id === planId) || p.title.trim().toLowerCase() === workoutTitle.trim().toLowerCase(),
-          );
-
-          if (planIndex !== -1) {
-            const targetPlan = s.plans[planIndex];
-            const updatedPlanExercises = targetPlan.exercises.map((pe) => {
+          // Persist to user's workout plans (their own workout routine!):
+          // Update ALL plans containing this exercise so every workout day/split
+          // stays unified and in sync with the athlete's latest numbers.
+          const changedPlans: WorkoutPlan[] = [];
+          const updatedPlans = s.plans.map((p) => {
+            const hasEx = p.exercises.some((pe) => pe.exerciseId === exerciseId);
+            if (!hasEx) return p;
+            const updatedPlanExercises = p.exercises.map((pe) => {
               if (pe.exerciseId !== exerciseId) return pe;
               return {
                 ...pe,
-                targetWeightKg: patch.weightKg != null ? patch.weightKg : pe.targetWeightKg,
+                targetWeightKg: patch.weightKg != null ? patch.weightKg : (pe.targetWeightKg ?? newWeight),
                 targetReps: patch.reps != null ? String(patch.reps) : pe.targetReps,
               };
             });
             const updatedPlan: WorkoutPlan = {
-              ...targetPlan,
+              ...p,
               exercises: updatedPlanExercises,
             };
-            updatedPlans = s.plans.map((p, idx) => (idx === planIndex ? updatedPlan : p));
-            planToSync = updatedPlan;
-          }
+            changedPlans.push(updatedPlan);
+            return updatedPlan;
+          });
 
-          if (planToSync) {
+          // Sync all changed plans to user's cloud DB in Supabase
+          if (changedPlans.length > 0) {
             supabase.auth.getUser().then(({ data: { user } }) => {
-              if (user && planToSync) pushPlanToCloud(user.id, planToSync).catch(() => {});
+              if (user) {
+                for (const p of changedPlans) {
+                  pushPlanToCloud(user.id, p).catch(() => {});
+                }
+              }
             }).catch(() => {});
           }
 
@@ -631,7 +639,22 @@ export const usePulse = create<PulseState>()(
       },
 
       addPlan: (plan) => {
-        set((s) => ({ plans: [...s.plans, plan] }));
+        const nextDefs = { ...get().exerciseDefaults };
+        let defsChanged = false;
+        for (const e of plan.exercises) {
+          if (e.targetWeightKg != null) {
+            const numReps = parseInt(e.targetReps, 10);
+            nextDefs[e.exerciseId] = {
+              weightKg: e.targetWeightKg,
+              reps: !isNaN(numReps) ? numReps : (nextDefs[e.exerciseId]?.reps ?? 10),
+            };
+            defsChanged = true;
+          }
+        }
+        set((s) => ({
+          plans: [...s.plans, plan],
+          exerciseDefaults: defsChanged ? nextDefs : s.exerciseDefaults,
+        }));
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushPlanToCloud(user.id, plan).catch(() => {});
         }).catch(() => {});
@@ -645,8 +668,21 @@ export const usePulse = create<PulseState>()(
       },
 
       updatePlan: (id, plan) => {
+        const nextDefs = { ...get().exerciseDefaults };
+        let defsChanged = false;
+        for (const e of plan.exercises) {
+          if (e.targetWeightKg != null) {
+            const numReps = parseInt(e.targetReps, 10);
+            nextDefs[e.exerciseId] = {
+              weightKg: e.targetWeightKg,
+              reps: !isNaN(numReps) ? numReps : (nextDefs[e.exerciseId]?.reps ?? 10),
+            };
+            defsChanged = true;
+          }
+        }
         set((s) => ({
           plans: s.plans.map((p) => (p.id === id ? plan : p)),
+          exerciseDefaults: defsChanged ? nextDefs : s.exerciseDefaults,
         }));
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushPlanToCloud(user.id, plan).catch(() => {});
@@ -755,10 +791,11 @@ export const usePulse = create<PulseState>()(
         } catch (e) {
           console.warn('Failed to wipe cloud data during clearAllData:', e);
         } finally {
+          import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
           await AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
           set({
             workouts: [],
-            plans: SEED_PLANS,
+            plans: [],
             measurements: [],
             favorites: [],
             friends: [],
@@ -767,7 +804,7 @@ export const usePulse = create<PulseState>()(
             activeWorkout: null,
             profile: null,
             onboarded: false,
-            seeded: true,
+            seeded: false,
           });
         }
       },
