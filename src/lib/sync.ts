@@ -143,8 +143,10 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
-    // 5. Fetch Workouts with nested Exercises and Sets
-    const { data: workoutsData } = await (supabase.from('workouts') as any)
+    // 5. Fetch Workouts with nested Exercises and Sets (bounded to 1 year window for startup efficiency)
+    const oneYearAgoIso = new Date(Date.now() - 365 * 86400000).toISOString();
+
+    let workoutsQuery = (supabase.from('workouts') as any)
       .select(`
         id,
         title,
@@ -171,8 +173,16 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           )
         )
       `)
-      .eq('user_id', userId)
-      .order('started_at', { ascending: false });
+      .eq('user_id', userId);
+
+    if (typeof workoutsQuery.gte === 'function') {
+      workoutsQuery = workoutsQuery.gte('started_at', oneYearAgoIso);
+    }
+    if (typeof workoutsQuery.order === 'function') {
+      workoutsQuery = workoutsQuery.order('started_at', { ascending: false });
+    }
+
+    const { data: workoutsData } = await workoutsQuery;
 
     // 6. Fetch User Workout Plans
     const { data: plansData, error: plansErr } = await (supabase.from('workout_plans') as any)
@@ -275,6 +285,18 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
 
     // 8. Update local store state
     usePulse.setState((state) => {
+      // Merge workouts by ID: preserve local workouts older than 1 year while updating from cloud window
+      const workoutMap = new Map<string, Workout>();
+      for (const w of state.workouts) {
+        if (w.id) workoutMap.set(w.id, w);
+      }
+      for (const cw of cloudWorkouts) {
+        if (cw.id) workoutMap.set(cw.id, cw);
+      }
+      const consolidatedWorkouts = Array.from(workoutMap.values()).sort(
+        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      );
+
       // Merge plans by ID to ensure local plans and cloud plans are safely consolidated
       const planMap = new Map<string, WorkoutPlan>();
       for (const p of state.plans) {
@@ -300,7 +322,7 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       }
 
       return {
-        workouts: cloudWorkouts.length > 0 ? cloudWorkouts : state.workouts,
+        workouts: consolidatedWorkouts.length > 0 ? consolidatedWorkouts : state.workouts,
         measurements: effectiveMeasurements,
         plans: consolidatedPlans.length > 0 ? consolidatedPlans : state.plans,
         exerciseDefaults: mergedDefaults,
@@ -464,61 +486,103 @@ async function directDeleteWorkoutFromCloud(userId: string, workoutId: string): 
 async function directPushWorkoutToCloud(userId: string, workout: Workout): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
 
-  // 1. Insert Workout
-  const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
-    .insert({
-      user_id: userId,
-      title: workout.title,
-      description: workout.description || null,
-      started_at: workout.startTime,
-      completed_at: workout.endTime,
-      source: workout.source || 'user',
-    })
-    .select('id')
-    .single();
+  // 1. Attempt atomic save_workout RPC if available on Supabase
+  const payload = {
+    id: workout.id,
+    user_id: userId,
+    title: workout.title,
+    description: workout.description || null,
+    started_at: workout.startTime,
+    completed_at: workout.endTime,
+    source: workout.source || 'user',
+    exercises: (workout.exercises || []).map((we, eIdx) => ({
+      exercise_id: we.exerciseId,
+      order_index: eIdx,
+      notes: we.notes || null,
+      sets: (we.sets || []).map((s, sIdx) => ({
+        set_index: s.setIndex || sIdx + 1,
+        set_type: s.setType || 'working',
+        weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
+        reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
+        distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
+        duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
+        rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
+        completed: s.completed ?? true,
+        completed_at: s.completedAt || null,
+        notes: s.notes || null,
+      })),
+    })),
+  };
 
-  if (wErr || !wRow) {
-    return false;
+  if (typeof (supabase as any).rpc === 'function') {
+    try {
+      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc('save_workout', { payload });
+      if (!rpcErr && rpcData?.success) {
+        return true;
+      }
+    } catch {
+      // Fall through to direct table inserts if RPC fails or is not yet installed
+    }
   }
 
-  const workoutId = wRow.id;
-
-  // 2. Insert Exercises and Sets
-  for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
-    const we = workout.exercises[eIdx];
-    const { data: exRow, error: exErr } = await (supabase.from('workout_exercises') as any)
+  // 2. Fallback: Multi-step direct table inserts
+  try {
+    const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
       .insert({
-        workout_id: workoutId,
-        exercise_id: we.exerciseId,
-        order_index: eIdx,
-        notes: we.notes || null,
+        user_id: userId,
+        title: workout.title,
+        description: workout.description || null,
+        started_at: workout.startTime,
+        completed_at: workout.endTime,
+        source: workout.source || 'user',
       })
       .select('id')
       .single();
 
-    if (exErr || !exRow) continue;
-
-    const exerciseId = exRow.id;
-    const setsToInsert = we.sets.map((s, sIdx) => ({
-      workout_exercise_id: exerciseId,
-      set_index: s.setIndex || sIdx + 1,
-      set_type: s.setType || 'working',
-      weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
-      reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
-      distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
-      duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
-      rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
-      completed: s.completed ?? true,
-      completed_at: s.completedAt || null,
-      notes: s.notes || null,
-    }));
-
-    if (setsToInsert.length > 0) {
-      await (supabase.from('workout_sets') as any).insert(setsToInsert);
+    if (wErr || !wRow) {
+      return false;
     }
-  }
 
-  return true;
+    const workoutId = wRow.id;
+
+    for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
+      const we = workout.exercises[eIdx];
+      const { data: exRow, error: exErr } = await (supabase.from('workout_exercises') as any)
+        .insert({
+          workout_id: workoutId,
+          exercise_id: we.exerciseId,
+          order_index: eIdx,
+          notes: we.notes || null,
+        })
+        .select('id')
+        .single();
+
+      if (exErr || !exRow) continue;
+
+      const exerciseId = exRow.id;
+      const setsToInsert = we.sets.map((s, sIdx) => ({
+        workout_exercise_id: exerciseId,
+        set_index: s.setIndex || sIdx + 1,
+        set_type: s.setType || 'working',
+        weight_kg: s.weightKg !== null && s.weightKg !== undefined ? s.weightKg : null,
+        reps: s.reps !== null && s.reps !== undefined ? s.reps : null,
+        distance_km: s.distanceKm !== null && s.distanceKm !== undefined ? s.distanceKm : null,
+        duration_seconds: s.durationSec !== null && s.durationSec !== undefined ? s.durationSec : null,
+        rpe: s.rpe !== null && s.rpe !== undefined ? s.rpe : null,
+        completed: s.completed ?? true,
+        completed_at: s.completedAt || null,
+        notes: s.notes || null,
+      }));
+
+      if (setsToInsert.length > 0) {
+        await (supabase.from('workout_sets') as any).insert(setsToInsert);
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function directPushMeasurementToCloud(userId: string, m: BodyMeasurement): Promise<boolean> {
