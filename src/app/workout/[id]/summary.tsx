@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { Share2 } from 'lucide-react-native';
+import { Share2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../../../components/Text';
-import { Button, Row } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import {
   WorkoutShareCard,
   type WorkoutShareCardHandle,
@@ -140,7 +140,26 @@ export default function SummaryScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: Math.max(insets.top + 8, 20), paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: Math.max(insets.bottom + 8, 18),
+        },
+      ]}>
+      {/* Top Header Dismiss Bar */}
+      <View style={styles.topHeaderBar}>
+        <T style={styles.topHeaderTitle}>Workout Complete</T>
+        <Pressable
+          onPress={handleBackToWorkouts}
+          hitSlop={12}
+          accessibilityLabel="Close Summary"
+          style={styles.closeBtn}>
+          <X size={20} color={colors.textDim} />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -163,7 +182,7 @@ export default function SummaryScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* Screen Footer: Primary "Finish/Go Home" and Secondary Icon-only "Share" */}
+      {/* Screen Footer Actions: Prominent Primary Share & Clean Finish */}
       <Animated.View
         style={[
           styles.footerWrapper,
@@ -172,32 +191,39 @@ export default function SummaryScreen() {
             transform: [{ translateY: footerRise }],
           },
         ]}>
-        <Row gap={12} align="center" style={styles.footerRow}>
-          <Button
-            label="Finish / Go Home"
-            icon="checkmark"
-            full
-            size="lg"
-            style={styles.primaryFinishBtn}
-            onPress={handleBackToWorkouts}
-          />
+        <View style={styles.footerCol}>
+          {/* Prominent High-Impact Share Button */}
           <Pressable
             onPress={handleShare}
             disabled={isSharing}
             accessibilityRole="button"
             accessibilityLabel="Share Workout Summary"
             style={({ pressed }) => [
-              styles.shareIconBtn,
-              pressed && { opacity: 0.8 },
-              isSharing && { opacity: 0.6 },
+              styles.primaryShareBtn,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              isSharing && { opacity: 0.7 },
             ]}>
             {isSharing ? (
-              <ActivityIndicator size="small" color={colors.text} />
+              <ActivityIndicator size="small" color="#000000" />
             ) : (
-              <Share2 size={22} color={colors.text} strokeWidth={2} />
+              <View style={styles.shareBtnContent}>
+                <Share2 size={18} color="#000000" strokeWidth={2.4} />
+                <T style={styles.primaryShareBtnText}>Share Story / Summary</T>
+              </View>
             )}
           </Pressable>
-        </Row>
+
+          {/* Clean Finish / Go Home Button */}
+          <Button
+            label="Finish / Go Home"
+            icon="checkmark"
+            variant="ghost"
+            full
+            size="md"
+            style={styles.finishHomeBtn}
+            onPress={handleBackToWorkouts}
+          />
+        </View>
       </Animated.View>
     </View>
   );
@@ -206,45 +232,84 @@ export default function SummaryScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: '#05070A',
+    paddingHorizontal: spacing.md,
     justifyContent: 'space-between',
   },
   notFoundRoot: {
     flex: 1,
     backgroundColor: colors.bg,
   },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingBottom: 6,
+    zIndex: 10,
+  },
+  topHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textDim,
+    letterSpacing: 0.5,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   cardWrapper: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 390,
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerWrapper: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 390,
     alignSelf: 'center',
-    paddingTop: spacing.sm,
+    paddingTop: 8,
   },
-  footerRow: {
+  footerCol: {
     width: '100%',
+    gap: 6,
   },
-  primaryFinishBtn: {
-    flex: 1,
-  },
-  shareIconBtn: {
-    width: 56,
-    height: 56,
+  primaryShareBtn: {
+    width: '100%',
+    height: 50,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.borderBright,
+    backgroundColor: '#22C55E',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  shareBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryShareBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: 0.2,
+  },
+  finishHomeBtn: {
+    height: 42,
   },
 });

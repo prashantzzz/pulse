@@ -5,6 +5,7 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { T } from '../components/Text';
 import { Stepper, toast } from '../components/misc';
 import { Button, Card, Row, Screen, ScreenHeader } from '../components/ui';
+import { toUserWeight, fromUserWeight } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
 
@@ -35,27 +36,30 @@ export default function MeasureScreen() {
   }, [router]);
 
   const last = measurements[measurements.length - 1];
+  const initialWeightKg = last?.weightKg ?? (profile?.weightKg ?? 70);
   const [height, setHeight] = useState(profile?.heightCm ?? 175);
-  const [weight, setWeight] = useState(last?.weightKg ?? (profile?.weightKg ?? 70));
+  const [weight, setWeight] = useState(() => toUserWeight(initialWeightKg, weightUnit));
   const [bodyFat, setBodyFat] = useState<number>(last?.bodyFatPct ?? 20);
   const [chest, setChest] = useState<number>(last?.chestCm ?? 100);
   const [waist, setWaist] = useState<number>(last?.waistCm ?? 85);
   const [biceps, setBiceps] = useState<number>(last?.bicepsCm ?? 36);
 
   const heightM = height / 100;
-  const liveBmi = heightM > 0.5 && weight > 20 ? Math.round((weight / (heightM * heightM)) * 10) / 10 : null;
+  const weightKg = fromUserWeight(weight, weightUnit);
+  const liveBmi = heightM > 0.5 && weightKg > 20 ? Math.round((weightKg / (heightM * heightM)) * 10) / 10 : null;
 
   const save = () => {
+    const savedWeightKg = Math.round(fromUserWeight(weight, weightUnit) * 10) / 10;
     addMeasurement({
       id: `m${Date.now()}`,
       date: new Date().toISOString(),
-      weightKg: Math.round(weight * 10) / 10,
+      weightKg: savedWeightKg,
       bodyFatPct: Math.round(bodyFat * 10) / 10,
       chestCm: chest,
       waistCm: waist,
       bicepsCm: biceps,
     });
-    setProfile({ heightCm: height, weightKg: Math.round(weight * 10) / 10 });
+    setProfile({ heightCm: height, weightKg: savedWeightKg });
     toast('Measurement & stats saved');
   };
 
@@ -95,11 +99,11 @@ export default function MeasureScreen() {
             step={1}
           />
           <Field
-            label={`Weight (${weightUnit === 'lbs' ? 'lbs' : 'kg'})`}
-            desc={weightUnit === 'lbs' ? `~${(weight * 2.20462).toFixed(1)} lbs` : undefined}
+            label={`Weight (${weightUnit})`}
+            desc={weightUnit === 'lbs' ? `~${fromUserWeight(weight, weightUnit).toFixed(1)} kg` : `~${toUserWeight(weight, 'lbs').toFixed(1)} lbs`}
             value={weight}
             onChange={setWeight}
-            step={0.5}
+            step={weightUnit === 'lbs' ? 1 : 0.5}
             decimals={1}
           />
           <Field label="Body fat (%)" value={bodyFat} onChange={setBodyFat} step={0.5} decimals={1} />

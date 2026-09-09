@@ -6,6 +6,8 @@ import { T } from '../Text';
 import { Card, Icon, Row, Section } from '../ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { bestForExercise, consistencyPct, e1rm, strengthProgression, workoutsInLastDays } from '../../lib/stats';
+import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
+import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
 import { progressStyles, SummaryCard, TimeframeChips, type ProgressTimeframe } from './shared';
@@ -35,8 +37,9 @@ export function StrengthView({
   onTimeframeChange: (tf: ProgressTimeframe) => void;
   onOpenPicker: () => void;
 }) {
+  const weightUnit = usePulse((s) => s.weightUnit);
   const ex = EXERCISE_MAP[exerciseId];
-  const prog = strengthProgression(workouts, exerciseId, weeks);
+  const prog = strengthProgression(workouts, exerciseId, weeks, weightUnit);
   const best = bestForExercise(workouts, exerciseId);
   // Exercises logged without weight (e.g. cable machines by pin/plate position)
   // have no e1rm — the progression falls back to max reps per period, so the
@@ -75,8 +78,9 @@ export function StrengthView({
       }
     }
   }
+  const exVolUser = toUserVolume(exVolKg, weightUnit);
   const exVolFormatted = exVolKg > 0
-    ? (exVolKg >= 1000 ? `${(exVolKg / 1000).toFixed(1)}k` : `${Math.round(exVolKg)} kg`)
+    ? (exVolUser >= 1000 ? `${(exVolUser / 1000).toFixed(1)}k` : `${Math.round(exVolUser)} ${weightUnit}`)
     : '—';
 
   const consistencyScore = workouts.length > 0 ? consistencyPct(workouts, 28) : null;
@@ -111,7 +115,7 @@ export function StrengthView({
             deltaPct != null
               ? `${deltaPct >= 0 ? '+' : ''}${deltaPct}%`
               : validVals.length === 1
-              ? `${validVals[0].value} ${repsMode ? 'reps' : 'kg'}`
+              ? `${validVals[0].value} ${repsMode ? 'reps' : weightUnit}`
               : '—'
           }
           accent={deltaPct != null ? deltaPct >= 0 : validVals.length === 1}
@@ -142,7 +146,7 @@ export function StrengthView({
             </T>
             <Row gap={10} style={{ marginTop: 4 }}>
               <T variant="numLg" accent>
-                {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${best.maxE1rm.e1rm.toFixed(1)} kg` : '—'}
+                {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? formatUserWeightWithUnit(best.maxE1rm.e1rm, weightUnit) : '—'}
               </T>
               {deltaPct != null && deltaPct !== 0 ? (
                 <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
@@ -159,7 +163,7 @@ export function StrengthView({
               Best set
             </T>
             <T variant="bodySemi" style={{ marginTop: 2 }}>
-              {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${best.maxWeight.weightKg} × ${best.maxWeight.reps}` : '—'}
+              {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${formatUserWeightWithUnit(best.maxWeight.weightKg, weightUnit)} × ${best.maxWeight.reps}` : '—'}
             </T>
           </View>
         </Row>
@@ -195,7 +199,7 @@ export function StrengthView({
                         {ex?.name ?? s.exerciseId}
                       </T>
                       <T variant="small" dim style={{ fontSize: 12 }}>
-                        {s.weightKg} kg × {s.reps}
+                        {formatUserWeightWithUnit(s.weightKg, weightUnit)} × {s.reps}
                       </T>
                     </View>
                   </Row>

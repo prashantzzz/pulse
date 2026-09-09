@@ -12,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  UIManager,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,10 +21,10 @@ import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
 import { BottomSheet, toast } from '../../../components/misc';
 import { Button, Row, Screen } from '../../../components/ui';
-import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../../components/collapsible';
+import { AnimatedChevron, CollapsibleContent } from '../../../components/collapsible';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
-import { getRecommendedRestSeconds, previousSet } from '../../../lib/stats';
+import { previousSet, exerciseInvolvesWeights, getDefaultSetValues } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
@@ -121,6 +120,7 @@ function ExerciseAccordionCard({
   onQuickComplete: (exerciseId: string, setId: string) => void;
 }) {
   const router = useRouter();
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   return (
     <View style={[styles.exCard, isNext && { borderColor: `${colors.accent}66` }]}>
@@ -172,31 +172,40 @@ function ExerciseAccordionCard({
       </View>
 
       <CollapsibleContent isOpen={isOpen} style={{ gap: 6, marginTop: spacing.sm }}>
-        <Row align="space-between" style={{ paddingHorizontal: 12, marginBottom: 2 }}>
-          <T variant="micro" muted style={{ fontSize: 10, width: 46 }}>
-            SET
-          </T>
-          <T variant="micro" muted style={{ fontSize: 10, flex: 1, paddingHorizontal: 4 }}>
-            LAST TIME
-          </T>
-          <T variant="micro" muted style={{ fontSize: 10, width: 106, textAlign: 'right' }}>
-            KG × REPS
-          </T>
-        </Row>
-        {we.sets.map((s) => (
-          <SetRow
-            key={s.id}
-            index={s.setIndex}
-            setType={s.setType}
-            weight={s.weightKg}
-            reps={s.reps}
-            prev={prevValues.get(`${we.exerciseId}:${s.setIndex}`)}
-            completed={s.completed}
-            isNext={!s.completed && we.id === nextExerciseId && s.id === nextIncompleteSetId}
-            onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}
-            onToggle={() => onQuickComplete(we.exerciseId, s.id)}
-          />
-        ))}
+        {(() => {
+          const isBodyweight = !exerciseInvolvesWeights(we.exerciseId);
+          return (
+            <>
+              <Row align="space-between" style={{ paddingHorizontal: 12, marginBottom: 2 }}>
+                <T variant="micro" muted style={{ fontSize: 10, width: 46 }}>
+                  SET
+                </T>
+                <T variant="micro" muted style={{ fontSize: 10, flex: 1, paddingHorizontal: 4 }}>
+                  LAST TIME
+                </T>
+                <T variant="micro" muted style={{ fontSize: 10, width: 106, textAlign: 'right' }}>
+                  {isBodyweight ? 'REPS' : `${weightUnit.toUpperCase()} × REPS`}
+                </T>
+              </Row>
+              {we.sets.map((s) => (
+                <SetRow
+                  key={s.id}
+                  index={s.setIndex}
+                  setType={s.setType}
+                  weight={s.weightKg}
+                  reps={s.reps}
+                  prev={prevValues.get(`${we.exerciseId}:${s.setIndex}`)}
+                  completed={s.completed}
+                  isNext={!s.completed && we.id === nextExerciseId && s.id === nextIncompleteSetId}
+                  isBodyweight={isBodyweight}
+                  weightUnit={weightUnit}
+                  onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}
+                  onToggle={() => onQuickComplete(we.exerciseId, s.id)}
+                />
+              ))}
+            </>
+          );
+        })()}
         {we.notes ? (
           <Row gap={6} style={{ marginTop: 4 }}>
             <Ionicons name="document-text-outline" size={13} color={colors.textMuted} />
@@ -236,8 +245,8 @@ function RestPopupModal({
   onTogglePause: () => void;
   onSkip: () => void;
 }) {
-  const scale = useRef(new Animated.Value(0.92)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [scale] = useState(() => new Animated.Value(0.92));
+  const [opacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (visible && timer) {
@@ -258,7 +267,7 @@ function RestPopupModal({
       scale.setValue(0.92);
       opacity.setValue(0);
     }
-  }, [visible]);
+  }, [visible, timer, scale, opacity]);
 
   if (!visible || !timer) return null;
 
@@ -412,6 +421,8 @@ export default function ActiveWorkoutScreen() {
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const workouts = usePulse((s) => s.workouts);
+  const profile = usePulse((s) => s.profile);
+  const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
   const completeSet = usePulse((s) => s.completeSet);
   const patchSet = usePulse((s) => s.patchSet);
   const finishWorkout = usePulse((s) => s.finishWorkout);
@@ -578,16 +589,59 @@ export default function ActiveWorkoutScreen() {
   };
 
   // historical values per exercise+set — same lookup as the set logger, so the
-  // "LAST TIME" previews never disagree with what the logger pre-fills
+  // "LAST TIME" previews never disagree with what the logger pre-fills.
+  // Fills every set evenly across the exercise with fallback to remembered/plan defaults.
   const prevValues = new Map<string, { weightKg: number | null; reps: number | null }>();
+  const userExperience = profile?.experience ?? 'Beginner';
+
   for (const we of workout.exercises) {
+    const isWeighted = exerciseInvolvesWeights(we.exerciseId);
+    const remembered = exerciseDefaults?.[we.exerciseId];
+
     for (const s of we.sets) {
-      const p = previousSet(workouts, we.exerciseId, s.setIndex, workout.id);
-      if (p) prevValues.set(`${we.exerciseId}:${s.setIndex}`, { weightKg: p.weightKg, reps: p.reps });
+      let p = previousSet(workouts, we.exerciseId, s.setIndex, workout.id);
+
+      if (!p) {
+        // Fallback cascade to guarantee all sets are populated and even:
+        // 1. First set's resolved value in this exercise
+        // 2. User's remembered defaults
+        // 3. Current set's target / intelligent defaults
+        const firstSetPrev = prevValues.get(`${we.exerciseId}:1`);
+        if (firstSetPrev) {
+          p = { weightKg: firstSetPrev.weightKg, reps: firstSetPrev.reps, date: '' };
+        } else if (remembered) {
+          p = {
+            weightKg: isWeighted ? (remembered.weightKg ?? getDefaultSetValues(we.exerciseId, s.setIndex, userExperience, we.targetReps).weightKg) : null,
+            reps: remembered.reps ?? 10,
+            date: '',
+          };
+        } else {
+          const defaults = getDefaultSetValues(we.exerciseId, s.setIndex, userExperience, we.targetReps);
+          p = {
+            weightKg: isWeighted ? (s.weightKg ?? defaults.weightKg) : null,
+            reps: s.reps ?? defaults.reps,
+            date: '',
+          };
+        }
+      }
+
+      let weightKg = p.weightKg;
+      if (isWeighted && (weightKg == null || weightKg <= 0)) {
+        weightKg = remembered?.weightKg ?? s.weightKg ?? getDefaultSetValues(we.exerciseId, s.setIndex, userExperience, we.targetReps).weightKg;
+        if (weightKg == null || weightKg <= 0) {
+          weightKg = 10;
+        }
+      } else if (!isWeighted) {
+        weightKg = null;
+      }
+
+      prevValues.set(`${we.exerciseId}:${s.setIndex}`, {
+        weightKg,
+        reps: (p.reps != null && p.reps > 0) ? p.reps : (s.reps ?? 10),
+      });
     }
   }
 
-  const lastDoneSet = [...workout.exercises].reverse().find((we) => we.sets.some((s) => s.completed));
   const nextExercise = workout.exercises.find((we) => we.sets.some((s) => !s.completed));
 
   // The plus button toggles completion so an accidental tap can be undone.

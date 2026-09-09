@@ -11,6 +11,8 @@ import {
   weeklyVolumes,
   workoutsInLastDays,
 } from '../../lib/stats';
+import { toUserVolume } from '../../lib/units';
+import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
 import { chartColor, SummaryCard, TF_LABELS, TimeframeChips, type ProgressTimeframe } from './shared';
@@ -33,24 +35,29 @@ export function VolumeView({
   tf: ProgressTimeframe;
   onTimeframeChange: (t: ProgressTimeframe) => void;
 }) {
+  const weightUnit = usePulse((s) => s.weightUnit);
   const days = DAYS[tf];
   const weeks = Math.max(1, Math.round(days / 7));
   const volByMuscle = volumeByMuscle(workouts, days);
   const topVol = volByMuscle.slice(0, 6).reduce((s, v) => s + v.volume, 0);
+  const userTopVol = toUserVolume(topVol, weightUnit);
   const total = totalVolume(workoutsInLastDays(workouts, days));
+  const userTotal = toUserVolume(total, weightUnit);
+  const thisWeekTotal = totalVolume(workoutsInLastDays(workouts, 7));
+  const userThisWeekTotal = toUserVolume(thisWeekTotal, weightUnit);
   // The trend is daily over a week (readable at that density) and weekly for
   // every longer range, so a 1Y window stays a sensible bar count.
   const trend =
     tf === '7D'
-      ? dailyVolume(workouts, 7).map((d) => ({ label: d.label, value: d.volume }))
-      : weeklyVolumes(workouts, weeks).map((w) => ({ label: w.label, value: w.volume }));
+      ? dailyVolume(workouts, 7).map((d) => ({ label: d.label, value: toUserVolume(d.volume, weightUnit) }))
+      : weeklyVolumes(workouts, weeks).map((w) => ({ label: w.label, value: toUserVolume(w.volume, weightUnit) }));
   const perSession = volumePerSessionByWeek(workouts, weeks);
 
   return (
     <>
       <Row gap={spacing.sm}>
-        <SummaryCard label={`Total · ${TF_LABELS[tf]}`} value={`${(total / 1000).toFixed(1)}k`} accent icon="layers" flex1 />
-        <SummaryCard label="This week" value={`${(totalVolume(workoutsInLastDays(workouts, 7)) / 1000).toFixed(1)}k`} icon="trending-up" flex1 />
+        <SummaryCard label={`Total · ${TF_LABELS[tf]}`} value={`${(userTotal / 1000).toFixed(1)}k`} accent icon="layers" flex1 />
+        <SummaryCard label="This week" value={`${(userThisWeekTotal / 1000).toFixed(1)}k`} icon="trending-up" flex1 />
       </Row>
 
       <TimeframeChips tf={tf} onChange={onTimeframeChange} />
@@ -79,10 +86,10 @@ export function VolumeView({
         </T>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
           <DonutChart
-            segments={volByMuscle.slice(0, 6).map((v, i) => ({ label: v.muscle, value: v.volume, color: chartColor(i) }))}
+            segments={volByMuscle.slice(0, 6).map((v, i) => ({ label: v.muscle, value: toUserVolume(v.volume, weightUnit), color: chartColor(i) }))}
             size={150}
-            centerValue={`${(topVol / 1000).toFixed(1)}k`}
-            centerLabel="Total kg"
+            centerValue={`${(userTopVol / 1000).toFixed(1)}k`}
+            centerLabel={`Total ${weightUnit}`}
           />
           <View style={{ flex: 1, gap: 8 }}>
             {volByMuscle.slice(0, 6).map((v, i) => (
@@ -108,7 +115,7 @@ export function VolumeView({
           Average weekly · {TF_LABELS[tf]}
         </T>
         <View style={{ marginTop: spacing.md }}>
-          <LineChart data={perSession.map((p) => p.value)} labels={perSession.map((p) => p.label)} width={chartW} height={130} color={colors.emerald} fillColor={colors.emerald} />
+          <LineChart data={perSession.map((p) => toUserVolume(p.value, weightUnit))} labels={perSession.map((p) => p.label)} width={chartW} height={130} color={colors.emerald} fillColor={colors.emerald} />
         </View>
       </Card>
     </>

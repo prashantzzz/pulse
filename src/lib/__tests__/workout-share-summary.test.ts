@@ -1,5 +1,6 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 import React from 'react';
+import { Platform } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
@@ -9,11 +10,14 @@ jest.mock('expo-linear-gradient', () => ({
 }));
 jest.mock('react-native-body-highlighter', () => 'Body');
 jest.mock('react-native-view-shot', () => ({
-  captureRef: jest.fn().mockResolvedValue('file:///mock/workout-summary.png'),
+  captureRef: jest.fn().mockResolvedValue('data:image/png;base64,mockbase64data'),
 }));
 jest.mock('expo-sharing', () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
   shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 40, bottom: 20, left: 0, right: 0 }),
 }));
 jest.mock('../../lib/haptics', () => ({
   hapticsLight: jest.fn(),
@@ -25,8 +29,22 @@ jest.mock('../../lib/haptics', () => ({
   hapticsSelection: jest.fn(),
 }));
 
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    replace: mockReplace,
+    push: jest.fn(),
+    back: jest.fn(),
+  }),
+  useNavigation: () => ({
+    addListener: jest.fn().mockReturnValue(jest.fn()),
+  }),
+  useLocalSearchParams: () => ({ id: 'w-summary-test' }),
+}));
+
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
+import SummaryScreen from '../../app/workout/[id]/summary';
 import {
   getWorkedSlugsForWorkout,
   WorkoutMuscleHero,
@@ -35,6 +53,7 @@ import {
   WorkoutShareCard,
   type WorkoutShareCardHandle,
 } from '../../components/workout-share-card';
+import { usePulse } from '../../store/useStore';
 import type { Workout } from '../../types';
 
 const mockWorkout: Workout = {
@@ -133,6 +152,15 @@ const mockWorkout: Workout = {
   ],
 };
 
+const emptyWorkout: Workout = {
+  id: 'w-empty',
+  title: 'Rest Day / Zero Sets',
+  description: '',
+  startTime: '2026-09-06T12:00:00.000Z',
+  endTime: '2026-09-06T12:05:00.000Z',
+  exercises: [],
+};
+
 describe('Workout Muscle Hero & Slugs Extraction', () => {
   it('correctly extracts worked anatomical slugs from completed exercises only', () => {
     const slugs = getWorkedSlugsForWorkout(mockWorkout);
@@ -145,10 +173,28 @@ describe('Workout Muscle Hero & Slugs Extraction', () => {
     expect(slugs.has('quadriceps')).toBe(false);
   });
 
+  it('handles empty workouts gracefully without highlighting any muscles', () => {
+    const slugs = getWorkedSlugsForWorkout(emptyWorkout);
+    expect(slugs.size).toBe(0);
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(WorkoutMuscleHero, { workout: emptyWorkout }));
+    });
+
+    const bodies = tree!.root.findAllByType('Body');
+    expect(bodies.length).toBe(2);
+
+    const frontBody = bodies.find((b) => b.props.side === 'front');
+    // None of the slugs should have green styles
+    const coloredParts = frontBody!.props.data.filter((p: any) => p.styles?.fill);
+    expect(coloredParts.length).toBe(0);
+  });
+
   it('renders side-by-side Front and Back 2D models with worked muscles highlighted in vibrant green', () => {
     let tree: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(React.createElement(WorkoutMuscleHero, { workout: mockWorkout }));
+      tree = renderer.create(React.createElement(WorkoutMuscleHero, { workout: mockWorkout, gender: 'female' }));
     });
 
     const bodies = tree!.root.findAllByType('Body');
@@ -158,6 +204,7 @@ describe('Workout Muscle Hero & Slugs Extraction', () => {
     const backBody = bodies.find((b) => b.props.side === 'back');
     expect(frontBody).toBeDefined();
     expect(backBody).toBeDefined();
+    expect(frontBody!.props.gender).toBe('female');
 
     // Verify chest slug has vibrant green fill (#22C55E)
     const chestPart = frontBody!.props.data.find((p: any) => p.slug === 'chest');
@@ -171,6 +218,10 @@ describe('Workout Muscle Hero & Slugs Extraction', () => {
 });
 
 describe('WorkoutShareCard 9:16 Social Story Asset', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('renders branding in top-right and celebratory title horizontally with trophy', () => {
     let tree: renderer.ReactTestRenderer;
     act(() => {
@@ -185,9 +236,38 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     expect(allText).toContain('Exercises');
     expect(allText).toContain('Sets');
     expect(allText).toContain('Volume kg');
+    expect(allText).toContain('Duration');
+    expect(allText).toContain('Total Volume');
+    expect(allText).toContain('PRs');
+    expect(allText).toContain('MUSCLES WORKED');
+    expect(allText).toContain('Targeted Muscles');
+    expect(allText).toContain('STRONGER EVERY REP');
+    expect(allText).toContain('Progress Looks Good On You');
   });
 
-  it('triggers captureRef and native sharing when share() is called', async () => {
+  it('adapts volume unit dynamically to lbs mode in 9:16 share card', () => {
+    act(() => {
+      usePulse.setState({ weightUnit: 'lbs' });
+    });
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(WorkoutShareCard, { workout: mockWorkout }));
+    });
+
+    const textNodes = tree!.root.findAll((node) => node.type === 'Text' || (node.props && node.props.children));
+    const allText = textNodes.map((n) => (typeof n.props.children === 'string' ? n.props.children : '')).join(' ');
+
+    expect(allText).toContain('Volume lbs');
+    expect(allText).toContain('lbs');
+    act(() => {
+      tree.unmount();
+      usePulse.setState({ weightUnit: 'kg' });
+    });
+  });
+
+  it('triggers captureRef and native sharing when share() is called on native', async () => {
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(true);
+
     const ref = React.createRef<WorkoutShareCardHandle>();
     act(() => {
       renderer.create(React.createElement(WorkoutShareCard, { ref, workout: mockWorkout }));
@@ -201,11 +281,86 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
 
     expect(captureRef).toHaveBeenCalled();
     expect(Sharing.shareAsync).toHaveBeenCalledWith(
-      'file:///mock/workout-summary.png',
+      'data:image/png;base64,mockbase64data',
       expect.objectContaining({
         mimeType: 'image/png',
         dialogTitle: expect.stringContaining('Summary'),
       })
     );
+  });
+
+  it('falls back to browser document download on web platform when native sharing is unavailable', async () => {
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(false);
+    const originalPlatform = Platform.OS;
+    (Platform as any).OS = 'web';
+
+    const mockAppendChild = jest.fn();
+    const mockRemoveChild = jest.fn();
+    const mockClick = jest.fn();
+    const mockAnchor = { href: '', download: '', click: mockClick };
+
+    const originalDocument = global.document;
+    (global as any).document = {
+      createElement: jest.fn().mockReturnValue(mockAnchor),
+      body: {
+        appendChild: mockAppendChild,
+        removeChild: mockRemoveChild,
+      },
+    };
+
+    const ref = React.createRef<WorkoutShareCardHandle>();
+    act(() => {
+      renderer.create(React.createElement(WorkoutShareCard, { ref, workout: mockWorkout }));
+    });
+
+    await act(async () => {
+      await ref.current!.share();
+    });
+
+    expect(mockAnchor.download).toContain('nextrep-chest-&-triceps-hypertrophy-summary.png');
+    expect(mockClick).toHaveBeenCalled();
+
+    // Restore
+    (Platform as any).OS = originalPlatform;
+    (global as any).document = originalDocument;
+  });
+});
+
+describe('SummaryScreen Component Integration', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    act(() => {
+      usePulse.setState({
+        workouts: [mockWorkout],
+        profile: { gender: 'male', name: 'Alex' } as any,
+      });
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+  });
+
+  it('renders SummaryScreen with 9:16 card and footer controls without crashing', () => {
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(SummaryScreen));
+    });
+
+    expect(tree!.root).toBeDefined();
+    const finishBtn = tree!.root.findAll((node) => node.props && node.props.label === 'Finish / Go Home');
+    expect(finishBtn.length).toBeGreaterThan(0);
+
+    const textNodes = tree!.root.findAll((node) => node.type === 'Text' || (node.props && node.props.children));
+    const allText = textNodes.map((n) => (typeof n.props.children === 'string' ? n.props.children : '')).join(' ');
+    expect(allText).toContain('Share Story / Summary');
+    expect(allText).toContain('Workout Complete');
+
+    act(() => {
+      tree.unmount();
+    });
   });
 });

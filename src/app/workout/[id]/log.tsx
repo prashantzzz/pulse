@@ -8,7 +8,8 @@ import { BottomSheet, Stepper, toast } from '../../../components/misc';
 import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../../../components/ui';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { platesForTarget } from '../../../lib/plates';
-import { previousSet, warmupSets } from '../../../lib/stats';
+import { previousSet, warmupSets, exerciseInvolvesWeights } from '../../../lib/stats';
+import { toUserWeight, fromUserWeight, formatWeight, formatWeightWithUnit, getBarWeight, getWeightStep, WeightUnit } from '../../../lib/units';
 import { usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight } from '../../../lib/haptics';
@@ -24,29 +25,30 @@ export default function LogSetScreen() {
   const patchSet = usePulse((s) => s.patchSet);
   const completeSet = usePulse((s) => s.completeSet);
   const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const workout = activeWorkout;
   const we = workout?.exercises.find((x) => x.exerciseId === exercise);
   const current = we?.sets.find((s) => s.id === set);
   const ex = exercise ? EXERCISE_MAP[exercise] : undefined;
-  const isBodyweight = ex?.equipment === 'Bodyweight' || ex?.movement === 'Cardio';
+  const isBodyweight = !exerciseInvolvesWeights(exercise ?? '');
   const remembered = exercise ? exerciseDefaults?.[exercise] : undefined;
 
-  const [weight, setWeight] = useState<number>(
-    current?.weightKg ?? (isBodyweight ? 0 : (remembered?.weightKg ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? 20)),
-  );
+  const rawKg = current?.weightKg ?? (isBodyweight ? 0 : (remembered?.weightKg ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.weightKg ?? null));
+  const [weight, setWeight] = useState<number>(() => rawKg != null ? toUserWeight(rawKg, weightUnit) : getBarWeight(weightUnit));
   const [reps, setReps] = useState<number>(
     current?.reps ?? remembered?.reps ?? previousSet(workouts, exercise ?? '', current?.setIndex ?? 1)?.reps ?? 10,
   );
   const [rpe, setRpe] = useState<number | null>(current?.rpe ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
   const [platesOpen, setPlatesOpen] = useState(false);
-  const [barWeight, setBarWeight] = useState(20);
+  const [barWeight, setBarWeight] = useState(() => getBarWeight(weightUnit));
   const [platesTarget, setPlatesTarget] = useState(weight);
 
   const handleBack = () => {
-    if (current && ex && (weight !== current.weightKg || reps !== current.reps)) {
-      patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
+    const savedWeightKg = fromUserWeight(weight, weightUnit);
+    if (current && ex && (savedWeightKg !== current.weightKg || reps !== current.reps)) {
+      patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
     }
     if (router.canGoBack()) {
       router.back();
@@ -83,9 +85,11 @@ export default function LogSetScreen() {
 
   const totalInExercise = we.sets.length;
   const prev = previousSet(workouts, ex.id, current.setIndex);
+  const prevUserWeight = prev?.weightKg != null && prev.weightKg > 0 ? toUserWeight(prev.weightKg, weightUnit) : null;
+  const weightStep = getWeightStep(weightUnit);
   const suggestion =
-    prev?.weightKg != null && prev.weightKg > 0 && prev.reps != null && ex.movement !== 'Cardio'
-      ? prev.weightKg + 2.5
+    prevUserWeight != null && prevUserWeight > 0 && prev?.reps != null && ex.movement !== 'Cardio'
+      ? prevUserWeight + weightStep
       : null;
   const suggestionReps = ex.repRange.match(/(\d+)\s*[-–]\s*(\d+)/);
   const suggestedRepLow = suggestionReps ? Number(suggestionReps[1]) : 8;
@@ -95,7 +99,8 @@ export default function LogSetScreen() {
   const prevIncomplete = we.sets.slice(0, currentIndex).find((s) => !s.completed);
 
   const save = (complete: boolean, goNext: boolean) => {
-    patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
+    const savedWeightKg = fromUserWeight(weight, weightUnit);
+    patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
     if (complete) {
       if (prevIncomplete) {
         hapticsLight();
@@ -126,7 +131,8 @@ export default function LogSetScreen() {
   // Save kg/reps/rpe/notes without marking the set as completed — useful for
   // pre-setting weight before starting the set or adjusting values mid-session.
   const saveOnly = () => {
-    patchSet(ex.id, current.id, { weightKg: weight, reps, rpe, notes: notes.trim() || null });
+    const savedWeightKg = fromUserWeight(weight, weightUnit);
+    patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
     hapticsLight();
     toast('Values saved to workout');
     router.back();
@@ -186,11 +192,11 @@ export default function LogSetScreen() {
                     LAST TIME
                   </T>
                   <T variant="bodySemi" style={{ marginTop: 2 }}>
-                    {prev.weightKg != null && prev.weightKg > 0 ? `${prev.weightKg} kg × ${prev.reps}` : `${prev.reps} reps`}
+                    {!isBodyweight && prevUserWeight != null && prevUserWeight > 0 ? `${formatWeightWithUnit(prevUserWeight, weightUnit)} × ${prev.reps}` : `${prev.reps} reps`}
                   </T>
                   {suggestion ? (
                     <T variant="smallMedium" accent style={{ marginTop: 4 }}>
-                      Try {suggestion} kg × {suggestedRepLow}–{suggestedRepHigh} today
+                      Try {formatWeightWithUnit(suggestion, weightUnit)} × {suggestedRepLow}–{suggestedRepHigh} today
                     </T>
                   ) : null}
                 </View>
@@ -201,7 +207,7 @@ export default function LogSetScreen() {
           <Card style={{ marginTop: spacing.md, padding: spacing.lg }}>
             <Row align="space-between" style={{ marginBottom: spacing.md }}>
               <T variant="label" dim center style={{ flex: 1 }}>
-                Weight (kg)
+                Weight ({weightUnit})
               </T>
               <Pressable onPress={() => { setPlatesTarget(weight); setPlatesOpen(true); }} hitSlop={8} style={styles.platesBtn}>
                 <Ionicons name="calculator-outline" size={14} color={colors.accent} />
@@ -210,11 +216,11 @@ export default function LogSetScreen() {
                 </T>
               </Pressable>
             </Row>
-            <Stepper value={weight} onChange={setWeight} step={2.5} decimals={1} min={0} />
+            <Stepper value={weight} onChange={setWeight} step={weightStep} decimals={weightUnit === 'lbs' ? 0 : 1} min={0} />
 
             {/* warm-up suggestion — only on the first working set of a strength lift */}
             {we.sets.find((s) => s.setType !== 'warmup')?.id === current.id && ex.movement !== 'Cardio' ? (() => {
-              const wu = warmupSets(weight);
+              const wu = warmupSets(weight, weightUnit);
               if (wu.length === 0) return null;
               return (
                 <View style={styles.warmupWrap}>
@@ -277,18 +283,18 @@ export default function LogSetScreen() {
         <View style={{ gap: spacing.lg }}>
           <View>
             <T variant="label" dim style={{ marginBottom: 10 }}>
-              Target weight
+              Target weight ({weightUnit})
             </T>
-            <Stepper value={platesTarget} onChange={setPlatesTarget} step={2.5} decimals={1} min={0} size="lg" />
+            <Stepper value={platesTarget} onChange={setPlatesTarget} step={weightStep} decimals={weightUnit === 'lbs' ? 0 : 1} min={0} size="lg" />
           </View>
           <View style={styles.plateCalcDivider} />
           <View>
             <T variant="label" dim style={{ marginBottom: 10 }}>
-              Bar weight
+              Bar weight ({weightUnit})
             </T>
-            <Stepper value={barWeight} onChange={setBarWeight} step={2.5} decimals={1} min={0} size="lg" />
+            <Stepper value={barWeight} onChange={setBarWeight} step={weightStep} decimals={weightUnit === 'lbs' ? 0 : 1} min={0} size="lg" />
           </View>
-          <PlateResultView targetKg={platesTarget} barKg={barWeight} />
+          <PlateResultView targetWeight={platesTarget} barWeight={barWeight} unit={weightUnit} />
         </View>
       </BottomSheet>
 
@@ -308,8 +314,8 @@ export default function LogSetScreen() {
   );
 }
 
-function PlateResultView({ targetKg, barKg }: { targetKg: number; barKg: number }) {
-  const r = platesForTarget(targetKg, barKg);
+function PlateResultView({ targetWeight, barWeight, unit }: { targetWeight: number; barWeight: number; unit: WeightUnit }) {
+  const r = platesForTarget(targetWeight, barWeight, unit);
   return (
     <View style={styles.plateResult}>
       <Row align="space-between" style={{ marginBottom: spacing.sm }}>
@@ -317,7 +323,7 @@ function PlateResultView({ targetKg, barKg }: { targetKg: number; barKg: number 
           Per side
         </T>
         <T variant="micro" muted>
-          Bar {barKg} kg · Total {targetKg} kg
+          Bar {barWeight} {unit} · Total {targetWeight} {unit}
         </T>
       </Row>
       {r.barOnly ? (
@@ -329,13 +335,13 @@ function PlateResultView({ targetKg, barKg }: { targetKg: number; barKg: number 
           {r.plates.map((p, i) => (
             <View key={i} style={styles.plateChip}>
               <T variant="smallSemi" style={{ fontSize: 12.5 }}>
-                {p} kg
+                {p} {unit}
               </T>
             </View>
           ))}
           {r.remainderKg > 0 ? (
             <T variant="micro" muted style={{ alignSelf: 'center' }}>
-              + {r.remainderKg} kg per side (fractional plates)
+              + {r.remainderKg} {unit} per side (fractional plates)
             </T>
           ) : null}
         </Row>

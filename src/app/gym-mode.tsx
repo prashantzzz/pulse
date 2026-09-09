@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T } from '../components/Text';
 import { toast } from '../components/misc';
 import { EXERCISE_MAP } from '../data/exercises';
+import { toUserWeight, fromUserWeight, getBarWeight, getWeightStep } from '../lib/units';
 import { useNow, usePulse } from '../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../theme';
 
@@ -16,8 +17,10 @@ export default function GymModeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const activeWorkout = usePulse((s) => s.activeWorkout);
+  const patchSet = usePulse((s) => s.patchSet);
   const completeSet = usePulse((s) => s.completeSet);
-  const [weight, setWeight] = useState(20);
+  const weightUnit = usePulse((s) => s.weightUnit);
+  const [weight, setWeight] = useState(() => getBarWeight(weightUnit));
   const [reps, setReps] = useState(10);
   const [restLeft, setRestLeft] = useState(0);
   const now = useNow(1000);
@@ -54,7 +57,7 @@ export default function GymModeScreen() {
   const [syncedSetId, setSyncedSetId] = useState<string | undefined>(undefined);
   if (currentSet?.id !== syncedSetId) {
     setSyncedSetId(currentSet?.id);
-    if (currentSet?.weightKg != null) setWeight(currentSet.weightKg);
+    if (currentSet?.weightKg != null) setWeight(toUserWeight(currentSet.weightKg, weightUnit));
     if (currentSet?.reps != null) setReps(currentSet.reps);
   }
 
@@ -83,7 +86,11 @@ export default function GymModeScreen() {
   const doneCount = workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
   const totalCount = workout.exercises.reduce((s, we) => s + we.sets.length, 0);
 
+  const weightStep = getWeightStep(weightUnit);
+
   const complete = () => {
+    const savedWeightKg = fromUserWeight(weight, weightUnit);
+    patchSet(ex.id, currentSet.id, { weightKg: savedWeightKg, reps });
     completeSet(ex.id, currentSet.id);
     setRestLeft(60);
     toast('💪');
@@ -120,7 +127,7 @@ export default function GymModeScreen() {
       {/* big numbers */}
       <View style={styles.numbers}>
         <View style={styles.numberCol}>
-          <Pressable onPress={() => setWeight((w) => Math.max(0, w + 2.5))} style={styles.bigBtn}>
+          <Pressable onPress={() => setWeight((w) => Math.max(0, Math.round((w + weightStep) * 10) / 10))} style={styles.bigBtn}>
             <Ionicons name="add" size={34} color={colors.text} />
           </Pressable>
           <View style={{ alignItems: 'center', marginVertical: spacing.sm }}>
@@ -128,10 +135,10 @@ export default function GymModeScreen() {
               {weight}
             </T>
             <T variant="small" dim>
-              kg
+              {weightUnit}
             </T>
           </View>
-          <Pressable onPress={() => setWeight((w) => Math.max(0, w - 2.5))} style={styles.bigBtn}>
+          <Pressable onPress={() => setWeight((w) => Math.max(0, Math.round((w - weightStep) * 10) / 10))} style={styles.bigBtn}>
             <Ionicons name="remove" size={34} color={colors.text} />
           </Pressable>
         </View>

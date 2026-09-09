@@ -7,6 +7,7 @@ import {
   detectPlateaus,
   detectPRs,
   e1rm,
+  exerciseInvolvesWeights,
   getDefaultSetValues,
   getRecommendedRestSeconds,
   getSmartTodayPlan,
@@ -354,6 +355,28 @@ describe('detectPRs', () => {
   });
 });
 
+describe('exerciseInvolvesWeights', () => {
+  it('identifies weighted vs bodyweight/cardio movements correctly', () => {
+    // Weighted exercises
+    expect(exerciseInvolvesWeights('bench-press')).toBe(true);
+    expect(exerciseInvolvesWeights('squat')).toBe(true);
+    expect(exerciseInvolvesWeights('lat-pulldown')).toBe(true);
+    expect(exerciseInvolvesWeights('seated-cable-row')).toBe(true);
+    expect(exerciseInvolvesWeights('triceps-pushdown')).toBe(true);
+    expect(exerciseInvolvesWeights('leg-press')).toBe(true);
+    expect(exerciseInvolvesWeights('incline-dumbbell-press')).toBe(true);
+
+    // Bodyweight / Cardio exercises (do NOT involve weights)
+    expect(exerciseInvolvesWeights('push-up')).toBe(false);
+    expect(exerciseInvolvesWeights('pull-up')).toBe(false);
+    expect(exerciseInvolvesWeights('chin-up')).toBe(false);
+    expect(exerciseInvolvesWeights('dips')).toBe(false);
+    expect(exerciseInvolvesWeights('plank')).toBe(false);
+    expect(exerciseInvolvesWeights('treadmill-run')).toBe(false);
+    expect(exerciseInvolvesWeights('jump-rope')).toBe(false);
+  });
+});
+
 describe('previousSet', () => {
   it('returns the most recent completed set at the same index', () => {
     const older = benchWorkout(90, 8, 3, '2026-08-01T09:00:00.000Z');
@@ -370,6 +393,148 @@ describe('previousSet', () => {
     const w = benchWorkout(90, 8, 3, '2026-08-20T09:00:00.000Z');
     expect(previousSet([w], 'bench-press', 1, w.id)).toBeNull();
     expect(previousSet([w], 'bench-press', 1)).toEqual({ weightKg: 90, reps: 8, date: '2026-08-20T09:00:00.000Z' });
+  });
+
+  it('falls back to the last completed set from that same session so all sets stay even and populated', () => {
+    // Single completed set in previous session (e.g. 90kg x 5 on squat)
+    const singleSetWorkout: Workout = {
+      id: 'w-squat-1',
+      title: 'Leg Day',
+      startTime: '2026-08-15T18:00:00.000Z',
+      endTime: '2026-08-15T18:45:00.000Z',
+      source: 'user',
+      exercises: [
+        {
+          id: 'we-1',
+          exerciseId: 'squat',
+          order: 1,
+          notes: null,
+          plannedSets: 1,
+          targetReps: '5',
+          sets: [
+            {
+              id: 's-1',
+              setIndex: 1,
+              setType: 'working',
+              weightKg: 90,
+              reps: 5,
+              distanceKm: null,
+              durationSec: null,
+              rpe: null,
+              notes: null,
+              supersetId: null,
+              completed: true,
+              completedAt: '2026-08-15T18:15:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    // Set 1 gets exact set
+    expect(previousSet([singleSetWorkout], 'squat', 1)).toEqual({
+      weightKg: 90,
+      reps: 5,
+      date: '2026-08-15T18:00:00.000Z',
+    });
+    // Set 2, Set 3, Set 4 all fall back to Set 1 from that session — keeping all sets populated and even!
+    expect(previousSet([singleSetWorkout], 'squat', 2)).toEqual({
+      weightKg: 90,
+      reps: 5,
+      date: '2026-08-15T18:00:00.000Z',
+    });
+    expect(previousSet([singleSetWorkout], 'squat', 3)).toEqual({
+      weightKg: 90,
+      reps: 5,
+      date: '2026-08-15T18:00:00.000Z',
+    });
+    expect(previousSet([singleSetWorkout], 'squat', 4)).toEqual({
+      weightKg: 90,
+      reps: 5,
+      date: '2026-08-15T18:00:00.000Z',
+    });
+  });
+
+  it('guarantees positive weight for weighted exercises even if historical set had null weight', () => {
+    const cableWorkoutNoWeight: Workout = {
+      id: 'w-cable-1',
+      title: 'Pull Day',
+      startTime: '2026-08-12T18:00:00.000Z',
+      endTime: '2026-08-12T18:45:00.000Z',
+      source: 'user',
+      exercises: [
+        {
+          id: 'we-lat',
+          exerciseId: 'lat-pulldown',
+          order: 1,
+          notes: '7th hole',
+          plannedSets: 3,
+          targetReps: '10',
+          sets: [
+            {
+              id: 's-lat-1',
+              setIndex: 1,
+              setType: 'working',
+              weightKg: null, // missing weight
+              reps: 10,
+              distanceKm: null,
+              durationSec: null,
+              rpe: null,
+              notes: null,
+              supersetId: null,
+              completed: true,
+              completedAt: '2026-08-12T18:15:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    const res = previousSet([cableWorkoutNoWeight], 'lat-pulldown', 1);
+    expect(res).not.toBeNull();
+    expect(res!.weightKg).toBeGreaterThan(0); // Never null or 0 for a weighted exercise
+    expect(res!.reps).toBe(10);
+  });
+
+  it('preserves null weight for bodyweight exercises', () => {
+    const bodyweightWorkout: Workout = {
+      id: 'w-bw-1',
+      title: 'Pull Day',
+      startTime: '2026-08-12T18:00:00.000Z',
+      endTime: '2026-08-12T18:45:00.000Z',
+      source: 'user',
+      exercises: [
+        {
+          id: 'we-pu',
+          exerciseId: 'pull-up',
+          order: 1,
+          notes: null,
+          plannedSets: 3,
+          targetReps: '6',
+          sets: [
+            {
+              id: 's-pu-1',
+              setIndex: 1,
+              setType: 'working',
+              weightKg: 0,
+              reps: 6,
+              distanceKm: null,
+              durationSec: null,
+              rpe: null,
+              notes: null,
+              supersetId: null,
+              completed: true,
+              completedAt: '2026-08-12T18:15:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    const res = previousSet([bodyweightWorkout], 'pull-up', 1);
+    expect(res).not.toBeNull();
+    expect(res!.weightKg).toBeNull(); // Strictly null for bodyweight exercises
+    expect(res!.reps).toBe(6);
   });
 });
 

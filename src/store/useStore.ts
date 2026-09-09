@@ -21,6 +21,8 @@ import { recommendTemplate } from '../lib/recommendations';
 import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
 import { getDefaultSetValues, previousSet, getRecommendedRestSeconds } from '../lib/stats';
+import { formatUserWeightWithUnit } from '../lib/units';
+
 import type {
   ActiveWorkout,
   BodyMeasurement,
@@ -154,7 +156,15 @@ export const usePulse = create<PulseState>()(
         set({ weightUnit: unit });
         const p = get().profile;
         if (p) {
-          set({ profile: { ...p, weightUnit: unit } });
+          const updated = { ...p, weightUnit: unit };
+          set({ profile: updated });
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              import('../lib/auth').then(({ upsertProfile }) => {
+                upsertProfile(user.id, updated).catch(() => {});
+              });
+            }
+          }).catch(() => {});
         }
       },
 
@@ -168,6 +178,7 @@ export const usePulse = create<PulseState>()(
         set({
           onboarded: true,
           profile,
+          weightUnit: profile.weightUnit ?? 'kg',
           seeded: true,
           plans: activePlans,
           workouts: get().workouts,
@@ -175,6 +186,7 @@ export const usePulse = create<PulseState>()(
           favorites: get().favorites,
           friends: get().friends,
         });
+
         if (activePlans !== currentPlans && activePlans.length > 0) {
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (user) pushAllPlansToCloud(user.id, activePlans).catch(() => {});
@@ -423,7 +435,7 @@ export const usePulse = create<PulseState>()(
             const ex = EXERCISE_MAP[exerciseId];
             const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
             const completedSetInfo = completedSet
-              ? `Set ${completedSet.setIndex} (${completedSet.weightKg != null ? `${completedSet.weightKg} kg × ` : ''}${completedSet.reps ?? '–'} reps)`
+              ? `Set ${completedSet.setIndex} (${completedSet.weightKg != null ? `${formatUserWeightWithUnit(completedSet.weightKg, s.weightUnit)} × ` : ''}${completedSet.reps ?? '–'} reps)`
               : undefined;
 
             let nextSetInfo = '';
@@ -434,7 +446,7 @@ export const usePulse = create<PulseState>()(
                 const p = previousSet(s.workouts, e.exerciseId, nextS.setIndex, s.activeWorkout.id);
                 const wVal = nextS.weightKg ?? p?.weightKg;
                 const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
-                nextSetInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${wVal} kg × ` : ''}${rVal} reps)`;
+                nextSetInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${formatUserWeightWithUnit(wVal, s.weightUnit)} × ` : ''}${rVal} reps)`;
                 break;
               }
             }

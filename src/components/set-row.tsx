@@ -4,6 +4,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, radius } from '../theme';
 import type { SetType } from '../types';
 import { T } from './Text';
+import { usePulse } from '../store/useStore';
+import { formatUserWeight, formatUserWeightWithUnit } from '../lib/units';
+
 
 export function SetTypeTag({ type }: { type: SetType }) {
   const colors2: Record<SetType, { label: string; color: string }> = {
@@ -39,6 +42,8 @@ export function SetRow({
   onTap,
   onToggle,
   isNext,
+  isBodyweight = false,
+  weightUnit: weightUnitProp,
 }: {
   index: number;
   setType: SetType;
@@ -49,7 +54,12 @@ export function SetRow({
   onTap: () => void;
   onToggle?: () => void;
   isNext?: boolean;
+  isBodyweight?: boolean;
+  weightUnit?: 'kg' | 'lbs';
 }) {
+  const storeUnit = usePulse((s) => s.weightUnit);
+  const userUnit = weightUnitProp ?? storeUnit;
+
   const handleRowPress = () => {
     if (!completed && onToggle) {
       onToggle();
@@ -59,8 +69,8 @@ export function SetRow({
   };
 
   const prevDisplay =
-    prev?.weightKg != null && prev.weightKg > 0 && prev?.reps != null
-      ? `${prev.weightKg} kg × ${prev.reps}`
+    !isBodyweight && prev?.weightKg != null && prev.weightKg > 0 && prev?.reps != null
+      ? `${formatUserWeightWithUnit(prev.weightKg, userUnit)} × ${prev.reps}`
       : prev?.reps != null
         ? `${prev.reps} reps`
         : '—';
@@ -106,7 +116,7 @@ export function SetRow({
                 textAlign: 'right',
                 fontSize: 13,
               }}>
-              {`${weight}k`}
+              {formatUserWeight(weight, userUnit)}
             </T>
             <T variant="micro" muted style={{ fontSize: 11 }}>
               ×

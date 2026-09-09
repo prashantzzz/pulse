@@ -25,7 +25,7 @@ import { hapticsSuccess } from '../lib/haptics';
 
 const CHALLENGES: { icon: IonName; title: string; desc: string; type: string; grad: keyof typeof gradients }[] = [
   { icon: 'barbell-outline', title: 'Most workouts this week', desc: 'Who trains more? Winner takes the streak crown.', type: 'most_workouts', grad: 'accent' },
-  { icon: 'trending-up-outline', title: 'Biggest Bench improvement', desc: 'Most kg added to bench press in 2 weeks.', type: 'strength_improvement', grad: 'emerald' },
+  { icon: 'trending-up-outline', title: 'Biggest Bench improvement', desc: 'Most weight added to bench press in 2 weeks.', type: 'strength_improvement', grad: 'emerald' },
   { icon: 'flame-outline', title: 'Longest streak', desc: 'Most consecutive training days. No breaks allowed.', type: 'longest_streak', grad: 'orange' },
   { icon: 'calendar-outline', title: 'Most consistent', desc: 'Best attendance over 14 days.', type: 'goal_completion', grad: 'teal' },
 ];

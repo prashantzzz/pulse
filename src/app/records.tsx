@@ -8,6 +8,7 @@ import { BottomSheet, EmptyState, Stepper, toast } from '../components/misc';
 import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
 import { EXERCISES, EXERCISE_MAP } from '../data/exercises';
 import { bestForExercise, e1rm } from '../lib/stats';
+import { toUserWeight, fromUserWeight, formatWeightWithUnit, formatUserWeightWithUnit, getBarWeight, getWeightStep } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../theme';
 
@@ -24,11 +25,12 @@ export default function RecordsScreen() {
   const manualPRs = usePulse((s) => s.manualPRs);
   const addManualPR = usePulse((s) => s.addManualPR);
   const removeManualPR = usePulse((s) => s.removeManualPR);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const [sheet, setSheet] = useState(false);
   const [query, setQuery] = useState('');
   const [exerciseId, setExerciseId] = useState<string | null>(null);
-  const [weight, setWeight] = useState(20);
+  const [weight, setWeight] = useState(() => toUserWeight(20, weightUnit));
   const [reps, setReps] = useState(10);
 
   const handleBack = useCallback(() => {
@@ -63,10 +65,12 @@ export default function RecordsScreen() {
     ? EXERCISES.filter((e) => e.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 12)
     : [];
 
+  const weightStep = getWeightStep(weightUnit);
+
   const openSheet = () => {
     setQuery('');
     setExerciseId(null);
-    setWeight(20);
+    setWeight(getBarWeight(weightUnit));
     setReps(10);
     setSheet(true);
   };
@@ -74,9 +78,10 @@ export default function RecordsScreen() {
   const save = () => {
     if (!exerciseId) return;
     const ex = EXERCISE_MAP[exerciseId];
-    addManualPR({ exerciseId, weightKg: weight, reps, date: new Date().toISOString() });
+    const savedKg = fromUserWeight(weight, weightUnit);
+    addManualPR({ exerciseId, weightKg: savedKg, reps, date: new Date().toISOString() });
     setSheet(false);
-    toast(`New record saved — ${ex?.name ?? 'exercise'} ${weight} kg × ${reps}`);
+    toast(`New record saved — ${ex?.name ?? 'exercise'} ${formatWeightWithUnit(weight, weightUnit)} × ${reps}`);
   };
 
   return (
@@ -117,10 +122,10 @@ export default function RecordsScreen() {
                     </Row>
                     <View style={{ alignItems: 'flex-end', marginRight: spacing.sm }}>
                       <T variant="numSm" accent>
-                        {pr.weightKg > 0 ? `${pr.weightKg} × ${pr.reps}` : `${pr.reps} reps`}
+                        {pr.weightKg > 0 ? `${formatUserWeightWithUnit(pr.weightKg, weightUnit)} × ${pr.reps}` : `${pr.reps} reps`}
                       </T>
                       <T variant="micro" muted>
-                        {pr.weightKg > 0 ? `${e1rm(pr.weightKg, pr.reps).toFixed(0)} kg est. 1RM` : 'Bodyweight'}
+                        {pr.weightKg > 0 ? `${formatUserWeightWithUnit(e1rm(pr.weightKg, pr.reps), weightUnit)} est. 1RM` : 'Bodyweight'}
                       </T>
                     </View>
                     <Pressable onPress={() => removeManualPR(pr.id)} hitSlop={10} accessibilityLabel={`Delete ${ex?.name ?? 'record'}`}>
@@ -133,11 +138,17 @@ export default function RecordsScreen() {
           </View>
         )}
 
-        <T variant="label" dim style={{ marginTop: spacing.xl, marginBottom: 10 }}>
-          Strongest lifts from your workouts
-        </T>
+        <View style={{ marginTop: spacing.xl, marginBottom: 10 }}>
+          <T variant="label" dim>
+            From workout history
+          </T>
+        </View>
         {historyBests.length === 0 ? (
-          <EmptyState icon="barbell-outline" title="No workouts yet" body="Log a few sessions and your strongest lifts will appear here." />
+          <Card style={{ padding: spacing.lg }}>
+            <T variant="small" dim>
+              No finished workouts yet. Completed exercises show their all-time heaviest load and best 1RM here automatically.
+            </T>
+          </Card>
         ) : (
           <View style={{ gap: spacing.sm }}>
             {historyBests.map((r) => {
@@ -153,14 +164,14 @@ export default function RecordsScreen() {
                         <T variant="bodySemi">{ex?.name ?? r.id}</T>
                         <T variant="small" dim style={{ fontSize: 12 }}>
                           {r.best.maxWeight.weightKg > 0
-                            ? `${r.best.maxWeight.weightKg} kg × ${r.best.maxWeight.reps}`
+                            ? `${formatUserWeightWithUnit(r.best.maxWeight.weightKg, weightUnit)} × ${r.best.maxWeight.reps}`
                             : `${r.best.maxReps.reps} reps`}
                         </T>
                       </View>
                     </Row>
                     <T variant="numSm" accent>
                       {r.best.maxWeight.weightKg > 0
-                        ? `${r.best.maxE1rm.e1rm.toFixed(0)} kg`
+                        ? formatUserWeightWithUnit(r.best.maxE1rm.e1rm, weightUnit)
                         : `${r.best.maxReps.reps} reps`}
                     </T>
                   </Row>
@@ -198,7 +209,7 @@ export default function RecordsScreen() {
                       setExerciseId(e.id);
                       const b = bestForExercise(workouts, e.id);
                       if (b) {
-                        setWeight(b.maxWeight.weightKg);
+                        setWeight(toUserWeight(b.maxWeight.weightKg, weightUnit));
                         setReps(b.maxWeight.reps);
                       }
                     }}
@@ -237,7 +248,7 @@ export default function RecordsScreen() {
                   <T variant="label" dim>
                     Weight
                   </T>
-                  <Stepper value={weight} onChange={setWeight} step={2.5} min={0} max={500} decimals={1} unit="kg" size="md" />
+                  <Stepper value={weight} onChange={setWeight} step={weightStep} min={0} max={weightUnit === 'lbs' ? 1100 : 500} decimals={weightUnit === 'lbs' ? 0 : 1} unit={weightUnit} size="md" />
                 </View>
                 <View>
                   <T variant="label" dim>

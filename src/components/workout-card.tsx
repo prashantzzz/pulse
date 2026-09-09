@@ -12,6 +12,8 @@ import { ExerciseThumb, planIcon } from './muscle-icon';
 import { EXERCISE_MAP } from '../data/exercises';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { workoutStats } from '../lib/stats';
+import { formatVolumeWithUnit } from '../lib/units';
+import { usePulse } from '../store/useStore';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from './collapsible';
 
 // ---------------------------------------------------------------------------
@@ -145,6 +147,7 @@ export function HistoryCard({
   isPR?: boolean;
   isVolumeUp?: boolean;
 }) {
+  const weightUnit = usePulse((s) => s.weightUnit);
   const stats = workoutStats(workout);
   const first = EXERCISE_MAP[workout.exercises[0]?.exerciseId];
   const date = new Date(workout.startTime);
@@ -170,7 +173,7 @@ export function HistoryCard({
               {stats.sets} sets
             </T>
             <T variant="micro" style={{ color: colors.accent }}>
-              {stats.volumeKg.toLocaleString()} kg
+              {formatVolumeWithUnit(stats.volumeKg, weightUnit)}
             </T>
             {isPR ? <Ionicons name="trophy" size={12} color={colors.gold} /> : null}
             {isVolumeUp ? <Ionicons name="trending-up" size={12} color={colors.success} /> : null}
@@ -208,6 +211,7 @@ export function TodayWorkoutCard({
   onResume?: () => void;
 }) {
   const accentKey = useAccent();
+  const weightUnit = usePulse((s) => s.weightUnit);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
@@ -264,7 +268,7 @@ export function TodayWorkoutCard({
             </Row>
             <T variant="h1">{completedWorkout.title}</T>
             <Row gap={14} wrap>
-              <StatPill icon="barbell-outline" text={`${st.volumeKg.toLocaleString()} kg lifted`} />
+              <StatPill icon="barbell-outline" text={`${formatVolumeWithUnit(st.volumeKg, weightUnit)} lifted`} />
               <StatPill icon="layers-outline" text={`${st.sets} sets completed`} />
               <StatPill icon="time-outline" text={`${st.durationMin} min`} />
             </Row>
@@ -422,7 +426,7 @@ export function TodayWorkoutCard({
               <Ionicons name="time-outline" size={14} color={colors.textDim} />
               <T variant="small" dim style={{ fontSize: 12 }}>
                 Previous · {new Date(prevWorkout.startTime).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} ·{' '}
-                {workoutStats(prevWorkout).volumeKg.toLocaleString()} kg
+                {formatVolumeWithUnit(workoutStats(prevWorkout).volumeKg, weightUnit)}
               </T>
             </View>
           ) : null}

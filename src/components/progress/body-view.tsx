@@ -10,6 +10,8 @@ import { ExerciseThumb } from '../muscle-icon';
 import { Button, Card, Row, Screen, Section, Tag } from '../ui';
 import { ANATOMY_LABEL_MAP, exercisesForSlug, resolveExercise } from '../../data/exercises';
 import { getTrainingEfficiency, GROUP_TO_SLUGS, volumeByMuscle, volumeBySlug } from '../../lib/stats';
+import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
+import { usePulse } from '../../store/useStore';
 import { colors, radius, spacing } from '../../theme';
 import type { BodyMeasurement, MuscleGroup, MuscleSlug, UserProfile, Workout } from '../../types';
 import type { Exercise } from '../../types';
@@ -60,6 +62,7 @@ export function BodyView({
   profile: UserProfile | null;
 }) {
   const router = useRouter();
+  const weightUnit = usePulse((s) => s.weightUnit);
   const [selMuscle, setSelMuscle] = useState<MuscleGroup | null>(null);
   const [selSlug, setSelSlug] = useState<Slug | null>(null);
   const [exerciseModalSlug, setExerciseModalSlug] = useState<string | null>(null);
@@ -234,10 +237,10 @@ export function BodyView({
             </View>
             <View style={{ alignItems: 'center', gap: 2 }}>
               <T variant="numSm" accent>
-                {activeVolume.toLocaleString()}
+                {Math.round(toUserVolume(activeVolume, weightUnit)).toLocaleString()}
               </T>
               <T variant="micro" muted>
-                All-time volume kg
+                All-time volume {weightUnit}
               </T>
             </View>
             <View style={{ alignItems: 'center', gap: 2 }}>
@@ -282,14 +285,14 @@ export function BodyView({
               </T>
               <T variant="numLg" accent style={{ marginTop: 4 }}>
                 {last?.weightKg != null
-                  ? `${last.weightKg.toFixed(1)} kg`
+                  ? formatUserWeightWithUnit(last.weightKg, weightUnit)
                   : profile?.weightKg != null
-                  ? `${profile.weightKg.toFixed(1)} kg`
+                  ? formatUserWeightWithUnit(profile.weightKg, weightUnit)
                   : '—'}
               </T>
               <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
                 {measurements.length > 1 && last
-                  ? `${(last.weightKg - measurements[0].weightKg) >= 0 ? '+' : ''}${(last.weightKg - measurements[0].weightKg).toFixed(1)} kg since start`
+                  ? `${(last.weightKg - measurements[0].weightKg) >= 0 ? '+' : ''}${formatUserWeightWithUnit(last.weightKg - measurements[0].weightKg, weightUnit)} since start`
                   : 'Log your first measurement'}
               </T>
             </View>

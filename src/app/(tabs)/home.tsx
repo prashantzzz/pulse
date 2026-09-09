@@ -22,6 +22,7 @@ import {
   workoutStats,
   type NextMove,
 } from '../../lib/stats';
+import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const plans = usePulse((s) => s.plans);
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const startWorkout = usePulse((s) => s.startWorkout);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const [manualSelectedPlanId, setManualSelectedPlanId] = useState<string | null>(null);
   const smartPlanResult = getSmartTodayPlan(workouts, plans, activeWorkout, manualSelectedPlanId);
@@ -204,10 +206,10 @@ export default function HomeScreen() {
             <View style={styles.dividerV} />
             <View style={{ alignItems: 'center', gap: 4 }}>
               <T variant="num" accent>
-                {formatCompact(weekStats.volume)}
+                {formatCompact(toUserVolume(weekStats.volume, weightUnit))}
               </T>
               <T variant="micro" muted>
-                Volume (kg)
+                Volume ({weightUnit})
               </T>
             </View>
             <View style={styles.dividerV} />
@@ -239,11 +241,11 @@ export default function HomeScreen() {
                     {pr.exerciseName}
                   </T>
                   <T variant="h2" accent style={{ marginTop: 2 }}>
-                    {pr.weightKg > 0 ? `${pr.weightKg} kg × ${pr.reps}` : `${pr.reps} reps`}
+                    {pr.weightKg > 0 ? `${formatUserWeightWithUnit(pr.weightKg, weightUnit)} × ${pr.reps}` : `${pr.reps} reps`}
                   </T>
                   <T variant="small" dim style={{ marginTop: 2, fontSize: 12 }}>
                     {pr.prevWeightKg != null && pr.prevWeightKg > 0
-                      ? `Previous best ${pr.prevWeightKg} kg × ${pr.prevReps ?? '—'} · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
+                      ? `Previous best ${formatUserWeightWithUnit(pr.prevWeightKg, weightUnit)} × ${pr.prevReps ?? '—'} · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
                       : pr.prevReps != null
                       ? `Previous best ${pr.prevReps} reps · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
                       : `Your first ${pr.exerciseName} record — the story begins here.`}
@@ -276,7 +278,7 @@ export default function HomeScreen() {
             </Row>
             <Row align="space-between" style={{ marginTop: spacing.md }}>
               <Metric label="Exercises" value={`${lastStats.exercises}`} />
-              <Metric label="Volume" value={`${formatCompact(lastStats.volumeKg)} kg`} accent />
+              <Metric label="Volume" value={`${formatCompact(toUserVolume(lastStats.volumeKg, weightUnit))} ${weightUnit}`} accent />
               <Metric label="Sets" value={`${lastStats.sets}`} />
               {lastPrevSession ? (
                 <Metric

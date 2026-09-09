@@ -8,6 +8,7 @@ import { Button, Card, Row, Screen, ScreenHeader, Tag } from '../../components/u
 import { EXERCISE_MAP } from '../../data/exercises';
 import { formatClock, formatDate, formatDurationLabel } from '../../lib/format';
 import { detectPRs, whatChanged, workoutRepeatSpecs, workoutStats } from '../../lib/stats';
+import { formatVolumeWithUnit, formatUserWeightWithUnit, toUserVolume } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing, useAccent } from '../../theme';
 
@@ -17,6 +18,7 @@ export default function ReplayScreen() {
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
   const startWorkout = usePulse((s) => s.startWorkout);
+  const weightUnit = usePulse((s) => s.weightUnit);
   const workout = workouts.find((w) => w.id === id);
 
   const handleBack = useCallback(() => {
@@ -72,7 +74,7 @@ export default function ReplayScreen() {
             </View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}>
               <T variant="numSm" accent>
-                {stats.volumeKg.toLocaleString()} kg
+                {formatVolumeWithUnit(stats.volumeKg, weightUnit)}
               </T>
               <T variant="micro" muted>
                 {formatDurationLabel(stats.durationMin)}
@@ -91,15 +93,15 @@ export default function ReplayScreen() {
             <Row align="space-between">
               <EvoMetric label="Volume" value={`${changed.volumePct >= 0 ? '↑' : '↓'} ${Math.abs(changed.volumePct)}%`} good={changed.volumePct >= 0} />
               <EvoMetric label="Reps" value={`${changed.repsDelta >= 0 ? '↑' : '↓'} ${Math.abs(changed.repsDelta)}`} good={changed.repsDelta >= 0} />
-              <EvoMetric label="Avg weight" value={`${changed.avgWeightDelta >= 0 ? '↑' : '↓'} ${Math.abs(changed.avgWeightDelta)} kg`} good={changed.avgWeightDelta >= 0} />
+              <EvoMetric label="Avg weight" value={`${changed.avgWeightDelta >= 0 ? '↑' : '↓'} ${formatUserWeightWithUnit(Math.abs(changed.avgWeightDelta), weightUnit)}`} good={changed.avgWeightDelta >= 0} />
               <EvoMetric label="Duration" value={`${changed.durationDeltaMin <= 0 ? '↓' : '↑'} ${Math.abs(changed.durationDeltaMin)} min`} good={changed.durationDeltaMin <= 0} />
             </Row>
             <Row align="space-between" style={{ marginTop: spacing.md }}>
               <T variant="micro" muted>
-                This: {stats.volumeKg.toLocaleString()} kg · {stats.reps} reps
+                This: {formatVolumeWithUnit(stats.volumeKg, weightUnit)} · {stats.reps} reps
               </T>
               <T variant="micro" muted>
-                Last: {prevStats.volumeKg.toLocaleString()} kg · {prevStats.reps} reps
+                Last: {formatVolumeWithUnit(prevStats.volumeKg, weightUnit)} · {prevStats.reps} reps
               </T>
             </Row>
           </Card>
@@ -140,7 +142,7 @@ export default function ReplayScreen() {
                     <View key={s.id} style={styles.setChip}>
                       <T variant="smallSemi" style={{ fontSize: 12 }}>
                         {s.weightKg != null && s.weightKg > 0
-                          ? `${s.weightKg} kg × ${s.reps ?? '—'}`
+                          ? `${formatUserWeightWithUnit(s.weightKg, weightUnit)} × ${s.reps ?? '—'}`
                           : s.reps != null
                           ? `${s.reps} reps`
                           : s.distanceKm != null
@@ -182,7 +184,7 @@ export default function ReplayScreen() {
                     {ex.name}
                   </T>
                   <T variant="micro" muted>
-                    {vol.toLocaleString()} kg
+                    {Math.round(toUserVolume(vol, weightUnit)).toLocaleString()} {weightUnit}
                   </T>
                 </Row>
                 <View style={styles.barTrack}>

@@ -21,6 +21,7 @@ import {
   searchExercises,
   swapOptions,
 } from '../data/exercises';
+import { toUserWeight, fromUserWeight, formatUserWeightWithUnit, getWeightStep } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
 import { genUuid } from '../lib/uuid';
@@ -45,6 +46,7 @@ export default function BuilderScreen() {
   const updatePlan = usePulse((s) => s.updatePlan);
   const removePlan = usePulse((s) => s.removePlan);
   const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const plan = planParam ? plans.find((p) => p.id === planParam) : undefined;
 
@@ -342,7 +344,7 @@ export default function BuilderScreen() {
                           <Row gap={6} align="center">
                             <View style={styles.setsPill}>
                               <T variant="micro" accent style={{ fontWeight: '700' }}>
-                                {d.sets} sets × {d.targetReps} reps{d.targetWeightKg != null ? ` · ${d.targetWeightKg} kg` : ''}
+                                {d.sets} sets × {d.targetReps} reps{d.targetWeightKg != null ? ` · ${formatUserWeightWithUnit(d.targetWeightKg, weightUnit)}` : ''}
                               </T>
                               <Ionicons name="pencil" size={10} color={colors.accent} style={{ marginLeft: 3 }} />
                             </View>
@@ -589,20 +591,20 @@ export default function BuilderScreen() {
               <View>
                 <T variant="bodySemi">Target Weight</T>
                 <T variant="micro" dim>
-                  Optional starting weight (kg)
+                  Optional starting weight ({weightUnit})
                 </T>
               </View>
               <Stepper
-                value={editingDraft.targetWeightKg ?? 0}
+                value={editingDraft.targetWeightKg != null ? toUserWeight(editingDraft.targetWeightKg, weightUnit) : 0}
                 onChange={(v) =>
                   setDrafts((prev) =>
-                    prev.map((d, i) => (i === editingIndex ? { ...d, targetWeightKg: v > 0 ? v : null } : d)),
+                    prev.map((d, i) => (i === editingIndex ? { ...d, targetWeightKg: v > 0 ? fromUserWeight(v, weightUnit) : null } : d)),
                   )
                 }
                 min={0}
-                max={400}
-                step={2.5}
-                decimals={1}
+                max={weightUnit === 'lbs' ? 900 : 400}
+                step={getWeightStep(weightUnit)}
+                decimals={weightUnit === 'lbs' ? 0 : 1}
                 size="md"
               />
             </Row>

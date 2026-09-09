@@ -1,6 +1,8 @@
 import { EXERCISE_MAP, resolveExercise } from '../data/exercises';
 import { roundToPlateStep } from './plates';
+import { kgToLbs } from './units';
 import type { ExerciseSet, MuscleGroup, MuscleSlug, PR, Workout, WorkoutPlan, WorkoutStats } from '../types';
+
 
 // ---------------------------------------------------------------------------
 // Basic set / workout metrics
@@ -479,7 +481,8 @@ export function strengthProgression(
   workouts: Workout[],
   exerciseId: string,
   weeks = 12,
-): { label: string; value: number; unit?: 'kg' | 'reps' }[] {
+  unit: 'kg' | 'lbs' = 'kg',
+): { label: string; value: number; unit?: 'kg' | 'lbs' | 'reps' }[] {
   // A 7-day range is a single week, which would collapse to one lonely dot —
   // bucket the last 7 days individually instead so the short range maps to a
   // real daily trend.
@@ -487,7 +490,7 @@ export function strengthProgression(
   const slots = daily ? 7 : weeks;
   const slotMs = daily ? 86400000 : 7 * 86400000;
   const now = new Date();
-  const buckets: { label: string; value: number; unit?: 'kg' | 'reps' }[] = [];
+  const buckets: { label: string; value: number; unit?: 'kg' | 'lbs' | 'reps' }[] = [];
   for (let i = slots - 1; i >= 0; i -= 1) {
     const t = new Date(now.getTime() - i * slotMs);
     buckets.push({
@@ -524,10 +527,11 @@ export function strengthProgression(
       for (const s of we.sets) {
         if (!s.completed || s.reps == null) continue;
         if (!repsMode && (s.weightKg == null || s.reps == null)) continue;
-        const val = repsMode ? s.reps : e1rm(s.weightKg!, s.reps);
+        const rawRm = e1rm(s.weightKg ?? 0, s.reps);
+        const val = repsMode ? s.reps : (unit === 'lbs' ? kgToLbs(rawRm) : rawRm);
         const bucket = buckets[slots - 1 - idx];
         bucket.value = Math.max(bucket.value, Math.round(val * 10) / 10);
-        bucket.unit = repsMode ? 'reps' : 'kg';
+        bucket.unit = repsMode ? 'reps' : unit;
       }
     }
   }
@@ -733,11 +737,13 @@ export interface WarmupSet {
 /**
  * A quick warm-up ramp for a strength working weight:
  *   25% × 10 · 50% × 8 · 75% × 5 · ~87% × 3 → then work sets.
- * Weights round down to the nearest 2.5 kg plate and bar-only steps are
- * dropped, so an 80 kg bench suggests 20×10 · 40×8 · 60×5 · 70×3.
+ * Weights round down to the nearest plate step and bar-only steps are dropped.
  */
-export function warmupSets(weightKg: number): WarmupSet[] {
-  if (!(weightKg >= 40)) return [];
+export function warmupSets(weight: number, unit: 'kg' | 'lbs' = 'kg'): WarmupSet[] {
+  const minThreshold = unit === 'lbs' ? 90 : 40;
+  const bar = unit === 'lbs' ? 45 : 20;
+  const step = unit === 'lbs' ? 5 : 2.5;
+  if (!(weight >= minThreshold)) return [];
   const steps: { pct: number; reps: number }[] = [
     { pct: 0.25, reps: 10 },
     { pct: 0.5, reps: 8 },
@@ -745,8 +751,11 @@ export function warmupSets(weightKg: number): WarmupSet[] {
     { pct: 0.875, reps: 3 },
   ];
   return steps
-    .map((s) => ({ kg: roundToPlateStep(weightKg * s.pct), reps: s.reps }))
-    .filter((s) => s.kg >= 20);
+    .map((s) => {
+      const w = roundToPlateStep(weight * s.pct, step);
+      return { kg: w, reps: s.reps };
+    })
+    .filter((s) => s.kg >= bar);
 }
 
 // ---------------------------------------------------------------------------
@@ -937,7 +946,7 @@ export interface Insight {
   tone: 'up' | 'down' | 'flat';
 }
 
-export function generateInsights(workouts: Workout[]): Insight[] {
+export function generateInsights(workouts: Workout[], unit: 'kg' | 'lbs' = 'kg'): Insight[] {
   const insights: Insight[] = [];
   const recent = workoutsInLastDays(workouts, 42); // 6 weeks
   const prev = workoutsInLastDays(workouts, 84).filter((w) => !recent.includes(w));
@@ -999,10 +1008,11 @@ export function generateInsights(workouts: Workout[]): Insight[] {
 
   const bestMuscle = volumeByMuscle(recent)[0];
   if (bestMuscle) {
+    const vol = unit === 'lbs' ? Math.round(kgToLbs(bestMuscle.volume)) : bestMuscle.volume;
     insights.push({
       icon: 'flame',
       title: 'Best performing muscle',
-      body: `${bestMuscle.muscle} leads your training with ${bestMuscle.volume.toLocaleString()} kg of volume this month.`,
+      body: `${bestMuscle.muscle} leads your training with ${vol.toLocaleString()} ${unit} of volume this month.`,
       tone: 'up',
     });
   }
@@ -1065,9 +1075,21 @@ export function progressScore(i: LeaderboardInput): number {
 }
 
 /**
- * The most recent completed set at the same index for an exercise (for
- * 'last time' hints). Sorts by start time explicitly so the answer does not
- * depend on the store's workout ordering.
+ * Determines whether an exercise involves weights (barbell, dumbbell, cable, machine, etc.)
+ * vs bodyweight / cardio where only reps or time/distance are tracked.
+ */
+export function exerciseInvolvesWeights(exerciseId: string): boolean {
+  const ex = resolveExercise(exerciseId) ?? EXERCISE_MAP[exerciseId];
+  if (!ex) return true;
+  return ex.equipment !== 'Bodyweight' && ex.movement !== 'Cardio' && ex.equipment !== 'Cardio';
+}
+
+/**
+ * The most recent completed set for an exercise (for 'last time' hints).
+ * - Matches the set at the specified setIndex (or array position) if available.
+ * - If setIndex exceeds the number of sets completed in that session, falls back
+ *   to the last completed set from that same session so all sets of the exercise stay populated and even.
+ * - Ensures weighted exercises always carry a positive weightKg, while bodyweight/cardio keep weightKg = null.
  */
 export function previousSet(
   workouts: Workout[],
@@ -1075,12 +1097,53 @@ export function previousSet(
   setIndex: number,
   excludeWorkoutId?: string,
 ): { weightKg: number | null; reps: number | null; date: string } | null {
+  const resolved = resolveExercise(exerciseId);
+  const canonicalId = resolved?.id ?? exerciseId;
+  const isWeighted = exerciseInvolvesWeights(exerciseId);
+
   const sorted = [...workouts].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   for (const w of sorted) {
     if (excludeWorkoutId && w.id === excludeWorkoutId) continue;
-    const we = w.exercises.find((x) => x.exerciseId === exerciseId);
-    const s = we?.sets[setIndex - 1];
-    if (s && s.completed) return { weightKg: s.weightKg, reps: s.reps, date: w.startTime };
+    const we = w.exercises.find((x) => {
+      if (x.exerciseId === exerciseId || x.exerciseId === canonicalId) return true;
+      const xResolved = resolveExercise(x.exerciseId);
+      return xResolved?.id === canonicalId;
+    });
+    if (!we) continue;
+    const completedSets = we.sets.filter((st) => st.completed);
+    if (completedSets.length === 0) continue;
+
+    // 1. Match by setIndex or array position
+    let matched = completedSets.find((st) => st.setIndex === setIndex) ?? we.sets[setIndex - 1];
+
+    // 2. If no completed set at this index, fall back to the last completed set from this same session
+    // so that all sets of the exercise stay populated and even!
+    if (!matched || !matched.completed) {
+      matched = completedSets[completedSets.length - 1];
+    }
+
+    if (matched) {
+      let weightKg = matched.weightKg;
+
+      if (isWeighted) {
+        if (weightKg == null || weightKg <= 0) {
+          const withWeight = completedSets.find((st) => st.weightKg != null && st.weightKg > 0);
+          if (withWeight) {
+            weightKg = withWeight.weightKg;
+          } else {
+            const defWeight = getDefaultSetValues(canonicalId, setIndex).weightKg;
+            weightKg = defWeight > 0 ? defWeight : 10;
+          }
+        }
+      } else {
+        weightKg = null;
+      }
+
+      const withReps = completedSets.find((st) => st.reps != null && st.reps > 0);
+      const reps = matched.reps != null && matched.reps > 0 ? matched.reps : (withReps?.reps ?? getDefaultSetValues(canonicalId, setIndex).reps);
+
+      return { weightKg, reps, date: w.startTime };
+    }
   }
   return null;
 }
@@ -1404,11 +1467,13 @@ export function getDefaultSetValues(
   // 2. Determine Weight (Kg)
   let weightKg = 10;
 
-  if (!ex || ex.equipment === 'Bodyweight' || ex.movement === 'Cardio') {
+  if (ex && (ex.equipment === 'Bodyweight' || ex.movement === 'Cardio' || ex.equipment === 'Cardio')) {
     weightKg = 0;
     if (['pull-up', 'chin-up', 'dips'].includes(exerciseId)) {
       reps = experience === 'Advanced' ? 10 : experience === 'Intermediate' ? 6 : 3;
     }
+  } else if (!ex) {
+    weightKg = 10;
   } else if (ex.equipment === 'Barbell') {
     // Lower body heavy compounds
     if (

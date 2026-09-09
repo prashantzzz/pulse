@@ -130,8 +130,9 @@ export function WorkoutMuscleHero({
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Subtle ambient green glow behind the models to elevate visual punch */}
-      <View style={styles.ambientBackdrop} pointerEvents="none" />
+      {/* Dual intersecting ambient circular backdrops behind models */}
+      <View style={[styles.ambientCircle, { left: '14%' }]} pointerEvents="none" />
+      <View style={[styles.ambientCircle, { right: '14%' }]} pointerEvents="none" />
 
       {/* Front View */}
       <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
@@ -178,12 +179,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  ambientBackdrop: {
+  ambientCircle: {
     position: 'absolute',
-    width: 200,
-    height: 120,
-    borderRadius: 60,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.12)',
     alignSelf: 'center',
   },
 });

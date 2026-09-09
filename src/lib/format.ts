@@ -1,12 +1,10 @@
+export * from './units';
+
 export function formatKg(n: number | null | undefined): string {
   if (n == null) return '—';
   return `${n % 1 === 0 ? n : n.toFixed(1)} kg`;
 }
 
-export function formatWeight(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return n % 1 === 0 ? `${n}` : n.toFixed(1);
-}
 
 export function formatDuration(sec: number): string {
   const s = Math.max(0, Math.floor(sec));

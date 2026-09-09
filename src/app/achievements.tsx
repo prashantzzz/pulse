@@ -13,6 +13,7 @@ export default function AchievementsScreen() {
   useAccent();
   const router = useRouter();
   const workouts = usePulse((s) => s.workouts);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -31,7 +32,7 @@ export default function AchievementsScreen() {
     return () => sub.remove();
   }, [router]);
 
-  const all = computeAchievements(workouts);
+  const all = computeAchievements(workouts, weightUnit);
   const cats = ['Strength', 'Consistency', 'Volume'];
   const earnedCount = all.filter((a) => a.earned).length;
 

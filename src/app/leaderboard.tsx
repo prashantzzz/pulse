@@ -8,6 +8,7 @@ import { T } from '../components/Text';
 import { Avatar } from '../components/misc';
 import { Button, Chip, Row, Screen, ScreenHeader } from '../components/ui';
 import { consistencyPct, currentStreak, detectPRs, progressScore, totalVolume, workoutsInLastDays } from '../lib/stats';
+import { toUserVolume } from '../lib/units';
 import { fetchCloudFriends } from '../lib/social';
 import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
@@ -25,6 +26,7 @@ export default function LeaderboardScreen() {
   const friends = usePulse((s) => s.friends);
   const setFriends = usePulse((s) => s.setFriends);
   const workouts = usePulse((s) => s.workouts);
+  const weightUnit = usePulse((s) => s.weightUnit);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('This Week');
 
   const handleBack = () => {
@@ -187,7 +189,7 @@ export default function LeaderboardScreen() {
                     <MiniStat icon="flame-outline" text={`${f.streak}d`} />
                     <MiniStat icon="barbell-outline" text={`${f.workoutsThisWeek}/wk`} />
                     <MiniStat icon="trophy-outline" text={`${f.prsThisMonth} PRs`} />
-                    <MiniStat icon="layers-outline" text={`${(f.volumeKg / 1000).toFixed(1)}k kg`} />
+                    <MiniStat icon="layers-outline" text={`${(toUserVolume(f.volumeKg, weightUnit) / 1000).toFixed(1)}k ${weightUnit}`} />
                   </Row>
                 </View>
               </View>

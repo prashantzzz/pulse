@@ -11,6 +11,7 @@ import { Button, Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../.
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutsInLastDays, workoutStats } from '../../lib/stats';
+import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
@@ -83,16 +84,18 @@ export default function ProfileScreen() {
 
   const streak = currentStreak(workouts);
   const volume = totalVolume(workouts);
+  const userVolume = toUserVolume(volume, weightUnit);
   const sets = workouts.reduce((s, w) => s + workoutStats(w).sets, 0);
   const monthWorkouts = workoutsInLastDays(workouts, 30);
   const monthVolume = totalVolume(monthWorkouts);
+  const userMonthVolume = toUserVolume(monthVolume, weightUnit);
   const monthSets = monthWorkouts.reduce((s, w) => s + workoutStats(w).sets, 0);
   const monthlyTarget = Math.max(8, plans.length > 0 ? plans.length * 4 : 12);
   const monthProgress = Math.min(100, Math.round((monthWorkouts.length / monthlyTarget) * 100));
   const prCount = workouts.reduce((n, w) => n + detectPRs(w, workouts).length, 0);
 
   // exercise-based achievements, shared with the full gallery
-  const achievements = computeAchievements(workouts);
+  const achievements = computeAchievements(workouts, weightUnit);
 
   const byMuscle = volumeByMuscle(workouts, 60);
   const strongest = byMuscle[0];
@@ -149,7 +152,7 @@ export default function ProfileScreen() {
         <Row gap={spacing.lg} style={{ marginTop: spacing.lg }}>
           <HeaderStat label="Streak" value={`${streak}d`} accent />
           <HeaderStat label="Workouts" value={`${workouts.length}`} />
-          <HeaderStat label="Total volume" value={`${(volume / 1000).toFixed(1)}k`} />
+          <HeaderStat label="Total volume" value={`${(userVolume / 1000).toFixed(1)}k`} />
           <HeaderStat label="PRs" value={`${prCount}`} accent />
         </Row>
       </View>
@@ -203,7 +206,7 @@ export default function ProfileScreen() {
                 <T variant="micro" muted>CURRENT WEIGHT</T>
                 <T variant="bodySemi" style={{ marginTop: 2 }}>
                   {latestWeight != null
-                    ? (weightUnit === 'lbs' ? `${Math.round(latestWeight * 2.20462)} lbs` : `${latestWeight.toFixed(1)} kg`)
+                    ? formatUserWeightWithUnit(latestWeight, weightUnit)
                     : '—'}
                 </T>
               </View>
@@ -258,10 +261,10 @@ export default function ProfileScreen() {
                 Monthly Volume
               </T>
               <T variant="numLg" style={{ marginTop: 4 }}>
-                {monthVolume >= 1000 ? `${(monthVolume / 1000).toFixed(1)}k` : `${monthVolume}`}
+                {userMonthVolume >= 1000 ? `${(userMonthVolume / 1000).toFixed(1)}k` : `${Math.round(userMonthVolume)}`}
               </T>
               <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
-                kg lifted · {monthSets} sets · {monthWorkouts.length} of {monthlyTarget} workouts
+                {weightUnit} lifted · {monthSets} sets · {monthWorkouts.length} of {monthlyTarget} workouts
               </T>
             </View>
             <View style={{ width: 110, alignItems: 'center' }}>
@@ -315,7 +318,7 @@ export default function ProfileScreen() {
                 <View>
                   <T variant="bodySemi">Strongest: {strongest.muscle}</T>
                   <T variant="small" dim style={{ fontSize: 12 }}>
-                    {strongest.volume.toLocaleString()} kg volume
+                    {Math.round(toUserVolume(strongest.volume, weightUnit)).toLocaleString()} {weightUnit} volume
                   </T>
                 </View>
               </Row>
@@ -330,7 +333,7 @@ export default function ProfileScreen() {
                 <View>
                   <T variant="bodySemi">Needs attention: {weakest.muscle}</T>
                   <T variant="small" dim style={{ fontSize: 12 }}>
-                    {weakest.volume.toLocaleString()} kg volume — add a dedicated day
+                    {Math.round(toUserVolume(weakest.volume, weightUnit)).toLocaleString()} {weightUnit} volume — add a dedicated day
                   </T>
                 </View>
               </Row>

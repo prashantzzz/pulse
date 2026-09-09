@@ -5,6 +5,7 @@ import { T } from '../Text';
 import { Card, Icon, Row } from '../ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { bestForExercise, e1rm } from '../../lib/stats';
+import { formatUserWeightWithUnit } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
@@ -23,6 +24,7 @@ interface RecordEntry {
 /** Records tab: the user's strongest lifts — manual PRs + workout bests, ranked by estimated 1RM. */
 export function RecordsView({ workouts }: { workouts: Workout[] }) {
   const manualPRs = usePulse((s) => s.manualPRs);
+  const weightUnit = usePulse((s) => s.weightUnit);
 
   const workoutRecords: RecordEntry[] = [...new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId)))]
     .map((id) => {
@@ -48,13 +50,15 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
   }));
 
   const records = [...manualRecords, ...workoutRecords].sort((a, b) => b.e1rmKg - a.e1rmKg).slice(0, 8);
+  const bestE1rmKg = Math.max(...records.map((r) => r.e1rmKg), 0);
 
   return (
     <>
       <Row gap={spacing.sm}>
         <SummaryCard label="PRs (all)" value={`${records.length}`} accent icon="trophy" flex1 />
-        <SummaryCard label="Best 1RM" value={`${Math.max(...records.map((r) => r.e1rmKg), 0).toFixed(0)} kg`} icon="flash" flex1 />
+        <SummaryCard label="Best 1RM" value={formatUserWeightWithUnit(bestE1rmKg, weightUnit)} icon="flash" flex1 />
       </Row>
+
       {records.length === 0 ? (
         <EmptyState
           icon="trophy-outline"
@@ -74,14 +78,14 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
                   <View>
                     <T variant="bodySemi">{ex?.name ?? r.exerciseId}</T>
                     <T variant="small" dim style={{ fontSize: 12 }}>
-                      {r.weightKg} kg × {r.reps}
+                      {formatUserWeightWithUnit(r.weightKg, weightUnit)} × {r.reps}
                       {r.date ? ` · ${new Date(r.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}` : ''}
                     </T>
                   </View>
                 </Row>
                 <View style={{ alignItems: 'flex-end' }}>
                   <T variant="numSm" accent>
-                    {r.e1rmKg.toFixed(1)} kg
+                    {formatUserWeightWithUnit(r.e1rmKg, weightUnit)}
                   </T>
                   <T variant="micro" muted>
                     est. 1RM
