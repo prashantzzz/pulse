@@ -153,31 +153,39 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
         <View ref={cardRef} collapsable={false} style={styles.cardCanvas}>
           {/* Top-Left Ambient Emerald Glow */}
           <LinearGradient
-            colors={['rgba(34, 197, 94, 0.15)', 'rgba(34, 197, 94, 0.04)', 'transparent']}
+            colors={['rgba(34, 197, 94, 0.15)', 'rgba(34, 197, 94, 0.03)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.6, y: 0.4 }}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
 
-          {/* Top-Right Athlete Silhouette Background */}
+          {/* Top-Right Athlete Silhouette Background Layer */}
           <View style={styles.athleteBgWrapper} pointerEvents="none">
             <Image
               source={require('../../assets/images/athlete-silhouette-bg.jpg')}
               style={styles.athleteBgImage}
               resizeMode="cover"
             />
-            {/* Smooth Vignette Gradient Fades */}
+            {/* Horizontal fade protecting text legibility on left */}
             <LinearGradient
-              colors={['transparent', 'rgba(7, 10, 14, 0.85)', '#070A0E']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
+              colors={['#070A0E', '#070A0E', 'rgba(7, 10, 14, 0.88)', 'rgba(7, 10, 14, 0.35)', 'transparent']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 0.85, y: 0.5 }}
               style={StyleSheet.absoluteFill}
             />
+            {/* Vertical fade into card base */}
             <LinearGradient
-              colors={['#070A0E', 'rgba(7, 10, 14, 0.5)', 'transparent']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 0.6, y: 0.5 }}
+              colors={['transparent', 'rgba(7, 10, 14, 0.65)', '#070A0E']}
+              start={{ x: 0.5, y: 0.2 }}
+              end={{ x: 0.5, y: 0.95 }}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Subtle top edge blend */}
+            <LinearGradient
+              colors={['rgba(7, 10, 14, 0.5)', 'transparent']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 0.15 }}
               style={StyleSheet.absoluteFill}
             />
           </View>
@@ -197,7 +205,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
           <View style={styles.cardBody}>
             {/* Top Section: Brand Identity & Date Badge */}
             <View style={styles.topSection}>
-              <Row align="center" gap={10} style={styles.brandRow}>
+              <View style={styles.brandRow}>
                 <View style={styles.brandIconSquare}>
                   <Image
                     source={require('../../assets/images/logo.png')}
@@ -205,11 +213,11 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                     resizeMode="contain"
                   />
                 </View>
-                <View>
+                <View style={styles.brandTextCol}>
                   <T style={styles.brandName}>NextRep</T>
                   <T style={styles.brandTagline}>TRACK   PROGRESS   GET STRONGER</T>
                 </View>
-              </Row>
+              </View>
 
               {/* Workout Routine & Date Pill */}
               <View style={styles.datePill}>
@@ -220,7 +228,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               </View>
             </View>
 
-            {/* Hero Section: "Workout Complete!" + Golden Trophy + Chalk Arrow */}
+            {/* Hero Section: "Workout Complete!" + Golden Trophy */}
             <View style={styles.heroSection}>
               <View style={styles.heroTitlesCol}>
                 <T style={styles.heroWhiteWorkout}>Workout</T>
@@ -228,9 +236,9 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                   <T style={styles.heroGoldComplete}>Complete!</T>
                   {/* Glowing Trophy Illustration with Energy Rays */}
                   <View style={styles.trophyWrapper}>
-                    <Svg width={44} height={42} viewBox="0 0 48 46" fill="none">
+                    <Svg width={42} height={40} viewBox="0 0 48 46" fill="none">
                       {/* Energy Rays */}
-                      <Path d="M16 6L13 2" stroke="#FFD700" strokeWidth={2.2} strokeLinecap="round" />
+                      <Path d="M16 6L13 2" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
                       <Path d="M24 5L24 1" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
                       <Path d="M32 6L35 2" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
                       {/* Trophy Cup */}
@@ -264,21 +272,6 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                 <T style={styles.heroSubtitle}>
                   Crushed it in {formatDurationLabel(stats.durationMin)}  ·  Great intensity
                 </T>
-              </View>
-
-              {/* Hand-drawn chalk arrow with "Keep Going!" pointing up */}
-              <View style={styles.keepGoingWrapper} pointerEvents="none">
-                <Svg width={26} height={24} viewBox="0 0 28 26" fill="none">
-                  <Path
-                    d="M4 22 C 4 12, 14 12, 22 4"
-                    stroke="#D1D5DB"
-                    strokeWidth="1.6"
-                    strokeDasharray="2.5,2"
-                    strokeLinecap="round"
-                  />
-                  <Path d="M17 4L22 4L22 9" stroke="#D1D5DB" strokeWidth="1.6" strokeLinecap="round" />
-                </Svg>
-                <T style={styles.keepGoingText}>Keep{"\n"}Going!</T>
               </View>
             </View>
 
@@ -359,13 +352,15 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
 
               {/* Dual 2D Anatomical Models (Front & Back) with Neon Highlights */}
               <View style={styles.musclesVisualArea}>
-                <WorkoutMuscleHero workout={workout} gender={gender} height={175} />
+                <WorkoutMuscleHero workout={workout} gender={gender} height={172} />
               </View>
 
               {/* Bottom-Right Motivational Stamp */}
               <View style={styles.strongerEveryRepBox} pointerEvents="none">
                 <T style={styles.strongerEveryRepText}>STRONGER EVERY REP</T>
-                <View style={styles.strongerUnderline} />
+                <Svg width={115} height={3} viewBox="0 0 115 3" style={{ marginTop: 2 }}>
+                  <Path d="M1 1.5 C 35 1, 80 2.5, 113 1.5" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round" />
+                </Svg>
               </View>
             </View>
 
@@ -378,7 +373,9 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               <View style={styles.footerDivider} />
               <View style={styles.footerTaglineCol}>
                 <T style={styles.footerTaglineText}>Progress Looks Good On You</T>
-                <View style={styles.footerTaglineUnderline} />
+                <Svg width={145} height={3} viewBox="0 0 145 3" style={{ alignSelf: 'flex-end', marginTop: 2 }}>
+                  <Path d="M2 1.5 C 45 1, 105 2.5, 143 1.5" stroke="#F59E0B" strokeWidth="1.6" strokeLinecap="round" />
+                </Svg>
               </View>
             </View>
           </View>
@@ -428,9 +425,9 @@ const styles = StyleSheet.create({
   cardCanvas: {
     width: '100%',
     aspectRatio: 9 / 16,
-    maxHeight: 740,
+    maxHeight: 700,
     backgroundColor: '#070A0E',
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
@@ -439,9 +436,9 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 13,
     justifyContent: 'space-between',
     zIndex: 2,
   },
@@ -457,38 +454,46 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: '64%',
-    height: '40%',
+    width: '100%',
+    height: '60%',
     overflow: 'hidden',
     zIndex: 1,
   },
   athleteBgImage: {
-    width: '100%',
+    position: 'absolute',
+    top: 0,
+    right: -8,
+    width: '74%',
     height: '100%',
-    opacity: 0.38,
+    opacity: 0.5,
   },
 
   // Top-right motivational typography
   topRightMotivationalBox: {
     position: 'absolute',
-    top: 18,
+    top: 16,
     right: 14,
     alignItems: 'flex-end',
     zIndex: 3,
   },
   betterThanYesterday: {
-    fontSize: 13.5,
+    fontFamily: Platform.select({
+      ios: 'Snell Roundhand',
+      android: 'cursive',
+      web: 'cursive, "Brush Script MT", "Caveat", cursive',
+    }),
+    fontSize: 16,
     fontStyle: 'italic',
-    fontWeight: '600',
-    color: '#8392A7',
+    fontWeight: '700',
+    color: '#94A3B8',
     textAlign: 'right',
-    letterSpacing: 0.2,
-    lineHeight: 16,
+    letterSpacing: 0.5,
+    lineHeight: 18,
   },
   sameDiscipline: {
     fontSize: 6.5,
     fontWeight: '800',
-    letterSpacing: 1.6,
+    letterSpacing: 1.5,
     color: '#475569',
     textAlign: 'right',
     marginTop: 20,
@@ -500,11 +505,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   brandIconSquare: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     backgroundColor: '#0F141C',
     borderWidth: 1,
@@ -513,22 +520,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandLogoImg: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: 4,
   },
+  brandTextCol: {
+    justifyContent: 'center',
+  },
   brandName: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+    lineHeight: 20,
   },
   brandTagline: {
-    fontSize: 7,
+    fontSize: 7.5,
     fontWeight: '700',
     letterSpacing: 1.4,
     color: '#6B7280',
-    marginTop: 1,
+    lineHeight: 10,
+    marginTop: 2,
   },
   datePill: {
     flexDirection: 'row',
@@ -540,7 +552,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4.5,
+    paddingVertical: 4,
   },
   datePillText: {
     fontSize: 9.5,
@@ -572,24 +584,8 @@ const styles = StyleSheet.create({
     lineHeight: 38,
   },
   trophyWrapper: {
-    marginLeft: 2,
-    marginTop: -4,
-  },
-  keepGoingWrapper: {
-    position: 'absolute',
-    top: 36,
-    left: 170,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 3,
-  },
-  keepGoingText: {
-    fontSize: 11,
-    fontStyle: 'italic',
-    fontWeight: '600',
-    color: '#D1D5DB',
-    lineHeight: 12,
-    marginTop: 2,
+    marginLeft: 4,
+    marginTop: -2,
   },
   heroSubtitle: {
     fontSize: 12,
@@ -605,9 +601,9 @@ const styles = StyleSheet.create({
   },
   statCardBase: {
     flex: 1,
-    borderRadius: 13,
+    borderRadius: 14,
     borderWidth: 1,
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -628,11 +624,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(234, 179, 8, 0.2)',
   },
   statIconBadge: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   statIconBadgeGreen: {
     backgroundColor: 'rgba(34, 197, 94, 0.12)',
@@ -645,16 +642,19 @@ const styles = StyleSheet.create({
   },
   statTextCol: {
     flex: 1,
+    justifyContent: 'center',
   },
   statNumText: {
     fontSize: 13.5,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+    lineHeight: 15,
   },
   statLabelText: {
     fontSize: 9,
     color: '#6B7280',
+    lineHeight: 11,
     marginTop: 1,
   },
 
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
     borderRadius: 14,
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: 6,
     flexDirection: 'row',
     alignItems: 'center',
@@ -699,8 +699,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingTop: 9,
+    paddingBottom: 7,
     marginTop: 4,
     flex: 1,
     justifyContent: 'space-between',
@@ -744,23 +744,16 @@ const styles = StyleSheet.create({
   },
   strongerEveryRepBox: {
     position: 'absolute',
-    bottom: 24,
-    right: 12,
+    bottom: 22,
+    right: 10,
     transform: [{ rotate: '-8deg' }],
   },
   strongerEveryRepText: {
-    fontSize: 11,
-    fontStyle: 'italic',
+    fontSize: 11.5,
     fontWeight: '900',
-    letterSpacing: 0.6,
+    fontStyle: 'italic',
+    letterSpacing: 0.8,
     color: '#4B5563',
-  },
-  strongerUnderline: {
-    height: 1.5,
-    backgroundColor: '#F59E0B',
-    borderRadius: 1,
-    marginTop: 2,
-    width: '90%',
   },
 
   // Footer Banner Card
@@ -769,7 +762,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
     borderRadius: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
@@ -778,39 +771,43 @@ const styles = StyleSheet.create({
   },
   footerBrandCol: {
     gap: 1,
+    flexShrink: 0,
   },
   footerBrandTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   footerBrandSubtitle: {
-    fontSize: 7.5,
+    fontSize: 7,
     fontWeight: '700',
-    letterSpacing: 1.6,
+    letterSpacing: 1.4,
     color: '#6B7280',
   },
   footerDivider: {
     width: 1,
     height: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 8,
   },
   footerTaglineCol: {
+    flex: 1,
     alignItems: 'flex-end',
-    gap: 2,
+    justifyContent: 'center',
   },
   footerTaglineText: {
-    fontSize: 12,
+    fontFamily: Platform.select({
+      ios: 'Snell Roundhand',
+      android: 'cursive',
+      web: 'cursive, "Brush Script MT", "Caveat", cursive',
+    }),
+    fontSize: 14,
     fontStyle: 'italic',
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#E2E8F0',
-  },
-  footerTaglineUnderline: {
-    height: 1.5,
-    backgroundColor: '#F59E0B',
-    borderRadius: 1,
-    width: '85%',
+    textAlign: 'right',
+    lineHeight: 16,
   },
 
   // Modal

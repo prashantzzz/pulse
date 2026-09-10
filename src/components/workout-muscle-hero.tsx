@@ -181,12 +181,10 @@ const styles = StyleSheet.create({
   },
   ambientCircle: {
     position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.12)',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(20, 83, 45, 0.16)',
     alignSelf: 'center',
   },
 });

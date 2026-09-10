@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { Share2, X } from 'lucide-react-native';
+import { Home, Share2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../../../components/Text';
-import { Button } from '../../../components/ui';
+import { Button, Row } from '../../../components/ui';
 import {
   WorkoutShareCard,
   type WorkoutShareCardHandle,
@@ -144,8 +144,8 @@ export default function SummaryScreen() {
       style={[
         styles.root,
         {
-          paddingTop: Math.max(insets.top + 6, 16),
-          paddingBottom: Math.max(insets.bottom + 8, 18),
+          paddingTop: Math.max(insets.top + 4, 12),
+          paddingBottom: Math.max(insets.bottom + 6, 12),
         },
       ]}>
       {/* Top Header Dismiss Bar */}
@@ -156,7 +156,7 @@ export default function SummaryScreen() {
           hitSlop={12}
           accessibilityLabel="Close Summary"
           style={styles.closeBtn}>
-          <X size={20} color={colors.textDim} />
+          <X size={18} color={colors.textDim} />
         </Pressable>
       </View>
 
@@ -182,7 +182,7 @@ export default function SummaryScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* Screen Footer Actions: Prominent Primary Share & Clean Finish */}
+      {/* Screen Footer Actions: Parallel Single-Word Buttons (Share & Home) */}
       <Animated.View
         style={[
           styles.footerWrapper,
@@ -191,39 +191,45 @@ export default function SummaryScreen() {
             transform: [{ translateY: footerRise }],
           },
         ]}>
-        <View style={styles.footerCol}>
-          {/* Prominent High-Impact Share Button */}
+        <Row gap={12} align="center" style={styles.footerRow}>
+          {/* Share Button */}
           <Pressable
             onPress={handleShare}
             disabled={isSharing}
             accessibilityRole="button"
-            accessibilityLabel="Share Workout Summary"
+            accessibilityLabel="Share"
             style={({ pressed }) => [
-              styles.primaryShareBtn,
+              styles.parallelBtn,
+              styles.shareBtn,
               pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
               isSharing && { opacity: 0.7 },
             ]}>
             {isSharing ? (
               <ActivityIndicator size="small" color="#000000" />
             ) : (
-              <View style={styles.shareBtnContent}>
+              <Row gap={8} align="center">
                 <Share2 size={18} color="#000000" strokeWidth={2.4} />
-                <T style={styles.primaryShareBtnText}>Share Story / Summary</T>
-              </View>
+                <T style={styles.shareBtnText}>Share</T>
+              </Row>
             )}
           </Pressable>
 
-          {/* Clean Finish / Go Home Button */}
-          <Button
-            label="Finish / Go Home"
-            icon="checkmark"
-            variant="ghost"
-            full
-            size="md"
-            style={styles.finishHomeBtn}
+          {/* Home Button */}
+          <Pressable
             onPress={handleBackToWorkouts}
-          />
-        </View>
+            accessibilityRole="button"
+            accessibilityLabel="Home"
+            style={({ pressed }) => [
+              styles.parallelBtn,
+              styles.homeBtn,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}>
+            <Row gap={8} align="center">
+              <Home size={18} color="#E2E8F0" strokeWidth={2.2} />
+              <T style={styles.homeBtnText}>Home</T>
+            </Row>
+          </Pressable>
+        </Row>
       </Animated.View>
     </View>
   );
@@ -244,19 +250,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: 6,
+    paddingHorizontal: spacing.xs,
+    paddingBottom: 4,
     zIndex: 10,
   },
   topHeaderTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: colors.textDim,
     letterSpacing: 0.5,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
@@ -266,50 +272,54 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   cardWrapper: {
     width: '100%',
-    maxWidth: 390,
+    maxWidth: 375,
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerWrapper: {
     width: '100%',
-    maxWidth: 390,
+    maxWidth: 375,
     alignSelf: 'center',
     paddingTop: 8,
+    paddingBottom: 2,
   },
-  footerCol: {
+  footerRow: {
     width: '100%',
-    gap: 6,
   },
-  primaryShareBtn: {
-    width: '100%',
-    height: 50,
+  parallelBtn: {
+    flex: 1,
+    height: 48,
     borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBtn: {
     backgroundColor: '#22C55E',
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  shareBtnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  primaryShareBtnText: {
+  shareBtnText: {
     fontSize: 15,
     fontWeight: '800',
     color: '#000000',
     letterSpacing: 0.2,
   },
-  finishHomeBtn: {
-    height: 42,
+  homeBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  homeBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#E2E8F0',
+    letterSpacing: 0.2,
   },
 });

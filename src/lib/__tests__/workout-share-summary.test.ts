@@ -351,12 +351,10 @@ describe('SummaryScreen Component Integration', () => {
     });
 
     expect(tree!.root).toBeDefined();
-    const finishBtn = tree!.root.findAll((node) => node.props && node.props.label === 'Finish / Go Home');
-    expect(finishBtn.length).toBeGreaterThan(0);
-
     const textNodes = tree!.root.findAll((node) => node.type === 'Text' || (node.props && node.props.children));
     const allText = textNodes.map((n) => (typeof n.props.children === 'string' ? n.props.children : '')).join(' ');
-    expect(allText).toContain('Share Story / Summary');
+    expect(allText).toContain('Share');
+    expect(allText).toContain('Home');
     expect(allText).toContain('Workout Complete');
 
     act(() => {
