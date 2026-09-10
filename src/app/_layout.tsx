@@ -102,7 +102,7 @@ export default function RootLayout() {
     setupNotifications();
   }, [hydrated]);
 
-  // Handle interaction with notification action buttons ('Start Workout', 'Pause', 'Finish') and notification taps
+  // Handle interaction with notification action buttons ('Start Workout', 'Next Rep', 'Pause', 'Resume', 'Skip Rest', 'Finish') and notification taps
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -112,12 +112,38 @@ export default function RootLayout() {
 
       if (actionId === 'START_WORKOUT') {
         router.push('/(tabs)/workouts' as never);
+      } else if (actionId === 'NEXT_REP') {
+        usePulse.getState().completeNextSetAndStartRest();
+        const curr = usePulse.getState().activeWorkout;
+        if (curr) {
+          import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+            syncActiveWorkoutNotification(curr);
+          }).catch(() => {});
+        }
       } else if (actionId === 'PAUSE_WORKOUT') {
         usePulse.getState().pauseActiveWorkout();
+        const curr = usePulse.getState().activeWorkout;
+        if (curr) {
+          import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+            syncActiveWorkoutNotification(curr);
+          }).catch(() => {});
+        }
       } else if (actionId === 'RESUME_WORKOUT') {
         usePulse.getState().resumeActiveWorkout();
+        const curr = usePulse.getState().activeWorkout;
+        if (curr) {
+          import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+            syncActiveWorkoutNotification(curr);
+          }).catch(() => {});
+        }
       } else if (actionId === 'SKIP_REST') {
         usePulse.getState().clearRestTimer();
+        const curr = usePulse.getState().activeWorkout;
+        if (curr) {
+          import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+            syncActiveWorkoutNotification(curr);
+          }).catch(() => {});
+        }
       } else if (actionId === 'FINISH_WORKOUT') {
         import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
         const finished = usePulse.getState().finishWorkout();
@@ -139,6 +165,77 @@ export default function RootLayout() {
       sub.remove();
     };
   }, [router]);
+
+  // Global active workout rest timer listener:
+  // When rest timer expires on its own (without user clicking Skip Rest), play rest_over.mp3 once
+  // (with audio ducking so Spotify/YT Music does not pause), clear the rest timer,
+  // and update the notification to the next set.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    let timer: any = null;
+
+    const checkRestTimer = () => {
+      const aw = usePulse.getState().activeWorkout;
+      const rt = aw?.restTimer;
+      if (!rt || rt.paused) {
+        if (timer) clearTimeout(timer);
+        return;
+      }
+
+      const msRemaining = rt.targetEndTimeMs - Date.now();
+      if (msRemaining <= 0) {
+        // Expired naturally on its own
+        import('../lib/sound').then(({ playRestOverSound }) => {
+          playRestOverSound(rt.targetEndTimeMs);
+        }).catch(() => {});
+        usePulse.getState().clearRestTimer();
+        const updated = usePulse.getState().activeWorkout;
+        if (updated) {
+          import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+            syncActiveWorkoutNotification(updated);
+          }).catch(() => {});
+        }
+      } else {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          const latestAw = usePulse.getState().activeWorkout;
+          const latestRt = latestAw?.restTimer;
+          // Ensure rest timer was not cancelled or skipped in the meantime
+          if (latestRt && !latestRt.paused && latestRt.targetEndTimeMs === rt.targetEndTimeMs) {
+            import('../lib/sound').then(({ playRestOverSound }) => {
+              playRestOverSound(latestRt.targetEndTimeMs);
+            }).catch(() => {});
+            usePulse.getState().clearRestTimer();
+            const latestUpdated = usePulse.getState().activeWorkout;
+            if (latestUpdated) {
+              import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
+                syncActiveWorkoutNotification(latestUpdated);
+              }).catch(() => {});
+            }
+          }
+        }, msRemaining);
+      }
+    };
+
+    checkRestTimer();
+
+    const unsub = usePulse.subscribe((state, prevState) => {
+      const prevRt = prevState.activeWorkout?.restTimer;
+      const currRt = state.activeWorkout?.restTimer;
+      if (
+        prevRt?.targetEndTimeMs !== currRt?.targetEndTimeMs ||
+        prevRt?.paused !== currRt?.paused
+      ) {
+        checkRestTimer();
+      }
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsub();
+    };
+  }, []);
 
   // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {

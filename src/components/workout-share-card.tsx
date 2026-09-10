@@ -25,7 +25,7 @@ import { hapticsLight, hapticsSuccess, hapticsWarning } from '../lib/haptics';
 import { detectPRs, formatCompact, whatChanged, workoutStats } from '../lib/stats';
 import { toUserVolume } from '../lib/units';
 import { usePulse } from '../store/useStore';
-import { colors, radius, spacing, useAccent } from '../theme';
+import { colors, fonts, radius, spacing, useAccent } from '../theme';
 import type { Workout } from '../types';
 import { WorkoutMuscleHero } from './workout-muscle-hero';
 import { toast } from './misc';
@@ -570,17 +570,19 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   heroWhiteWorkout: {
+    fontFamily: fonts.display,
     fontSize: 34,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     lineHeight: 36,
   },
   heroGoldComplete: {
+    fontFamily: fonts.display,
     fontSize: 34,
     fontWeight: '900',
     color: '#FFB800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     lineHeight: 38,
   },
   trophyWrapper: {

@@ -28,7 +28,8 @@ import { previousSet, exerciseInvolvesWeights, getDefaultSetValues } from '../..
 import { useNow, usePulse } from '../../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
-import { presentActiveWorkoutNotification, dismissActiveWorkoutNotification } from '../../../lib/notifications';
+import { syncActiveWorkoutNotification, dismissActiveWorkoutNotification } from '../../../lib/notifications';
+import { playRestOverSound } from '../../../lib/sound';
 import type { ActiveWorkout, Workout, WorkoutExercise } from '../../../types';
 
 // ---------------------------------------------------------------------------
@@ -54,37 +55,7 @@ function buildNotifKey(w: ActiveWorkout): string {
 
 /** Compute and post the live workout notification. Only call when content has actually changed. */
 function postWorkoutNotification(w: ActiveWorkout): void {
-  const rt = w.restTimer;
-  const curSLeft = rt
-    ? rt.paused
-      ? (rt.remainingSecWhenPaused ?? 0)
-      : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))
-    : 0;
-  const isResting = !!rt && curSLeft > 0;
-  const cEx = w.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? w.exercises[w.exercises.length - 1];
-  const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
-  const dSets = w.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
-  const tSets = w.exercises.reduce((s, we) => s + we.sets.length, 0);
-
-  let info = '';
-  if (isResting && rt) {
-    // Title already shows "Resting · WorkoutTitle" — body shows the next set without kg×reps
-    // Strip the parenthetical "(80 kg × 10 reps)" added by the store so notification stays clean
-    const stripped = rt.nextSetInfo ? rt.nextSetInfo.replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
-    info = stripped ? `Up next: ${stripped}` : '';
-  } else {
-    info = tSets > 0
-      ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
-      : 'Workout in progress';
-  }
-
-  presentActiveWorkoutNotification({
-    workoutTitle: w.title,
-    currentSetInfo: info,
-    isPaused: w.paused ?? false,
-    isResting,
-    workoutId: w.id,
-  });
+  syncActiveWorkoutNotification(w);
 }
 
 /**
@@ -501,10 +472,11 @@ export default function ActiveWorkoutScreen() {
       : Math.max(0, Math.ceil((storeRestTimer.targetEndTimeMs - now) / 1000))
     : 0;
 
-  // Auto-clear rest timer and provide haptic feedback when it reaches 0
+  // Auto-clear rest timer, play rest_over.mp3 chime once, and provide haptic feedback when it reaches 0
   const prevSecondsLeftRef = useRef(secondsLeft);
   useEffect(() => {
     if (storeRestTimer && !storeRestTimer.paused && secondsLeft <= 0 && prevSecondsLeftRef.current > 0) {
+      playRestOverSound(storeRestTimer.targetEndTimeMs).catch(() => {});
       clearRestTimer();
       hapticsSuccess();
       // Don't tell the user to get ready for a next set if there are none left

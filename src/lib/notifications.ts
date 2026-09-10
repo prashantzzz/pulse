@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { EXERCISE_MAP } from '../data/exercises';
+import type { ActiveWorkout } from '../types';
 
 export const EVENING_REMINDER_ID = 'pulse-evening-workout-reminder';
 export const ACTIVE_WORKOUT_NOTIFICATION_ID = 'pulse-active-workout-live';
@@ -43,8 +45,15 @@ export async function setupNotificationCategories(): Promise<void> {
       },
     ]);
 
-    // 2. Category for active live workout running (includes 'Pause' and 'Finish' buttons)
+    // 2. Category for active live workout running (includes 'Next Rep', 'Pause', and 'Finish' buttons)
     await Notifications.setNotificationCategoryAsync(ACTIVE_WORKOUT_CATEGORY, [
+      {
+        identifier: 'NEXT_REP',
+        buttonTitle: 'Next Rep',
+        options: {
+          opensAppToForeground: false,
+        },
+      },
       {
         identifier: 'PAUSE_WORKOUT',
         buttonTitle: 'Pause',
@@ -207,6 +216,45 @@ export async function presentActiveWorkoutNotification({
   } catch (err) {
     console.warn('Error presenting active workout notification:', err);
   }
+}
+
+/**
+ * Synchronize the active workout live notification in-place based on current workout state.
+ * Works seamlessly whether called from the workout screen, root layout action listeners,
+ * or background subscribers.
+ */
+export async function syncActiveWorkoutNotification(w: ActiveWorkout): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  const rt = w.restTimer;
+  const curSLeft = rt
+    ? rt.paused
+      ? (rt.remainingSecWhenPaused ?? 0)
+      : Math.max(0, Math.ceil((rt.targetEndTimeMs - Date.now()) / 1000))
+    : 0;
+  const isResting = !!rt && curSLeft > 0;
+  const cEx = w.exercises.find((we) => we.sets.some((s) => !s.completed)) ?? w.exercises[w.exercises.length - 1];
+  const cExName = cEx ? EXERCISE_MAP[cEx.exerciseId]?.name ?? 'Exercise' : 'Workout';
+  const dSets = w.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0);
+  const tSets = w.exercises.reduce((s, we) => s + we.sets.length, 0);
+
+  let info = '';
+  if (isResting && rt) {
+    const stripped = rt.nextSetInfo ? rt.nextSetInfo.replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
+    info = stripped ? `Up next: ${stripped}` : '';
+  } else {
+    info = tSets > 0
+      ? (dSets < tSets ? `Set ${dSets + 1} · ${cExName}` : 'All sets completed')
+      : 'Workout in progress';
+  }
+
+  await presentActiveWorkoutNotification({
+    workoutTitle: w.title,
+    currentSetInfo: info,
+    isPaused: w.paused ?? false,
+    isResting,
+    workoutId: w.id,
+  });
 }
 
 /**

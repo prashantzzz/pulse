@@ -130,36 +130,35 @@ export function WorkoutMuscleHero({
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Dual intersecting ambient circular backdrops behind models */}
-      <View style={[styles.ambientCircle, { left: '14%' }]} pointerEvents="none" />
-      <View style={[styles.ambientCircle, { right: '14%' }]} pointerEvents="none" />
+      {/* Well-spaced rounded rectangular enclosure framing both anatomical models */}
+      <View style={styles.roundedRectangleEnclosure}>
+        {/* Front View */}
+        <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
+          <Body
+            data={frontData}
+            side="front"
+            scale={scale}
+            gender={gender}
+            border="transparent"
+            defaultFill={UNWORKED_FILL}
+            defaultStroke={UNWORKED_STROKE}
+            defaultStrokeWidth={1}
+          />
+        </View>
 
-      {/* Front View */}
-      <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
-        <Body
-          data={frontData}
-          side="front"
-          scale={scale}
-          gender={gender}
-          border="transparent"
-          defaultFill={UNWORKED_FILL}
-          defaultStroke={UNWORKED_STROKE}
-          defaultStrokeWidth={1}
-        />
-      </View>
-
-      {/* Back View */}
-      <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
-        <Body
-          data={backData}
-          side="back"
-          scale={scale}
-          gender={gender}
-          border="transparent"
-          defaultFill={UNWORKED_FILL}
-          defaultStroke={UNWORKED_STROKE}
-          defaultStrokeWidth={1}
-        />
+        {/* Back View */}
+        <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
+          <Body
+            data={backData}
+            side="back"
+            scale={scale}
+            gender={gender}
+            border="transparent"
+            defaultFill={UNWORKED_FILL}
+            defaultStroke={UNWORKED_STROKE}
+            defaultStrokeWidth={1}
+          />
+        </View>
       </View>
     </View>
   );
@@ -170,21 +169,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 24,
     position: 'relative',
     marginVertical: 4,
+  },
+  roundedRectangleEnclosure: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    alignSelf: 'center',
   },
   figureWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  ambientCircle: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(20, 83, 45, 0.16)',
-    alignSelf: 'center',
   },
 });

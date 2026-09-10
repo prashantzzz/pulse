@@ -81,6 +81,14 @@ interface PulseState {
   /** Patch a set within the active workout */
   patchSet: (exerciseId: string, setId: string, patch: Partial<ExerciseSet>) => void;
   completeSet: (exerciseId: string, setId: string) => void;
+  /** Complete the first incomplete set in the active workout and automatically start recommended rest timer */
+  completeNextSetAndStartRest: () => {
+    exerciseId: string;
+    setId: string;
+    completedSetIndex: number;
+    totalSets: number;
+    doneSets: number;
+  } | null;
   /** Freeze the workout's elapsed timer; the elapsed time is captured so it survives navigation */
   pauseActiveWorkout: () => void;
   /** Un-pause by shifting startTime forward by the paused duration */
@@ -125,6 +133,87 @@ interface PulseState {
   clearAllData: () => Promise<void>;
   /** Clear all local user session state upon logout without cloud data deletion */
   clearSessionCache: () => void;
+}
+
+/**
+ * Pure helper function to apply a set completion to an active workout and compute the next rest timer.
+ * Follows DRY principles between completeSet and completeNextSetAndStartRest.
+ */
+function applySetCompletionToWorkout(
+  workout: ActiveWorkout,
+  exerciseId: string,
+  setId: string,
+  weightUnit: 'kg' | 'lbs',
+  workouts: Workout[],
+): {
+  updatedWorkout: ActiveWorkout;
+  completedSetIndex: number;
+  totalSets: number;
+  doneSets: number;
+} {
+  const nowIso = new Date().toISOString();
+  const updatedExercises = workout.exercises.map((we) =>
+    we.exerciseId === exerciseId
+      ? {
+          ...we,
+          sets: we.sets.map((st) =>
+            st.id === setId
+              ? { ...st, completed: true, completedAt: nowIso }
+              : st,
+          ),
+        }
+      : we,
+  );
+
+  const totalSets = updatedExercises.reduce((sum, we) => sum + we.sets.length, 0);
+  const doneSets = updatedExercises.reduce((sum, we) => sum + we.sets.filter((x) => x.completed).length, 0);
+
+  let nextRestTimer: RestTimerState | null = null;
+  if (totalSets > 0 && doneSets < totalSets) {
+    const rec = getRecommendedRestSeconds(exerciseId);
+    const ex = EXERCISE_MAP[exerciseId];
+    const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
+    const completedSetInfo = completedSet
+      ? `Set ${completedSet.setIndex} (${completedSet.weightKg != null ? `${formatUserWeightWithUnit(completedSet.weightKg, weightUnit)} × ` : ''}${completedSet.reps ?? '–'} reps)`
+      : undefined;
+
+    let nextSetInfo = '';
+    for (const e of updatedExercises) {
+      const nextS = e.sets.find((st) => !st.completed);
+      if (nextS) {
+        const nextEx = EXERCISE_MAP[e.exerciseId];
+        const p = previousSet(workouts, e.exerciseId, nextS.setIndex, workout.id);
+        const wVal = nextS.weightKg ?? p?.weightKg;
+        const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
+        nextSetInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${formatUserWeightWithUnit(wVal, weightUnit)} × ` : ''}${rVal} reps)`;
+        break;
+      }
+    }
+
+    nextRestTimer = {
+      targetEndTimeMs: Date.now() + rec.seconds * 1000,
+      totalSeconds: rec.seconds,
+      exerciseName: ex?.name ?? 'Exercise',
+      reason: rec.label,
+      paused: false,
+      completedSetInfo,
+      nextSetInfo,
+    };
+  }
+
+  const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
+
+  return {
+    updatedWorkout: {
+      ...workout,
+      endTime: nowIso,
+      exercises: updatedExercises,
+      restTimer: nextRestTimer,
+    },
+    completedSetIndex: completedSet?.setIndex ?? 1,
+    totalSets,
+    doneSets,
+  };
 }
 
 export const usePulse = create<PulseState>()(
@@ -412,65 +501,66 @@ export const usePulse = create<PulseState>()(
       completeSet: (exerciseId, setId) =>
         set((s) => {
           if (!s.activeWorkout) return s;
-          const nowIso = new Date().toISOString();
-          const updatedExercises = s.activeWorkout.exercises.map((we) =>
-            we.exerciseId === exerciseId
-              ? {
-                  ...we,
-                  sets: we.sets.map((st) =>
-                    st.id === setId
-                      ? { ...st, completed: true, completedAt: nowIso }
-                      : st,
-                  ),
-                }
-              : we,
+          const { updatedWorkout } = applySetCompletionToWorkout(
+            s.activeWorkout,
+            exerciseId,
+            setId,
+            s.weightUnit,
+            s.workouts,
           );
+          return { activeWorkout: updatedWorkout };
+        }),
 
-          const totalSets = updatedExercises.reduce((sum, we) => sum + we.sets.length, 0);
-          const doneSets = updatedExercises.reduce((sum, we) => sum + we.sets.filter((x) => x.completed).length, 0);
+      completeNextSetAndStartRest: () => {
+        let result: {
+          exerciseId: string;
+          setId: string;
+          completedSetIndex: number;
+          totalSets: number;
+          doneSets: number;
+        } | null = null;
 
-          let nextRestTimer: RestTimerState | null = null;
-          if (totalSets > 0 && doneSets < totalSets) {
-            const rec = getRecommendedRestSeconds(exerciseId);
-            const ex = EXERCISE_MAP[exerciseId];
-            const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
-            const completedSetInfo = completedSet
-              ? `Set ${completedSet.setIndex} (${completedSet.weightKg != null ? `${formatUserWeightWithUnit(completedSet.weightKg, s.weightUnit)} × ` : ''}${completedSet.reps ?? '–'} reps)`
-              : undefined;
+        set((s) => {
+          if (!s.activeWorkout) return s;
+          const aw = s.activeWorkout;
 
-            let nextSetInfo = '';
-            for (const e of updatedExercises) {
-              const nextS = e.sets.find((st) => !st.completed);
-              if (nextS) {
-                const nextEx = EXERCISE_MAP[e.exerciseId];
-                const p = previousSet(s.workouts, e.exerciseId, nextS.setIndex, s.activeWorkout.id);
-                const wVal = nextS.weightKg ?? p?.weightKg;
-                const rVal = nextS.reps ?? p?.reps ?? e.targetReps;
-                nextSetInfo = `Set ${nextS.setIndex} · ${nextEx?.name ?? 'Exercise'} (${wVal != null ? `${formatUserWeightWithUnit(wVal, s.weightUnit)} × ` : ''}${rVal} reps)`;
-                break;
-              }
+          // Find the first exercise with an incomplete set
+          let targetExId: string | null = null;
+          let targetSetId: string | null = null;
+          for (const we of aw.exercises) {
+            const inc = we.sets.find((st) => !st.completed);
+            if (inc) {
+              targetExId = we.exerciseId;
+              targetSetId = inc.id;
+              break;
             }
-
-            nextRestTimer = {
-              targetEndTimeMs: Date.now() + rec.seconds * 1000,
-              totalSeconds: rec.seconds,
-              exerciseName: ex?.name ?? 'Exercise',
-              reason: rec.label,
-              paused: false,
-              completedSetInfo,
-              nextSetInfo,
-            };
           }
 
-          return {
-            activeWorkout: {
-              ...s.activeWorkout,
-              endTime: nowIso,
-              exercises: updatedExercises,
-              restTimer: nextRestTimer,
-            },
+          if (!targetExId || !targetSetId) {
+            return s;
+          }
+
+          const { updatedWorkout, completedSetIndex, totalSets, doneSets } = applySetCompletionToWorkout(
+            aw,
+            targetExId,
+            targetSetId,
+            s.weightUnit,
+            s.workouts,
+          );
+
+          result = {
+            exerciseId: targetExId,
+            setId: targetSetId,
+            completedSetIndex,
+            totalSets,
+            doneSets,
           };
-        }),
+
+          return { activeWorkout: updatedWorkout };
+        });
+
+        return result;
+      },
 
       startRestTimer: (rest) =>
         set((s) => {

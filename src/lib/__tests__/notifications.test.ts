@@ -10,6 +10,7 @@ import {
   presentActiveWorkoutNotification,
   scheduleEveningReminder,
   setupNotificationCategories,
+  syncActiveWorkoutNotification,
 } from '../notifications';
 
 jest.mock('expo-notifications', () => ({
@@ -47,10 +48,15 @@ describe('Notifications System', () => {
       ],
     );
 
-    // 2. Active workout running with 'Pause' and 'Finish'
+    // 2. Active workout running with 'Next Rep', 'Pause' and 'Finish'
     expect(Notifications.setNotificationCategoryAsync).toHaveBeenCalledWith(
       ACTIVE_WORKOUT_CATEGORY,
       [
+        expect.objectContaining({
+          identifier: 'NEXT_REP',
+          buttonTitle: 'Next Rep',
+          options: { opensAppToForeground: false },
+        }),
         expect.objectContaining({
           identifier: 'PAUSE_WORKOUT',
           buttonTitle: 'Pause',
@@ -177,5 +183,41 @@ describe('Notifications System', () => {
   it('should schedule evening reminder with Start Workout category', async () => {
     await scheduleEveningReminder();
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+  });
+
+  it('should sync active workout notification using syncActiveWorkoutNotification', async () => {
+    const mockActiveWorkout: any = {
+      id: 'w-sync-test',
+      title: 'Leg Day',
+      paused: false,
+      exercises: [
+        {
+          id: 'we-1',
+          exerciseId: 'squat',
+          sets: [
+            { id: 's-1', setIndex: 1, completed: true },
+            { id: 's-2', setIndex: 2, completed: false },
+          ],
+        },
+      ],
+      restTimer: {
+        targetEndTimeMs: Date.now() + 60000,
+        totalSeconds: 60,
+        nextSetInfo: 'Set 2 · Squat (100 kg × 5 reps)',
+        paused: false,
+      },
+    };
+
+    await syncActiveWorkoutNotification(mockActiveWorkout);
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
+      content: expect.objectContaining({
+        title: '⏱️ Resting · Leg Day',
+        body: 'Up next: Set 2 · Squat',
+        categoryIdentifier: ACTIVE_WORKOUT_RESTING_CATEGORY,
+      }),
+      trigger: null,
+    });
   });
 });

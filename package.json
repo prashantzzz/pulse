@@ -13,6 +13,7 @@
     "@react-oauth/google": "^0.13.5",
     "@supabase/supabase-js": "^2.112.3",
     "expo": "~57.0.16",
+    "expo-audio": "~57.0.4",
     "expo-build-properties": "~57.0.14",
     "expo-constants": "~57.0.11",
     "expo-device": "~57.0.1",
