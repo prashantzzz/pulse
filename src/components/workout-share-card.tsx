@@ -86,7 +86,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
         const uri = await captureRef(cardRef, {
           format: 'png',
           quality: 1.0,
-          result: 'tmpfile',
+          result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
         });
 
         const isAvailable = await Sharing.isAvailableAsync();
@@ -135,6 +135,21 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
         }
       } catch (err: any) {
         console.warn('Share error:', err);
+        // On web fallback to navigator.share text if canvas capture failed in mobile browser
+        if (Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator as any).share) {
+          try {
+            await (navigator as any).share({
+              title: `NextRep: ${workout.title} Completed`,
+              text: `Crushed ${workout.title} on NextRep! ${stats.exercises} exercises, ${formatCompact(toUserVolume(stats.volumeKg, weightUnit))} ${weightUnit} volume lifted.`,
+            });
+            hapticsSuccess();
+            toast('Workout summary shared!');
+            return;
+          } catch {
+            // User dismissed share dialog
+            return;
+          }
+        }
         hapticsWarning();
         toast('Could not generate share image');
       } finally {
@@ -232,7 +247,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             <View style={styles.heroSection}>
               <View style={styles.heroTitlesCol}>
                 <T style={styles.heroWhiteWorkout}>Workout</T>
-                <Row align="center" gap={10}>
+                <Row align="center" gap={3}>
                   <T style={styles.heroGoldComplete}>Complete!</T>
                   {/* Glowing Trophy Illustration with Energy Rays */}
                   <View style={styles.trophyWrapper}>
@@ -360,21 +375,6 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                 <T style={styles.strongerEveryRepText}>STRONGER EVERY REP</T>
                 <Svg width={115} height={3} viewBox="0 0 115 3" style={{ marginTop: 2 }}>
                   <Path d="M1 1.5 C 35 1, 80 2.5, 113 1.5" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round" />
-                </Svg>
-              </View>
-            </View>
-
-            {/* Bottom Brand Banner Card */}
-            <View style={styles.footerBannerCard}>
-              <View style={styles.footerBrandCol}>
-                <T style={styles.footerBrandTitle}>NextRep</T>
-                <T style={styles.footerBrandSubtitle}>LOG   ·   ANALYZE   ·   IMPROVE</T>
-              </View>
-              <View style={styles.footerDivider} />
-              <View style={styles.footerTaglineCol}>
-                <T style={styles.footerTaglineText}>Progress Looks Good On You</T>
-                <Svg width={145} height={3} viewBox="0 0 145 3" style={{ alignSelf: 'flex-end', marginTop: 2 }}>
-                  <Path d="M2 1.5 C 45 1, 105 2.5, 143 1.5" stroke="#F59E0B" strokeWidth="1.6" strokeLinecap="round" />
                 </Svg>
               </View>
             </View>
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   // Hero Section
   heroSection: {
     position: 'relative',
-    marginTop: 2,
+    marginTop: 14,
   },
   heroTitlesCol: {
     gap: 0,
@@ -584,8 +584,8 @@ const styles = StyleSheet.create({
     lineHeight: 38,
   },
   trophyWrapper: {
-    marginLeft: 4,
-    marginTop: -2,
+    marginLeft: 0,
+    marginTop: -3,
   },
   heroSubtitle: {
     fontSize: 12,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   primaryStatsRow: {
     flexDirection: 'row',
     gap: 7,
-    marginTop: 4,
+    marginTop: 10,
   },
   statCardBase: {
     flex: 1,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 8,
   },
   secondaryCol: {
     flex: 1,
@@ -699,9 +699,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     paddingHorizontal: 12,
-    paddingTop: 9,
-    paddingBottom: 7,
-    marginTop: 4,
+    paddingTop: 10,
+    paddingBottom: 8,
+    marginTop: 8,
     flex: 1,
     justifyContent: 'space-between',
     position: 'relative',
@@ -754,60 +754,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     letterSpacing: 0.8,
     color: '#4B5563',
-  },
-
-  // Footer Banner Card
-  footerBannerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.025)',
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  footerBrandCol: {
-    gap: 1,
-    flexShrink: 0,
-  },
-  footerBrandTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  footerBrandSubtitle: {
-    fontSize: 7,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    color: '#6B7280',
-  },
-  footerDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 8,
-  },
-  footerTaglineCol: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  footerTaglineText: {
-    fontFamily: Platform.select({
-      ios: 'Snell Roundhand',
-      android: 'cursive',
-      web: 'cursive, "Brush Script MT", "Caveat", cursive',
-    }),
-    fontSize: 14,
-    fontStyle: 'italic',
-    fontWeight: '700',
-    color: '#E2E8F0',
-    textAlign: 'right',
-    lineHeight: 16,
   },
 
   // Modal

@@ -242,7 +242,6 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     expect(allText).toContain('MUSCLES WORKED');
     expect(allText).toContain('Targeted Muscles');
     expect(allText).toContain('STRONGER EVERY REP');
-    expect(allText).toContain('Progress Looks Good On You');
   });
 
   it('adapts volume unit dynamically to lbs mode in 9:16 share card', () => {
