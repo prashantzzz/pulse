@@ -13,7 +13,7 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastHost } from '../components/misc';
@@ -22,7 +22,13 @@ import { useAuth } from '../store/useAuth';
 import { usePulse } from '../store/useStore';
 import { applyAccent, colors } from '../theme';
 import * as Notifications from 'expo-notifications';
-import { requestNotificationPermissions, scheduleEveningReminder, cancelEveningReminder, setupNotificationCategories } from '../lib/notifications';
+import {
+  EVENING_REMINDER_ID,
+  isReminderSuppressed,
+  requestNotificationPermissions,
+  setupNotificationCategories,
+  syncWorkoutReminder,
+} from '../lib/notifications';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -88,18 +94,49 @@ export default function RootLayout() {
       if (!granted) return;
 
       await setupNotificationCategories();
-
-      const workouts = usePulse.getState().workouts;
-      const todayStr = new Date().toDateString();
-      const workedOutToday = workouts.some((w) => new Date(w.startTime).toDateString() === todayStr);
-
-      if (workedOutToday) {
-        await cancelEveningReminder();
-      } else {
-        await scheduleEveningReminder();
-      }
+      await syncWorkoutReminder();
     }
     setupNotifications();
+  }, [hydrated]);
+
+  // Keep evening reminder synchronized on AppState changes and dismiss if delivered while suppressed
+  useEffect(() => {
+    if (!hydrated || Platform.OS === 'web') return;
+
+    // 1. Re-sync reminder whenever app comes to foreground
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncWorkoutReminder().catch(() => {});
+      }
+    });
+
+    // 2. Dismiss evening reminder immediately if received while suppressed
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      if (notification?.request?.identifier === EVENING_REMINDER_ID) {
+        const state = usePulse.getState();
+        if (isReminderSuppressed({ workouts: state.workouts, activeWorkout: state.activeWorkout })) {
+          Notifications.dismissNotificationAsync(EVENING_REMINDER_ID).catch(() => {});
+        }
+      }
+    });
+
+    // 3. Set a timer to sync schedule right after 7:00 PM today if app is open before 7:00 PM
+    const now = new Date();
+    const today7PM = new Date(now);
+    today7PM.setHours(19, 0, 5, 0); // 7:00:05 PM
+    const msUntil7PM = today7PM.getTime() - now.getTime();
+    let eveningTimer: ReturnType<typeof setTimeout> | null = null;
+    if (msUntil7PM > 0 && msUntil7PM < 86400000) {
+      eveningTimer = setTimeout(() => {
+        syncWorkoutReminder().catch(() => {});
+      }, msUntil7PM);
+    }
+
+    return () => {
+      appStateSub?.remove?.();
+      receivedSub?.remove?.();
+      if (eveningTimer) clearTimeout(eveningTimer);
+    };
   }, [hydrated]);
 
   // Handle interaction with notification action buttons ('Start Workout', 'Next Rep', 'Pause', 'Resume', 'Skip Rest', 'Finish') and notification taps

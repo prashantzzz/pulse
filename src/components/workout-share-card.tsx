@@ -221,13 +221,11 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             {/* Top Section: Brand Identity & Date Badge */}
             <View style={styles.topSection}>
               <View style={styles.brandRow}>
-                <View style={styles.brandIconSquare}>
-                  <Image
-                    source={require('../../assets/images/logo.png')}
-                    style={styles.brandLogoImg}
-                    resizeMode="contain"
-                  />
-                </View>
+                <Image
+                  source={require('../../assets/images/logo.png')}
+                  style={styles.brandLogoImg}
+                  resizeMode="cover"
+                />
                 <View style={styles.brandTextCol}>
                   <T style={styles.brandName}>NextRep</T>
                   <T style={styles.brandTagline}>TRACK   PROGRESS   GET STRONGER</T>
@@ -509,20 +507,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  brandIconSquare: {
+  brandLogoImg: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#0F141C',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandLogoImg: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
+    overflow: 'hidden',
   },
   brandTextCol: {
     justifyContent: 'center',

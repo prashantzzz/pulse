@@ -7,10 +7,14 @@ import {
   EVENING_REMINDER_CATEGORY,
   EVENING_REMINDER_ID,
   dismissActiveWorkoutNotification,
+  hasCompletedWorkoutOnDate,
+  handleNotificationPresentation,
+  isReminderSuppressed,
   presentActiveWorkoutNotification,
   scheduleEveningReminder,
   setupNotificationCategories,
   syncActiveWorkoutNotification,
+  syncWorkoutReminder,
 } from '../notifications';
 
 jest.mock('expo-notifications', () => ({
@@ -25,7 +29,7 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { HIGH: 4, DEFAULT: 3, LOW: 2 },
   AndroidNotificationPriority: { HIGH: 'high', LOW: 'low' },
   AndroidNotificationVisibility: { PUBLIC: 1 },
-  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval', DAILY: 'daily', DATE: 'date' },
 }));
 
 describe('Notifications System', () => {
@@ -218,6 +222,305 @@ describe('Notifications System', () => {
         categoryIdentifier: ACTIVE_WORKOUT_RESTING_CATEGORY,
       }),
       trigger: null,
+    });
+  });
+
+  describe('Workout Reminder Suppression Logic', () => {
+    const today = new Date('2026-09-10T14:30:00');
+    const yesterday = new Date('2026-09-09T18:00:00');
+
+    it('hasCompletedWorkoutOnDate correctly identifies today vs other days', () => {
+      const workoutToday: any = {
+        id: 'w-today',
+        startTime: '2026-09-10T09:00:00.000Z',
+        endTime: '2026-09-10T10:00:00.000Z',
+      };
+      const workoutYesterday: any = {
+        id: 'w-yest',
+        startTime: '2026-09-09T09:00:00.000Z',
+        endTime: '2026-09-09T10:00:00.000Z',
+      };
+
+      expect(hasCompletedWorkoutOnDate([workoutToday], today)).toBe(true);
+      expect(hasCompletedWorkoutOnDate([workoutYesterday], today)).toBe(false);
+      expect(hasCompletedWorkoutOnDate([], today)).toBe(false);
+    });
+
+    it('isReminderSuppressed returns true if user is currently doing a workout', () => {
+      const mockActive: any = { id: 'aw-1', title: 'Chest Day', exercises: [] };
+      expect(
+        isReminderSuppressed({
+          workouts: [],
+          activeWorkout: mockActive,
+          now: today,
+        }),
+      ).toBe(true);
+    });
+
+    it('isReminderSuppressed returns true if user completed a workout today', () => {
+      const workoutToday: any = {
+        id: 'w-today',
+        startTime: '2026-09-10T09:00:00.000Z',
+        endTime: '2026-09-10T10:00:00.000Z',
+      };
+      expect(
+        isReminderSuppressed({
+          workouts: [workoutToday],
+          activeWorkout: null,
+          now: today,
+        }),
+      ).toBe(true);
+    });
+
+    it('isReminderSuppressed returns false if no workout today and not currently working out', () => {
+      const workoutYesterday: any = {
+        id: 'w-yesterday',
+        startTime: '2026-09-09T09:00:00.000Z',
+        endTime: '2026-09-09T10:00:00.000Z',
+      };
+      expect(
+        isReminderSuppressed({
+          workouts: [workoutYesterday],
+          activeWorkout: null,
+          now: today,
+        }),
+      ).toBe(false);
+    });
+
+    it('syncWorkoutReminder schedules today 7 PM if not suppressed and before 7 PM', async () => {
+      const before7PM = new Date('2026-09-10T14:00:00');
+      await syncWorkoutReminder({
+        workouts: [],
+        activeWorkout: null,
+        now: before7PM,
+      });
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+        identifier: EVENING_REMINDER_ID,
+        content: expect.objectContaining({
+          categoryIdentifier: EVENING_REMINDER_CATEGORY,
+        }),
+        trigger: {
+          type: 'daily',
+          hour: 19,
+          minute: 0,
+          channelId: 'default',
+        },
+      });
+    });
+
+    it('syncWorkoutReminder does NOT schedule for today if user completed a workout today before 7 PM', async () => {
+      const before7PM = new Date('2026-09-10T14:00:00');
+      const workoutToday: any = {
+        id: 'w-today',
+        startTime: '2026-09-10T11:00:00.000Z',
+        endTime: '2026-09-10T12:00:00.000Z',
+      };
+
+      await syncWorkoutReminder({
+        workouts: [workoutToday],
+        activeWorkout: null,
+        now: before7PM,
+      });
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+      // Scheduled specifically for tomorrow with DATE trigger (NOT today DAILY)
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+        identifier: EVENING_REMINDER_ID,
+        content: expect.objectContaining({
+          categoryIdentifier: EVENING_REMINDER_CATEGORY,
+        }),
+        trigger: expect.objectContaining({
+          type: 'date',
+          date: expect.any(Date),
+        }),
+      });
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.find(
+        (c) => c[0].identifier === EVENING_REMINDER_ID,
+      );
+      const scheduledDate = call[0].trigger.date as Date;
+      expect(scheduledDate.getDate()).toBe(11); // Tomorrow!
+      expect(scheduledDate.getHours()).toBe(19);
+    });
+
+    it('syncWorkoutReminder does NOT schedule for today if user is doing a workout at 6:50 PM', async () => {
+      const at650PM = new Date('2026-09-10T18:50:00');
+      const mockActive: any = { id: 'aw-1', title: 'Evening Lift', exercises: [] };
+
+      await syncWorkoutReminder({
+        workouts: [],
+        activeWorkout: mockActive,
+        now: at650PM,
+      });
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+      // Scheduled for tomorrow (NOT today)
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+        identifier: EVENING_REMINDER_ID,
+        content: expect.objectContaining({
+          categoryIdentifier: EVENING_REMINDER_CATEGORY,
+        }),
+        trigger: expect.objectContaining({
+          type: 'date',
+          date: expect.any(Date),
+        }),
+      });
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.find(
+        (c) => c[0].identifier === EVENING_REMINDER_ID,
+      );
+      const scheduledDate = call[0].trigger.date as Date;
+      expect(scheduledDate.getDate()).toBe(11); // Tomorrow!
+    });
+
+    it('syncWorkoutReminder schedules repeating daily when triggered after 7 PM', async () => {
+      const after7PM = new Date('2026-09-10T20:30:00');
+      const workoutToday: any = {
+        id: 'w-today',
+        startTime: '2026-09-10T19:15:00.000Z',
+        endTime: '2026-09-10T20:15:00.000Z',
+      };
+
+      await syncWorkoutReminder({
+        workouts: [workoutToday],
+        activeWorkout: null,
+        now: after7PM,
+      });
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+        identifier: EVENING_REMINDER_ID,
+        content: expect.objectContaining({
+          categoryIdentifier: EVENING_REMINDER_CATEGORY,
+        }),
+        trigger: {
+          type: 'daily',
+          hour: 19,
+          minute: 0,
+          channelId: 'default',
+        },
+      });
+    });
+
+    it('syncWorkoutReminder restores today 7 PM reminder when active workout is cancelled before 7 PM without training today', async () => {
+      const before7PM = new Date('2026-09-10T17:00:00');
+
+      // 1. User starts workout at 5 PM -> cancelled for today
+      await syncWorkoutReminder({
+        workouts: [],
+        activeWorkout: { id: 'aw-temp' } as any,
+        now: before7PM,
+      });
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(EVENING_REMINDER_ID);
+
+      jest.clearAllMocks();
+
+      // 2. User cancels/discards active workout at 5:15 PM -> restored for today
+      const at515PM = new Date('2026-09-10T17:15:00');
+      await syncWorkoutReminder({
+        workouts: [],
+        activeWorkout: null,
+        now: at515PM,
+      });
+
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+        identifier: EVENING_REMINDER_ID,
+        content: expect.objectContaining({
+          categoryIdentifier: EVENING_REMINDER_CATEGORY,
+        }),
+        trigger: {
+          type: 'daily',
+          hour: 19,
+          minute: 0,
+          channelId: 'default',
+        },
+      });
+    });
+
+    it('syncWorkoutReminder stays suppressed if user cancels active workout but completed another workout earlier today', async () => {
+      const before7PM = new Date('2026-09-10T17:30:00');
+      const workoutFinishedMorning: any = {
+        id: 'w-morning',
+        startTime: '2026-09-10T08:00:00.000Z',
+        endTime: '2026-09-10T09:00:00.000Z',
+      };
+
+      await syncWorkoutReminder({
+        workouts: [workoutFinishedMorning],
+        activeWorkout: null,
+        now: before7PM,
+      });
+
+      // Must NOT schedule for today; schedules for tomorrow
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.find(
+        (c) => c[0].identifier === EVENING_REMINDER_ID,
+      );
+      expect(call[0].trigger.type).toBe('date');
+      const scheduledDate = call[0].trigger.date as Date;
+      expect(scheduledDate.getDate()).toBe(11);
+    });
+
+    it('hasCompletedWorkoutOnDate handles invalid target dates and malformed workout entries gracefully', () => {
+      expect(hasCompletedWorkoutOnDate([], new Date('invalid-date'))).toBe(false);
+      expect(hasCompletedWorkoutOnDate([null as any, undefined as any], today)).toBe(false);
+      expect(hasCompletedWorkoutOnDate([{ id: 'w-nodates', startTime: '', endTime: '' } as any], today)).toBe(false);
+      expect(hasCompletedWorkoutOnDate([{ id: 'w-baddates', startTime: 'not-a-date', endTime: 'also-not-a-date' } as any], today)).toBe(false);
+    });
+
+    it('handleNotificationPresentation suppresses alert and banner when evening reminder is suppressed', async () => {
+      const mockEveningNotification: any = {
+        request: {
+          identifier: EVENING_REMINDER_ID,
+        },
+      };
+
+      // When suppressed (e.g. user worked out today or in workout)
+      const behaviorSuppressed = await handleNotificationPresentation(
+        mockEveningNotification,
+        () => true, // suppressionCheck returns true
+      );
+
+      expect(behaviorSuppressed).toEqual({
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      });
+
+      // When not suppressed (user has not worked out today)
+      const behaviorUnsuppressed = await handleNotificationPresentation(
+        mockEveningNotification,
+        () => false, // suppressionCheck returns false
+      );
+
+      expect(behaviorUnsuppressed).toEqual({
+        shouldShowAlert: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      });
+    });
+
+    it('handleNotificationPresentation silences live active workout notification in the shade', async () => {
+      const mockLiveNotification: any = {
+        request: {
+          identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
+        },
+      };
+
+      const behavior = await handleNotificationPresentation(mockLiveNotification);
+
+      expect(behavior).toEqual({
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: true,
+      });
     });
   });
 });

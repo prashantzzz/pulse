@@ -405,6 +405,9 @@ export const usePulse = create<PulseState>()(
           }),
         };
         set({ activeWorkout: active });
+        import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+          syncWorkoutReminder({ workouts: get().workouts, activeWorkout: active });
+        }).catch(() => {});
         return active;
       },
 
@@ -688,7 +691,10 @@ export const usePulse = create<PulseState>()(
         }),
 
       cancelActiveWorkout: () => {
-        import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
+        import('../lib/notifications').then(({ dismissActiveWorkoutNotification, syncWorkoutReminder }) => {
+          dismissActiveWorkoutNotification();
+          syncWorkoutReminder({ workouts: get().workouts, activeWorkout: null });
+        }).catch(() => {});
         set({ activeWorkout: null });
       },
 
@@ -707,12 +713,15 @@ export const usePulse = create<PulseState>()(
           restTimer: undefined,
           endTime: end,
         };
-        set((s) => ({
-          workouts: [...s.workouts, finished],
+        const nextWorkouts = [...get().workouts, finished];
+        set({
+          workouts: nextWorkouts,
           activeWorkout: null,
-        }));
-        // Cancel evening notification reminder since user trained today
-        import('../lib/notifications').then(({ cancelEveningReminder }) => cancelEveningReminder()).catch(() => {});
+        });
+        // Sync evening notification reminder since user trained today
+        import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+          syncWorkoutReminder({ workouts: nextWorkouts, activeWorkout: null });
+        }).catch(() => {});
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushWorkoutToCloud(user.id, finished).catch(() => {});
         }).catch(() => {});
@@ -729,12 +738,16 @@ export const usePulse = create<PulseState>()(
           source: 'user',
           exercises,
         };
-        set((s) => ({
-          workouts: [
-            ...s.workouts,
-            built,
-          ],
-        }));
+        const nextWorkouts = [
+          ...get().workouts,
+          built,
+        ];
+        set({
+          workouts: nextWorkouts,
+        });
+        import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+          syncWorkoutReminder({ workouts: nextWorkouts, activeWorkout: get().activeWorkout });
+        }).catch(() => {});
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushWorkoutToCloud(user.id, built).catch(() => {});
         }).catch(() => {});
@@ -857,7 +870,11 @@ export const usePulse = create<PulseState>()(
               }
             }
           }).catch(() => {});
-          return { workouts: [...fresh, ...s.workouts] };
+          const nextWorkouts = [...fresh, ...s.workouts];
+          import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+            syncWorkoutReminder({ workouts: nextWorkouts, activeWorkout: s.activeWorkout });
+          }).catch(() => {});
+          return { workouts: nextWorkouts };
         }),
 
       replaceWorkouts: (imported) =>
@@ -881,6 +898,9 @@ export const usePulse = create<PulseState>()(
               }).catch(() => {});
             }
           }).catch(() => {});
+          import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+            syncWorkoutReminder({ workouts: fresh, activeWorkout: null });
+          }).catch(() => {});
           return { workouts: fresh };
         }),
 
@@ -893,7 +913,10 @@ export const usePulse = create<PulseState>()(
         } catch (e) {
           console.warn('Failed to wipe cloud data during clearAllData:', e);
         } finally {
-          import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
+          import('../lib/notifications').then(({ dismissActiveWorkoutNotification, syncWorkoutReminder }) => {
+            dismissActiveWorkoutNotification();
+            syncWorkoutReminder({ workouts: [], activeWorkout: null });
+          }).catch(() => {});
           await AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
           set({
             workouts: [],
@@ -911,7 +934,10 @@ export const usePulse = create<PulseState>()(
         }
       },
 
-      clearSessionCache: () =>
+      clearSessionCache: () => {
+        import('../lib/notifications').then(({ syncWorkoutReminder }) => {
+          syncWorkoutReminder({ workouts: [], activeWorkout: null });
+        }).catch(() => {});
         set({
           profile: null,
           workouts: [],
@@ -924,7 +950,8 @@ export const usePulse = create<PulseState>()(
           activeWorkout: null,
           onboarded: false,
           seeded: false,
-        }),
+        });
+      },
     }),
     {
       name: 'nextrep-store-v1',

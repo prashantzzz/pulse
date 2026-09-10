@@ -15,7 +15,7 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { HIGH: 4, DEFAULT: 3 },
   AndroidNotificationPriority: { HIGH: 'high' },
   AndroidNotificationVisibility: { PUBLIC: 1 },
-  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval', DAILY: 'daily', DATE: 'date' },
 }));
 
 describe('User Account Isolation & Cache Clearing on Logout', () => {

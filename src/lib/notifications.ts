@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { EXERCISE_MAP } from '../data/exercises';
-import type { ActiveWorkout } from '../types';
+import type { ActiveWorkout, Workout } from '../types';
 
 export const EVENING_REMINDER_ID = 'pulse-evening-workout-reminder';
 export const ACTIVE_WORKOUT_NOTIFICATION_ID = 'pulse-active-workout-live';
@@ -11,19 +11,114 @@ export const ACTIVE_WORKOUT_CATEGORY = 'active-workout-category';
 export const ACTIVE_WORKOUT_PAUSED_CATEGORY = 'active-workout-paused-category';
 export const ACTIVE_WORKOUT_RESTING_CATEGORY = 'active-workout-resting-category';
 
+let cachedUsePulse: any = null;
+function getStoreState(): { workouts: Workout[]; activeWorkout: ActiveWorkout | null } | null {
+  try {
+    if (!cachedUsePulse) {
+      cachedUsePulse = require('../store/useStore').usePulse;
+    }
+    if (cachedUsePulse?.getState) {
+      return cachedUsePulse.getState();
+    }
+  } catch {
+    // fallback if store not loaded or in isolated tests
+  }
+  return null;
+}
+
+/**
+ * Checks if any completed workout was performed on the given local calendar date.
+ */
+export function hasCompletedWorkoutOnDate(workouts: Workout[], targetDate: Date = new Date()): boolean {
+  if (!targetDate || isNaN(targetDate.getTime())) return false;
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = targetDate.getMonth();
+  const targetDay = targetDate.getDate();
+
+  return workouts.some((w) => {
+    if (!w) return false;
+    const dates = [w.endTime, w.startTime].filter(Boolean);
+    return dates.some((dStr) => {
+      const d = new Date(dStr);
+      return (
+        !isNaN(d.getTime()) &&
+        d.getFullYear() === targetYear &&
+        d.getMonth() === targetMonth &&
+        d.getDate() === targetDay
+      );
+    });
+  });
+}
+
+export interface ReminderSuppressionCheckParams {
+  workouts?: Workout[];
+  activeWorkout?: ActiveWorkout | null;
+  now?: Date;
+}
+
+/**
+ * Determines whether the evening workout reminder should be suppressed for today.
+ * The reminder will NOT fire if:
+ * 1. The user has completed some workout today, OR
+ * 2. The user is actively doing a workout (activeWorkout is not null) during the reminder time.
+ */
+export function isReminderSuppressed(params?: ReminderSuppressionCheckParams): boolean {
+  const now = params?.now ?? new Date();
+  let workouts = params?.workouts;
+  let activeWorkout = params?.activeWorkout;
+
+  if (workouts === undefined || activeWorkout === undefined) {
+    const storeState = getStoreState();
+    if (workouts === undefined) workouts = storeState?.workouts ?? [];
+    if (activeWorkout === undefined) activeWorkout = storeState?.activeWorkout ?? null;
+  }
+
+  // If user is actively in a workout (exercising, resting, paused), suppress!
+  if (activeWorkout !== null) return true;
+
+  // If user has completed a workout today, suppress!
+  return hasCompletedWorkoutOnDate(workouts, now);
+}
+
+/**
+ * Presentation handler logic for Expo Notifications foreground delivery.
+ * - Suppresses alert/banner/sound if active workout live notification.
+ * - Suppresses evening reminder if user completed workout today or is currently training.
+ */
+export async function handleNotificationPresentation(
+  notification: Notifications.Notification,
+  suppressionCheck?: (params?: ReminderSuppressionCheckParams) => boolean
+): Promise<Notifications.NotificationBehavior> {
+  const isLive = notification?.request?.identifier === ACTIVE_WORKOUT_NOTIFICATION_ID;
+  const isEveningReminder = notification?.request?.identifier === EVENING_REMINDER_ID;
+
+  if (isEveningReminder) {
+    const check = suppressionCheck ?? isReminderSuppressed;
+    const suppressed = check();
+    if (suppressed) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+  }
+
+  return {
+    shouldShowAlert: !isLive,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: !isLive,
+    shouldShowList: true,
+  };
+}
+
 // Configure foreground presentation behavior — live workout tracker stays silent in the shade without popup alert banners
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      const isLive = notification?.request?.identifier === ACTIVE_WORKOUT_NOTIFICATION_ID;
-      return {
-        shouldShowAlert: !isLive,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-        shouldShowBanner: !isLive,
-        shouldShowList: true,
-      };
-    },
+    handleNotification: handleNotificationPresentation,
   });
 }
 
@@ -284,37 +379,106 @@ export async function cancelEveningReminder(): Promise<void> {
   }
 }
 
+export interface SyncWorkoutReminderOptions {
+  workouts?: Workout[];
+  activeWorkout?: ActiveWorkout | null;
+  hour?: number;
+  minute?: number;
+  now?: Date;
+}
+
 /**
- * Schedule daily evening reminder at 7:00 PM (19:00) with 'Start Workout' action button leading to Workouts page.
- * Uses native daily calendar trigger so Android and iOS schedule repeating alarms at the exact local time.
+ * Synchronizes the daily evening workout reminder at 7:00 PM (19:00 local time).
+ * - Suppressed if user completed a workout today or is currently doing a workout.
+ * - When suppressed before 19:00: cancels today's reminder and schedules tomorrow's reminder at 19:00 with DATE trigger.
+ * - When suppressed at/after 19:00: schedules daily reminder repeating from tomorrow at 19:00.
+ * - When NOT suppressed before 19:00: schedules daily reminder for today at 19:00.
+ * - When NOT suppressed at/after 19:00: schedules daily reminder repeating from tomorrow at 19:00.
  */
-export async function scheduleEveningReminder(hour = 19, minute = 0): Promise<void> {
+export async function syncWorkoutReminder(options?: SyncWorkoutReminderOptions): Promise<void> {
   if (Platform.OS === 'web') return;
+
+  const hour = options?.hour ?? 19;
+  const minute = options?.minute ?? 0;
+  const now = options?.now ?? new Date();
+
+  const suppressed = isReminderSuppressed({
+    workouts: options?.workouts,
+    activeWorkout: options?.activeWorkout,
+    now,
+  });
+
+  const todayReminderTime = new Date(now);
+  todayReminderTime.setHours(hour, minute, 0, 0);
+
+  const tomorrowReminderTime = new Date(now);
+  tomorrowReminderTime.setDate(tomorrowReminderTime.getDate() + 1);
+  tomorrowReminderTime.setHours(hour, minute, 0, 0);
 
   try {
     await cancelEveningReminder();
 
-    await Notifications.scheduleNotificationAsync({
-      identifier: EVENING_REMINDER_ID,
-      content: {
-        title: 'Time to Train! 🏋️',
-        body: "No workout yet. Don’t break your streak!",
-        categoryIdentifier: EVENING_REMINDER_CATEGORY,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
-        data: {
-          url: '/(tabs)/workouts',
+    const notificationContent = {
+      title: 'Time to Train! 🏋️',
+      body: "No workout yet. Don’t break your streak!",
+      categoryIdentifier: EVENING_REMINDER_CATEGORY,
+      sound: true,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+      ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
+      data: {
+        url: '/(tabs)/workouts',
+      },
+    };
+
+    if (suppressed) {
+      // User worked out today or is currently working out
+      if (now.getTime() < todayReminderTime.getTime()) {
+        // Today's 7 PM has not arrived yet, but must NOT fire today.
+        // Schedule specifically for tomorrow at 7:00 PM local time.
+        await Notifications.scheduleNotificationAsync({
+          identifier: EVENING_REMINDER_ID,
+          content: notificationContent,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: tomorrowReminderTime,
+            channelId: 'default',
+          },
+        });
+      } else {
+        // 7 PM today has already passed, schedule daily repeating from tomorrow
+        await Notifications.scheduleNotificationAsync({
+          identifier: EVENING_REMINDER_ID,
+          content: notificationContent,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+            channelId: 'default',
+          },
+        });
+      }
+    } else {
+      // Not suppressed: user has not worked out today and is not currently in a workout
+      await Notifications.scheduleNotificationAsync({
+        identifier: EVENING_REMINDER_ID,
+        content: notificationContent,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute,
+          channelId: 'default',
         },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour,
-        minute,
-        channelId: 'default',
-      },
-    });
+      });
+    }
   } catch (err) {
-    console.warn('Error scheduling evening reminder:', err);
+    console.warn('Error syncing workout reminder:', err);
   }
+}
+
+/**
+ * Schedule daily evening reminder at 7:00 PM (19:00).
+ * Delegates to syncWorkoutReminder() to respect workout completion and active workout status.
+ */
+export async function scheduleEveningReminder(hour = 19, minute = 0): Promise<void> {
+  return syncWorkoutReminder({ hour, minute });
 }
