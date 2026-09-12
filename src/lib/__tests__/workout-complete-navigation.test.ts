@@ -2,10 +2,13 @@ import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/asy
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, ScrollView } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
 jest.mock('lucide-react-native', () => new Proxy({}, { get: () => 'Icon' }));
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
@@ -24,13 +27,14 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockAddListener = jest.fn();
 const mockRemoveListener = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
-    push: jest.fn(),
+    push: mockPush,
     back: jest.fn(),
   }),
   useNavigation: () => ({
@@ -41,7 +45,9 @@ jest.mock('expo-router', () => ({
 }));
 
 import SummaryScreen from '../../app/workout/[id]/summary';
+import { TodayWorkoutCard } from '../../components/workout-card';
 import { usePulse } from '../../store/useStore';
+import type { Workout } from '../../types';
 
 describe('Workout Complete Screen Back Navigation', () => {
   let backHandlerCallback: (() => boolean) | null = null;
@@ -152,5 +158,222 @@ describe('Workout Complete Screen Back Navigation', () => {
     // Verify gestureEnabled is true for workout/[id]/summary
     expect(layoutContent).toMatch(/<Stack\.Screen\s+name="workout\/\[id\]\/summary"[^>]*gestureEnabled:\s*true/);
     expect(layoutContent).not.toContain('<Stack.Screen name="workout/[id]/summary" options={{ animation: \'fade\', gestureEnabled: false }}');
+  });
+
+  it('navigates to workout summary when TodayWorkoutCard (Completed Today) is pressed', () => {
+    const completedWorkout: Workout = {
+      id: 'completed-today-xyz',
+      title: 'Leg Day Blast',
+      startTime: '2026-09-12T08:00:00.000Z',
+      endTime: '2026-09-12T09:00:00.000Z',
+      exercises: [
+        {
+          id: 'we-1',
+          exerciseId: 'squat',
+          order: 1,
+          notes: null,
+          plannedSets: 3,
+          targetReps: '5',
+          sets: [
+            {
+              id: 's-1',
+              setIndex: 1,
+              setType: 'working',
+              weightKg: 100,
+              reps: 5,
+              distanceKm: null,
+              durationSec: null,
+              rpe: 8,
+              notes: null,
+              supersetId: null,
+              completed: true,
+              completedAt: '2026-09-12T08:30:00.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    let root: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        React.createElement(TodayWorkoutCard, {
+          completedWorkout,
+          plans: [],
+          onSelectPlan: jest.fn(),
+          onStart: jest.fn(),
+        })
+      );
+    });
+
+    const rootInstance = root!.root;
+    const mainCard = rootInstance.findByProps({ accessibilityLabel: 'View Leg Day Blast summary' });
+    expect(mainCard).toBeDefined();
+
+    // Trigger press
+    act(() => {
+      mainCard.props.onPress();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/workout/completed-today-xyz/summary');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('auto-completes workout and prepares summary route when all sets get completed', () => {
+    usePulse.setState({
+      activeWorkout: {
+        id: 'active-auto-finish-1',
+        title: 'Full Body Circuit',
+        startTime: '2026-09-12T07:00:00.000Z',
+        endTime: null,
+        exercises: [
+          {
+            id: 'we-1',
+            exerciseId: 'bench-press',
+            order: 1,
+            notes: null,
+            plannedSets: 2,
+            targetReps: '10',
+            sets: [
+              {
+                id: 's-1',
+                setIndex: 1,
+                setType: 'working',
+                weightKg: 60,
+                reps: 10,
+                distanceKm: null,
+                durationSec: null,
+                rpe: null,
+                notes: null,
+                supersetId: null,
+                completed: false,
+                completedAt: null,
+              },
+              {
+                id: 's-2',
+                setIndex: 2,
+                setType: 'working',
+                weightKg: 60,
+                reps: 10,
+                distanceKm: null,
+                durationSec: null,
+                rpe: null,
+                notes: null,
+                supersetId: null,
+                completed: false,
+                completedAt: null,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    // Complete set 1 - 1 set still remaining
+    usePulse.getState().completeSet('bench-press', 's-1');
+    let currentAw = usePulse.getState().activeWorkout;
+    expect(currentAw).toBeDefined();
+    let remaining = currentAw!.exercises.flatMap((e) => e.sets).filter((s) => !s.completed);
+    expect(remaining.length).toBe(1);
+
+    // Complete set 2 - all sets now completed
+    usePulse.getState().completeSet('bench-press', 's-2');
+    currentAw = usePulse.getState().activeWorkout;
+    remaining = currentAw!.exercises.flatMap((e) => e.sets).filter((s) => !s.completed);
+    expect(remaining.length).toBe(0);
+
+    // When remaining.length === 0, calling finishWorkout() completes it and yields finished workout
+    const finished = usePulse.getState().finishWorkout();
+    expect(finished).toBeDefined();
+    expect(finished?.id).toBe('active-auto-finish-1');
+    expect(usePulse.getState().activeWorkout).toBeNull();
+    expect(usePulse.getState().workouts.some((w) => w.id === 'active-auto-finish-1')).toBe(true);
+  });
+
+  it('renders Up Next Preview modal with dynamic scroll height and all exercise rows', () => {
+    const mockTomorrowPlan = {
+      id: 'plan-tomorrow-1',
+      title: 'Upper Body Hypertrophy',
+      emoji: '⚡',
+      muscles: ['Chest', 'Back', 'Shoulders'],
+      exercises: [
+        { exerciseId: 'bench-press', sets: 4, targetReps: '8-10' },
+        { exerciseId: 'incline-dumbbell-press', sets: 3, targetReps: '10' },
+        { exerciseId: 'barbell-row', sets: 4, targetReps: '8' },
+        { exerciseId: 'lateral-raise', sets: 4, targetReps: '12-15' },
+        { exerciseId: 'overhead-press', sets: 3, targetReps: '8' },
+      ],
+    };
+
+    const completedWorkout: Workout = {
+      id: 'completed-workout-preview-test',
+      title: 'Lower Body Session',
+      startTime: '2026-09-12T06:00:00.000Z',
+      endTime: '2026-09-12T07:00:00.000Z',
+      exercises: [],
+    };
+
+    const onStartMock = jest.fn();
+
+    let root: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(
+        React.createElement(TodayWorkoutCard, {
+          completedWorkout,
+          plan: mockTomorrowPlan as any,
+          plans: [mockTomorrowPlan as any],
+          onSelectPlan: jest.fn(),
+          onStart: onStartMock,
+        })
+      );
+    });
+
+    const rootInstance = root!.root;
+
+    // Click the Preview button inside TodayWorkoutCard
+    const previewBtn = rootInstance.findByProps({ accessibilityLabel: "Preview tomorrow's workout" });
+    expect(previewBtn).toBeDefined();
+
+    act(() => {
+      previewBtn.props.onPress({ stopPropagation: jest.fn() });
+    });
+
+    // Check that Modal is now visible
+    const modal = rootInstance.findByType('Modal' as any);
+    expect(modal.props.visible).toBe(true);
+
+    // Verify the ScrollView has dynamic height props and scroll indicator enabled
+    const scrollView = modal.findByType(ScrollView);
+    expect(scrollView.props.showsVerticalScrollIndicator).toBe(true);
+    expect(scrollView.props.nestedScrollEnabled).toBe(true);
+    expect(scrollView.props.style.flexShrink).toBe(1);
+    expect(scrollView.props.style.maxHeight).toBeGreaterThanOrEqual(180);
+    expect(scrollView.props.contentContainerStyle.paddingBottom).toBeDefined();
+
+    // Verify all 5 exercises are rendered inside the preview modal
+    const textNodes = modal.findAllByType('Text' as any);
+    const combinedText = textNodes.map((n) => n.props.children).flat().join(' ').replace(/\s+/g, ' ');
+    expect(combinedText).toContain('Upper Body Hypertrophy');
+    expect(combinedText).toContain('5 exercises scheduled for this routine:');
+    expect(combinedText).toContain('Bench Press');
+    expect(combinedText).toContain('Barbell Row');
+    expect(combinedText).toContain('Lateral Raise');
+
+    // Click Start Workout Early
+    const startEarlyBtn = modal.findByProps({ accessibilityLabel: 'Start Workout Early' });
+    expect(startEarlyBtn).toBeDefined();
+
+    act(() => {
+      startEarlyBtn.props.onPress();
+    });
+
+    expect(onStartMock).toHaveBeenCalledWith(mockTomorrowPlan);
+
+    act(() => {
+      root.unmount();
+    });
   });
 });

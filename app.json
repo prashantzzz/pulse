@@ -21,7 +21,10 @@
       },
       "package": "com.nextrep.fitnesstracker",
       "predictiveBackGestureEnabled": true,
-      "allowBackup": false
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "output": "single",
@@ -56,6 +59,41 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#FF8C00"
+        }
+      ],
+      [
+        "expo-quick-actions",
+        {
+          "androidIcons": {
+            "shortcut_workout": {
+              "foregroundImage": "./assets/images/shortcut-workout.png",
+              "backgroundColor": "#0A0B0D"
+            },
+            "shortcut_progress": {
+              "foregroundImage": "./assets/images/shortcut-progress.png",
+              "backgroundColor": "#0A0B0D"
+            }
+          },
+          "iosActions": [
+            {
+              "id": "workout",
+              "title": "Workout",
+              "subtitle": "Start or view workouts",
+              "icon": "symbol:dumbbell.fill",
+              "params": {
+                "href": "/(tabs)/workouts"
+              }
+            },
+            {
+              "id": "progress",
+              "title": "Progress",
+              "subtitle": "View stats & analytics",
+              "icon": "symbol:chart.line.uptrend.xyaxis",
+              "params": {
+                "href": "/(tabs)/progress"
+              }
+            }
+          ]
         }
       ],
       "@react-native-google-signin/google-signin"

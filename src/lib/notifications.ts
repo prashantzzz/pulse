@@ -227,10 +227,11 @@ export async function requestNotificationPermissions(): Promise<boolean> {
       // Channel 1: Scheduled daily reminders
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Workout Reminders',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#6EE7B7',
         showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
       // Channel 2: Live active workout tracking (silent ongoing updates in notification tray)
@@ -423,7 +424,7 @@ export async function syncWorkoutReminder(options?: SyncWorkoutReminderOptions):
       body: "No workout yet. Don’t break your streak!",
       categoryIdentifier: EVENING_REMINDER_CATEGORY,
       sound: true,
-      priority: Notifications.AndroidNotificationPriority.HIGH,
+      priority: Notifications.AndroidNotificationPriority.MAX,
       ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
       data: {
         url: '/(tabs)/workouts',

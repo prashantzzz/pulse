@@ -2,7 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
 import type { Workout, WorkoutPlan } from '../types';
@@ -15,6 +16,7 @@ import { workoutStats } from '../lib/stats';
 import { formatVolumeWithUnit } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from './collapsible';
+import { hapticsLight } from '../lib/haptics';
 
 // ---------------------------------------------------------------------------
 // Plan card (Workouts tab)
@@ -210,10 +212,16 @@ export function TodayWorkoutCard({
   isLongLayoff?: boolean;
   onResume?: () => void;
 }) {
+  const router = useRouter();
   const accentKey = useAccent();
+  const { height: windowHeight } = useWindowDimensions();
   const weightUnit = usePulse((s) => s.weightUnit);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const previewMaxHeight = Math.max(180, Math.min(Math.round(windowHeight * 0.44), 400));
+  const swapMaxHeight = Math.max(200, Math.min(Math.round(windowHeight * 0.48), 440));
+  const modalMaxHeight = Math.min(Math.round(windowHeight - 48), 640);
 
   // ── IN PROGRESS ACTIVE WORKOUT HERO ───────────────────────────────────────
   if (activeWorkout) {
@@ -256,15 +264,29 @@ export function TodayWorkoutCard({
     const st = workoutStats(completedWorkout);
     return (
       <>
-        <View style={[styles.heroCard, { borderColor: `${colors.accent}4D` }]}>
+        <Pressable
+          onPress={() => {
+            hapticsLight();
+            router.push(`/workout/${completedWorkout.id}/summary`);
+          }}
+          style={({ pressed }) => [
+            styles.heroCard,
+            { borderColor: `${colors.accent}4D` },
+            pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${completedWorkout.title} summary`}>
           <LinearGradient key={`completed-${accentKey}`} colors={[accentTint(colors.accent, 0.18), colors.bg]} style={StyleSheet.absoluteFill} />
           <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
           <View style={{ padding: spacing.lg, gap: 12 }}>
             <Row align="space-between">
               <Tag label="COMPLETED TODAY 🎉" color={colors.accent} bg={colors.accentSoft} />
-              <T variant="micro" muted>
-                Time to recover
-              </T>
+              <Row gap={4} align="center">
+                <T variant="micro" accent style={{ fontWeight: '600' }}>
+                  View Summary
+                </T>
+                <Ionicons name="chevron-forward" size={12} color={colors.accent} />
+              </Row>
             </Row>
             <T variant="h1">{completedWorkout.title}</T>
             <Row gap={14} wrap>
@@ -275,7 +297,12 @@ export function TodayWorkoutCard({
 
             {plan ? (
               <Pressable
-                onPress={() => setShowPreviewModal(true)}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  setShowPreviewModal(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Preview tomorrow's workout"
                 style={({ pressed }) => [
                   styles.nextUpPreviewBtn,
                   { backgroundColor: `${colors.accent}14`, borderColor: `${colors.accent}33` },
@@ -305,7 +332,7 @@ export function TodayWorkoutCard({
               </Pressable>
             ) : null}
           </View>
-        </View>
+        </Pressable>
 
         {/* Up Next Preview Modal */}
         {plan ? (
@@ -315,47 +342,61 @@ export function TodayWorkoutCard({
             animationType="fade"
             onRequestClose={() => setShowPreviewModal(false)}>
             <Pressable style={styles.modalBackdrop} onPress={() => setShowPreviewModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-                <Row align="space-between" style={{ marginBottom: spacing.md }}>
-                  <T variant="h2">
+              <Pressable
+                style={[
+                  styles.modalContent,
+                  { maxHeight: modalMaxHeight },
+                ]}
+                onPress={(e) => e.stopPropagation()}>
+                <Row align="space-between" style={{ marginBottom: spacing.md, flexShrink: 0 }}>
+                  <T variant="h2" style={{ flex: 1, marginRight: spacing.sm }} numberOfLines={1}>
                     {plan.emoji ? `${plan.emoji} ` : ''}{plan.title}
                   </T>
                   <Pressable onPress={() => setShowPreviewModal(false)} style={styles.modalCloseBtn}>
                     <Ionicons name="close" size={20} color={colors.textDim} />
                   </Pressable>
                 </Row>
-                <Row gap={6} wrap style={{ marginBottom: spacing.md }}>
+                <Row gap={6} wrap style={{ marginBottom: spacing.md, flexShrink: 0 }}>
                   <Tag label="Tomorrow's Split" color={colors.accent} bg={colors.accentSoft} />
                   {plan.muscles.map((m) => (
                     <Tag key={m} label={m} />
                   ))}
                 </Row>
-                <T variant="small" dim style={{ marginBottom: spacing.sm }}>
-                  Exercises scheduled for this routine:
+                <T variant="small" dim style={{ marginBottom: spacing.sm, flexShrink: 0 }}>
+                  {plan.exercises.length} {plan.exercises.length === 1 ? 'exercise' : 'exercises'} scheduled for this routine:
                 </T>
-                <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
-                  <View style={{ gap: spacing.xs }}>
-                    {plan.exercises.map((pe, idx) => {
-                      const ex = EXERCISE_MAP[pe.exerciseId];
-                      return (
-                        <View key={`${pe.exerciseId}-${idx}`} style={styles.previewExerciseRow}>
-                          <T variant="bodySemi" style={{ flex: 1, fontSize: 13 }} numberOfLines={1}>
-                            {ex?.name ?? pe.exerciseId}
-                          </T>
-                          <T variant="micro" muted>
-                            {pe.sets} sets · {pe.targetReps} reps
-                          </T>
-                        </View>
-                      );
-                    })}
-                  </View>
+                <ScrollView
+                  style={{ maxHeight: previewMaxHeight, flexShrink: 1 }}
+                  contentContainerStyle={{ gap: spacing.xs, paddingBottom: spacing.xs }}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                  bounces={false}>
+                  {plan.exercises.map((pe, idx) => {
+                    const ex = EXERCISE_MAP[pe.exerciseId];
+                    return (
+                      <View key={`${pe.exerciseId}-${idx}`} style={styles.previewExerciseRow}>
+                        <T variant="bodySemi" style={{ flex: 1, fontSize: 13, marginRight: spacing.sm }} numberOfLines={1}>
+                          {ex?.name ?? pe.exerciseId}
+                        </T>
+                        <T variant="micro" muted style={{ flexShrink: 0 }}>
+                          {pe.sets} sets · {pe.targetReps} reps
+                        </T>
+                      </View>
+                    );
+                  })}
                 </ScrollView>
                 <Pressable
                   onPress={() => {
                     setShowPreviewModal(false);
                     onStart(plan);
                   }}
-                  style={({ pressed }) => [styles.heroCta, { marginTop: spacing.md }, pressed && { opacity: 0.9 }]}>
+                  accessibilityRole="button"
+                  accessibilityLabel="Start Workout Early"
+                  style={({ pressed }) => [
+                    styles.heroCta,
+                    { marginTop: spacing.md, flexShrink: 0 },
+                    pressed && { opacity: 0.9 },
+                  ]}>
                   <LinearGradient key={`preview-cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
                   <T variant="bodySemi" style={{ color: colors.bg, fontSize: 15 }}>
                     Start Workout Early
@@ -443,19 +484,28 @@ export function TodayWorkoutCard({
       {/* Swap Plan Modal */}
       <Modal visible={showSwapModal} transparent animationType="fade" onRequestClose={() => setShowSwapModal(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowSwapModal(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <Row align="space-between" style={{ marginBottom: spacing.md }}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { maxHeight: modalMaxHeight },
+            ]}
+            onPress={(e) => e.stopPropagation()}>
+            <Row align="space-between" style={{ marginBottom: spacing.md, flexShrink: 0 }}>
               <T variant="h2">Select Workout</T>
               <Pressable onPress={() => setShowSwapModal(false)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={20} color={colors.textDim} />
               </Pressable>
             </Row>
-            <T variant="small" dim style={{ marginBottom: spacing.md }}>
+            <T variant="small" dim style={{ marginBottom: spacing.md, flexShrink: 0 }}>
               Choose which routine to perform for today&apos;s session:
             </T>
-            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-              <View style={{ gap: spacing.sm }}>
-                {plans.map((p) => {
+            <ScrollView
+              style={{ maxHeight: swapMaxHeight, flexShrink: 1 }}
+              contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              bounces={false}>
+              {plans.map((p) => {
                   const isSelected = p.id === plan.id;
                   const pSets = p.exercises.reduce((s, e) => s + e.sets, 0);
                   return (
@@ -488,7 +538,6 @@ export function TodayWorkoutCard({
                     </Pressable>
                   );
                 })}
-              </View>
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -635,12 +684,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: spacing.sm,
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
+    minHeight: 40,
   },
   heroCtaSecondary: {
     marginTop: 6,
@@ -686,6 +736,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     elevation: 8,
+    display: 'flex',
+    overflow: 'hidden',
   },
   modalCloseBtn: {
     width: 32,

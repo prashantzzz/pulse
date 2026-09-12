@@ -38,12 +38,16 @@ export default function ProgressScreen() {
 
   const chartW = Math.min(width - 32, 600) - 32;
 
-  // exercises for the picker sheet — exactly the ones the user's plans include
-  // (deduped, in plan order); falls back to core compounds when no plan is active yet
+  // exercises for the picker sheet — includes exercises from both active plans
+  // and logged workout history (deduped), falling back to core compounds when empty
+  const workoutExIds = workouts.flatMap((w) => w.exercises.map((e) => e.exerciseId));
+  const planExIds = plans.flatMap((p) => p.exercises.map((e) => e.exerciseId));
+  const combinedExercises = [...new Set([...planExIds, ...workoutExIds])];
   const planExercises =
-    plans.length > 0
-      ? [...new Set(plans.flatMap((p) => p.exercises.map((e) => e.exerciseId)))]
+    combinedExercises.length > 0
+      ? combinedExercises
       : ['bench-press', 'squat', 'deadlift', 'shoulder-press', 'barbell-row', 'lat-pulldown', 'romanian-deadlift', 'leg-press'];
+  const effectiveExerciseId = planExercises.includes(exerciseId) ? exerciseId : planExercises[0];
 
   return (
     <Screen
@@ -73,7 +77,7 @@ export default function ProgressScreen() {
         {view === 'Strength' ? (
           <StrengthView
             workouts={workouts}
-            exerciseId={exerciseId}
+            exerciseId={effectiveExerciseId}
             weeks={TF_WEEKS[tf]}
             tf={tf}
             chartW={chartW}
@@ -98,7 +102,7 @@ export default function ProgressScreen() {
           <View style={{ gap: spacing.xs }}>
             {planExercises.map((id) => {
               const e = EXERCISE_MAP[id];
-              const active = id === exerciseId;
+              const active = id === effectiveExerciseId;
               return (
                 <Pressable
                   key={id}

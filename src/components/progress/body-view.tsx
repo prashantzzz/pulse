@@ -133,7 +133,7 @@ export function BodyView({
     intensity[s.slug] = weeklySets < 3 ? 0.25 : weeklySets < 6 ? 0.5 : 1;
   }
   for (const m of ALL_MUSCLES) {
-    if (intensity[m] == null) intensity[m] = 0.25; // never logged → undertrained baseline
+    if (workouts.length > 0 && intensity[m] == null) intensity[m] = 0.25; // never logged → undertrained baseline (only if user has workouts)
   }
 
   // Slug-level specific metrics with group-level fallback
@@ -264,7 +264,10 @@ export function BodyView({
           {/* "Exercises for <Muscle>" button */}
           {exerciseBtnLabel ? (
             <Pressable
-              onPress={() => setExerciseModalSlug(selSlug ? String(selSlug) : null)}
+              onPress={() => {
+                const targetSlug = selSlug ? String(selSlug) : (selMuscle ? GROUP_TO_SLUGS[selMuscle]?.[0] : null);
+                if (targetSlug) setExerciseModalSlug(targetSlug);
+              }}
               style={styles.exercisesBtn}>
               <Ionicons name="barbell-outline" size={16} color={colors.accent} />
               <T variant="smallSemi" style={{ color: colors.accent, flex: 1 }} numberOfLines={1}>
@@ -297,17 +300,20 @@ export function BodyView({
               </T>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-              {measurements.map((m, i) => (
-                <View
-                  key={m.id}
-                  style={{
-                    width: 16,
-                    height: 24 + (m.weightKg - Math.min(...measurements.map((x) => x.weightKg))) * 6,
-                    borderRadius: 4,
-                    backgroundColor: i === measurements.length - 1 ? colors.accent : colors.surface4,
-                  }}
-                />
-              ))}
+              {measurements.slice(-10).map((m, i, arr) => {
+                const minW = Math.min(...arr.map((x) => x.weightKg));
+                return (
+                  <View
+                    key={m.id}
+                    style={{
+                      width: 14,
+                      height: Math.min(50, 16 + (m.weightKg - minW) * 4),
+                      borderRadius: 4,
+                      backgroundColor: i === arr.length - 1 ? colors.accent : colors.surface4,
+                    }}
+                  />
+                );
+              })}
             </View>
           </Row>
         </Card>

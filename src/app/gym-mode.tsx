@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../components/Text';
 import { toast } from '../components/misc';
 import { EXERCISE_MAP } from '../data/exercises';
+import { hapticsSuccess } from '../lib/haptics';
+import { dismissActiveWorkoutNotification } from '../lib/notifications';
 import { toUserWeight, fromUserWeight, getBarWeight, getWeightStep } from '../lib/units';
 import { useNow, usePulse } from '../store/useStore';
 import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../theme';
@@ -19,7 +21,9 @@ export default function GymModeScreen() {
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const patchSet = usePulse((s) => s.patchSet);
   const completeSet = usePulse((s) => s.completeSet);
+  const finishWorkout = usePulse((s) => s.finishWorkout);
   const weightUnit = usePulse((s) => s.weightUnit);
+  const isCompletingRef = useRef(false);
   const [weight, setWeight] = useState(() => getBarWeight(weightUnit));
   const [reps, setReps] = useState(10);
   const [restLeft, setRestLeft] = useState(0);
@@ -67,6 +71,10 @@ export default function GymModeScreen() {
     return () => clearTimeout(t);
   }, [restLeft, now]);
 
+  if (isCompletingRef.current) {
+    return <View style={styles.root} />;
+  }
+
   if (!workout || !currentEx || !currentSet || !ex) {
     return (
       <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -89,9 +97,27 @@ export default function GymModeScreen() {
   const weightStep = getWeightStep(weightUnit);
 
   const complete = () => {
+    if (isCompletingRef.current) return;
     const savedWeightKg = fromUserWeight(weight, weightUnit);
     patchSet(ex.id, currentSet.id, { weightKg: savedWeightKg, reps });
     completeSet(ex.id, currentSet.id);
+
+    // Check if this was the last remaining incomplete set
+    const otherIncomplete = workout.exercises
+      .flatMap((x) => x.sets)
+      .filter((s) => !s.completed && s.id !== currentSet.id);
+
+    if (otherIncomplete.length === 0) {
+      isCompletingRef.current = true;
+      dismissActiveWorkoutNotification();
+      const finished = finishWorkout();
+      if (finished) {
+        hapticsSuccess();
+        router.replace(`/workout/${finished.id}/summary`);
+        return;
+      }
+    }
+
     setRestLeft(60);
     toast('💪');
   };

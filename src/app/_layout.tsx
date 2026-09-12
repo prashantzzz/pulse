@@ -29,6 +29,8 @@ import {
   setupNotificationCategories,
   syncWorkoutReminder,
 } from '../lib/notifications';
+import * as QuickActions from 'expo-quick-actions';
+import { getRouteForQuickAction, setupQuickActions } from '../lib/quick-actions';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -139,6 +141,32 @@ export default function RootLayout() {
     };
   }, [hydrated]);
 
+  // Register and handle home screen / app drawer quick actions (Workout, Progress)
+  useEffect(() => {
+    if (Platform.OS === 'web' || !hydrated) return;
+
+    setupQuickActions().catch(() => {});
+
+    const handleAction = (action: QuickActions.Action | null | undefined) => {
+      const targetRoute = getRouteForQuickAction(action);
+      if (targetRoute) {
+        router.push(targetRoute as never);
+      }
+    };
+
+    if (QuickActions.initial) {
+      handleAction(QuickActions.initial);
+    }
+
+    const sub = QuickActions.addListener((action) => {
+      handleAction(action);
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [hydrated, router]);
+
   // Handle interaction with notification action buttons ('Start Workout', 'Next Rep', 'Pause', 'Resume', 'Skip Rest', 'Finish') and notification taps
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -153,6 +181,17 @@ export default function RootLayout() {
         usePulse.getState().completeNextSetAndStartRest();
         const curr = usePulse.getState().activeWorkout;
         if (curr) {
+          const allComplete = curr.exercises.flatMap((e) => e.sets).every((s) => s.completed);
+          if (allComplete) {
+            import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => {
+              dismissActiveWorkoutNotification();
+            }).catch(() => {});
+            const finished = usePulse.getState().finishWorkout();
+            if (finished) {
+              router.replace(`/workout/${finished.id}/summary` as never);
+            }
+            return;
+          }
           import('../lib/notifications').then(({ syncActiveWorkoutNotification }) => {
             syncActiveWorkoutNotification(curr);
           }).catch(() => {});

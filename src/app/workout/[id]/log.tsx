@@ -12,7 +12,8 @@ import { previousSet, warmupSets, exerciseInvolvesWeights } from '../../../lib/s
 import { toUserWeight, fromUserWeight, formatWeight, formatWeightWithUnit, getBarWeight, getWeightStep, WeightUnit } from '../../../lib/units';
 import { usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
-import { hapticsLight } from '../../../lib/haptics';
+import { hapticsLight, hapticsSuccess } from '../../../lib/haptics';
+import { dismissActiveWorkoutNotification } from '../../../lib/notifications';
 
 const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
@@ -24,6 +25,7 @@ export default function LogSetScreen() {
   const workouts = usePulse((s) => s.workouts);
   const patchSet = usePulse((s) => s.patchSet);
   const completeSet = usePulse((s) => s.completeSet);
+  const finishWorkout = usePulse((s) => s.finishWorkout);
   const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
   const weightUnit = usePulse((s) => s.weightUnit);
 
@@ -108,6 +110,20 @@ export default function LogSetScreen() {
         return;
       }
       completeSet(ex.id, current.id);
+
+      const otherIncomplete = workout.exercises
+        .flatMap((x) => x.sets)
+        .filter((s) => !s.completed && s.id !== current.id);
+
+      if (otherIncomplete.length === 0) {
+        dismissActiveWorkoutNotification();
+        const finished = finishWorkout();
+        if (finished) {
+          hapticsSuccess();
+          router.replace(`/workout/${finished.id}/summary`);
+          return;
+        }
+      }
     }
     if (goNext) {
       const remaining = we.sets.filter((s) => !s.completed && s.id !== current.id);
@@ -144,7 +160,15 @@ export default function LogSetScreen() {
       toast(`Please complete Set ${prevIncomplete.setIndex} first`);
       return;
     }
+    const otherIncomplete = workout.exercises
+      .flatMap((x) => x.sets)
+      .filter((s) => !s.completed && s.id !== current.id);
+
     save(true, false);
+
+    if (otherIncomplete.length === 0) {
+      return;
+    }
     toast('Set complete');
     router.replace(`/workout/${workout.id}` as never);
   };

@@ -407,7 +407,7 @@ export default function ActiveWorkoutScreen() {
   const [expanded, setExpanded] = useState<string | null | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(1000);
-
+  const isCompletingWorkoutRef = useRef(false);
   const navigation = useNavigation();
 
   // Safely navigate back to previous screen (or Workouts tab if history is empty) without minimizing the app
@@ -642,6 +642,26 @@ export default function ActiveWorkoutScreen() {
         return;
       }
 
+      // Check if all sets in the entire workout are now completed
+      const remainingIncomplete = workout.exercises
+        .flatMap((x) => x.sets)
+        .filter((s) => !s.completed && s.id !== setId);
+
+      if (remainingIncomplete.length === 0) {
+        if (isCompletingWorkoutRef.current) return;
+        isCompletingWorkoutRef.current = true;
+        completeSet(exerciseId, setId);
+        dismissActiveWorkoutNotification();
+        const finished = finishWorkout();
+        if (finished) {
+          hapticsSuccess();
+          setTimeout(() => {
+            router.replace(`/workout/${finished.id}/summary`);
+          }, 250);
+          return;
+        }
+      }
+
       hapticsMedium();
       completeSet(exerciseId, setId);
       toast('Set complete');
@@ -796,6 +816,8 @@ export default function ActiveWorkoutScreen() {
           label={pct === 100 ? 'Complete' : 'Finish Workout'}
           size="md"
           onPress={() => {
+            if (isCompletingWorkoutRef.current) return;
+            isCompletingWorkoutRef.current = true;
             dismissActiveWorkoutNotification();
             const finished = finishWorkout();
             if (finished) {

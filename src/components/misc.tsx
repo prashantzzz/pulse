@@ -20,7 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
-import { colors, gradients, shadows, spacing } from '../theme';
+import { colors, gradients, shadows, spacing, useAccent } from '../theme';
 import type { IonName } from './ui';
 import { T } from './Text';
 
@@ -285,6 +285,7 @@ export function toast(msg: string) {
 }
 
 export function ToastHost() {
+  useAccent();
   const [msg, setMsg] = useState<string | null>(null);
   const opacity = useAnimatedValue(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -306,7 +307,13 @@ export function ToastHost() {
 
   if (!msg) return null;
   return (
-    <Animated.View style={[styles.toast, Platform.OS === 'web' && { boxShadow: `0 12px 32px rgba(0,0,0,0.55), 0 0 24px ${colors.accent}1F` }, { opacity, pointerEvents: 'none' }]}>
+    <Animated.View
+      style={[
+        styles.toast,
+        { borderColor: `${colors.accent}4D` },
+        Platform.OS === 'web' && ({ boxShadow: `0 12px 32px rgba(0,0,0,0.55), 0 0 24px ${colors.accent}2E` } as any),
+        { opacity, pointerEvents: 'none' },
+      ]}>
       <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
       <T variant="smallMedium" style={{ color: colors.text, flexShrink: 1 }}>
         {msg}

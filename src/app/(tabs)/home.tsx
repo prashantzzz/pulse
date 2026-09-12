@@ -308,9 +308,12 @@ export default function HomeScreen() {
               router.push(`/workout/${w.id}`);
             }}
             onViewExercise={(id) => router.push(`/exercise/${id}` as never)}
+            onViewProgress={(tab) => router.push(tab ? `/(tabs)/progress?tab=${tab}` as never : '/(tabs)/progress' as never)}
+            onBrowsePlans={() => router.push('/(tabs)/workouts' as never)}
           />
         </Section>
       ) : null}
+
 
       {/* muscle focus strip */}
       <Section title="Muscle Focus" style={{ marginBottom: 20 }}>
@@ -328,17 +331,21 @@ function NextMovesCarousel({
   moves,
   onStartPlan,
   onViewExercise,
+  onViewProgress,
+  onBrowsePlans,
 }: {
   moves: NextMove[];
   onStartPlan: (planId: string) => void;
   onViewExercise: (exerciseId: string) => void;
+  onViewProgress: (tab?: string) => void;
+  onBrowsePlans: () => void;
 }) {
   const [w, setW] = useState(0);
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
   if (moves.length === 1) {
-    return <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />;
+    return <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} onViewProgress={onViewProgress} onBrowsePlans={onBrowsePlans} />;
   }
 
   return (
@@ -374,12 +381,12 @@ function NextMovesCarousel({
           }}>
           {moves.map((move, i) => (
             <View key={i} style={{ width: w, flexShrink: 0 }}>
-              <NextMoveCard move={move} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />
+              <NextMoveCard move={move} onStartPlan={onStartPlan} onViewExercise={onViewExercise} onViewProgress={onViewProgress} onBrowsePlans={onBrowsePlans} />
             </View>
           ))}
         </ScrollView>
       ) : (
-        <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} />
+        <NextMoveCard move={moves[0]} onStartPlan={onStartPlan} onViewExercise={onViewExercise} onViewProgress={onViewProgress} onBrowsePlans={onBrowsePlans} />
       )}
       {moves.length > 1 ? (
         <Row gap={6} align="center" style={{ justifyContent: 'center', marginTop: 10 }}>
@@ -417,21 +424,40 @@ function NextMoveCard({
   move,
   onStartPlan,
   onViewExercise,
+  onViewProgress,
+  onBrowsePlans,
 }: {
   move: NextMove;
   onStartPlan: (planId: string) => void;
   onViewExercise: (exerciseId: string) => void;
+  onViewProgress: (tab?: string) => void;
+  onBrowsePlans: () => void;
 }) {
-  const meta = {
-    untrained: { icon: 'barbell-outline' as const, tint: colors.accentSoft, color: colors.accent },
-    'pr-close': { icon: 'flash-outline' as const, tint: colors.goldSoft, color: colors.gold },
-    plateau: { icon: 'pause-circle-outline' as const, tint: colors.dangerSoft, color: colors.orange },
-  }[move.kind];
+  const kindMeta: Record<NextMove['kind'], { icon: string; tint: string; color: string }> = {
+    recovery:        { icon: 'bed-outline',           tint: '#0d3540',           color: '#2dd4bf' },
+    starter:         { icon: 'rocket-outline',         tint: colors.accentSoft,   color: colors.accent },
+    primed:          { icon: 'flash-outline',          tint: '#0d3a1e',           color: '#4ade80' },
+    overload:        { icon: 'trending-up-outline',   tint: '#0e2f42',           color: '#38bdf8' },
+    untrained:       { icon: 'barbell-outline',        tint: colors.accentSoft,   color: colors.accent },
+    'pr-close':      { icon: 'flash-outline',          tint: colors.goldSoft,     color: colors.gold },
+    plateau:         { icon: 'pause-circle-outline',   tint: colors.dangerSoft,   color: colors.orange },
+    'volume-balance':{ icon: 'layers-outline',         tint: '#1e1040',           color: '#c084fc' },
+  };
+  const meta = kindMeta[move.kind] ?? kindMeta['untrained'];
+
+  function handleAction() {
+    const a = move.action;
+    if (a.type === 'start-plan') return onStartPlan(a.planId);
+    if (a.type === 'view-exercise') return onViewExercise(a.exerciseId);
+    if (a.type === 'view-progress') return onViewProgress((a as any).tab);
+    if (a.type === 'browse-plans') return onBrowsePlans();
+  }
+
   return (
     <Card style={{ padding: spacing.lg }}>
       <Row gap={12} align="flex-start">
         <View style={[styles.nextIcon, { backgroundColor: meta.tint }]}>
-          <Ionicons name={meta.icon} size={20} color={meta.color} />
+          <Ionicons name={meta.icon as any} size={20} color={meta.color} />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <T variant="bodySemi" style={{ fontSize: 15 }}>
@@ -454,7 +480,7 @@ function NextMoveCard({
             </View>
           ) : null}
           <Pressable
-            onPress={() => (move.action.type === 'start-plan' ? onStartPlan(move.action.planId) : onViewExercise(move.action.exerciseId))}
+            onPress={handleAction}
             style={({ pressed }) => [styles.nextCta, { backgroundColor: colors.accent }, pressed && { opacity: 0.85 }]}>
             <T variant="smallSemi" style={{ color: colors.bg, fontSize: 12.5 }}>
               {move.cta}
@@ -466,6 +492,7 @@ function NextMoveCard({
     </Card>
   );
 }
+
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 
 import { colors, radius, useAccent } from '../theme';
@@ -11,10 +12,10 @@ export interface HeatDay {
 
 export function intensityColor(intensity: number, accent: string = colors.accent): string {
   if (intensity <= 0) return colors.surface3;
-  if (intensity < 0.25) return `${accent}33`;
-  if (intensity < 0.55) return `${accent}77`;
-  if (intensity < 0.85) return `${accent}BB`;
-  return accent;
+  if (intensity < 0.25) return `${accent}60`; // ~38% alpha - clearly lighted and visible against dark surface
+  if (intensity < 0.55) return `${accent}99`; // ~60% alpha - moderate volume
+  if (intensity < 0.85) return `${accent}D9`; // ~85% alpha - high volume
+  return accent; // 100% - peak volume
 }
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -37,13 +38,16 @@ export function CalendarHeatmap({
   timeframe = '3M',
   cardWidth,
   onDayPress,
+  selectedDate,
 }: {
   weeks: HeatDay[][]; // array of weeks, each 7 days (Mon..Sun)
   timeframe?: ProgressTimeframe;
   cardWidth?: number;
   onDayPress?: (day: HeatDay) => void;
+  selectedDate?: string | null;
 }) {
   useAccent();
+  const scrollViewRef = useRef<ScrollView>(null);
   const numWeeks = weeks.length;
 
   // Build clean, non-overlapping month header labels
@@ -82,9 +86,15 @@ export function CalendarHeatmap({
 
       {/* Week Columns with Month Header Row */}
       <ScrollView
+        ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingRight: numWeeks > 13 ? 12 : 0 }}
+        onContentSizeChange={() => {
+          if (numWeeks > 12) {
+            scrollViewRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
         style={{ flex: 1 }}>
         <View style={{ height: TOTAL_HEATMAP_HEIGHT }}>
           {/* Month labels row */}
@@ -111,18 +121,23 @@ export function CalendarHeatmap({
                 {week.map((day, di) => {
                   const bg = intensityColor(day.intensity, colors.accent);
                   const hasSession = day.intensity > 0;
+                  const isSelected = selectedDate === day.date;
                   return (
                     <View
                       key={di}
-                      onTouchEnd={hasSession && onDayPress ? () => onDayPress(day) : undefined}
+                      onTouchEnd={onDayPress ? () => onDayPress(day) : undefined}
                       style={{
                         width: BLOCK_SIZE,
                         height: BLOCK_SIZE,
                         marginBottom: BLOCK_GAP,
                         borderRadius: 3,
                         backgroundColor: bg,
-                        borderWidth: hasSession ? 0 : 1,
-                        borderColor: colors.border,
+                        borderWidth: isSelected ? 2 : 1,
+                        borderColor: isSelected
+                          ? colors.white
+                          : hasSession
+                          ? `${colors.accent}66`
+                          : colors.border,
                       }}
                     />
                   );

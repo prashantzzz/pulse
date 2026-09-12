@@ -53,11 +53,14 @@ export function VolumeView({
       : weeklyVolumes(workouts, weeks).map((w) => ({ label: w.label, value: toUserVolume(w.volume, weightUnit) }));
   const perSession = volumePerSessionByWeek(workouts, weeks);
 
+  const formatSummaryVol = (val: number) =>
+    val <= 0 ? '0' : val < 1000 ? `${Math.round(val)} ${weightUnit}` : `${(val / 1000).toFixed(1)}k`;
+
   return (
     <>
       <Row gap={spacing.sm}>
-        <SummaryCard label={`Total · ${TF_LABELS[tf]}`} value={`${(userTotal / 1000).toFixed(1)}k`} accent icon="layers" flex1 />
-        <SummaryCard label="This week" value={`${(userThisWeekTotal / 1000).toFixed(1)}k`} icon="trending-up" flex1 />
+        <SummaryCard label={`Total · ${TF_LABELS[tf]}`} value={formatSummaryVol(userTotal)} accent={userTotal > 0} icon="layers" flex1 />
+        <SummaryCard label="This week" value={formatSummaryVol(userThisWeekTotal)} accent={userThisWeekTotal > 0} icon="trending-up" flex1 />
       </Row>
 
       <TimeframeChips tf={tf} onChange={onTimeframeChange} />

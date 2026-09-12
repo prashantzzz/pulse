@@ -15,6 +15,7 @@ import {
   longestStreak,
   matchWorkoutToPlanIndex,
   nextMove,
+  nextMoves,
   plateauForExercise,
   previousSet,
   progressScore,
@@ -836,8 +837,10 @@ describe('nextMove', () => {
       makeWorkout({ title: 'Push Day', startTime: daysAgo(10), endTime: daysAgo(10), exercises: [makeWorkoutExercise('bench-press', [makeSet({ completed: true })])] }),
       makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ completed: true })])] }),
     ];
-    const move = nextMove(workouts, PLANS);
-    expect(move?.kind).toBe('untrained');
+    // The carousel may show primed/overload first — find the untrained card anywhere in the list
+    const moves = nextMoves(workouts, PLANS);
+    const move = moves.find((m) => m.kind === 'untrained');
+    expect(move).toBeDefined();
     expect(move?.action).toEqual({ type: 'start-plan', planId: 'plan-push', planTitle: 'Push Day' });
     expect(move?.headline).toContain('trained recently');
   });
@@ -847,7 +850,9 @@ describe('nextMove', () => {
       makeWorkout({ title: 'Push Day', startTime: daysAgo(10), endTime: daysAgo(10), exercises: [makeWorkoutExercise('bench-press', [makeSet({ completed: true })])] }),
       makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ completed: true })])] }),
     ];
-    expect(nextMove(workouts, PLANS, 'plan-push')?.kind).not.toBe('untrained');
+    const moves = nextMoves(workouts, PLANS, 'plan-push');
+    // plan-push (Push Day) is the hero — no card should start it
+    expect(moves.filter((m) => m.action.type === 'start-plan' && (m.action as any).planId === 'plan-push')).toHaveLength(0);
   });
 
   it('surfaces an exercise close to its all-time PR', () => {
@@ -855,8 +860,10 @@ describe('nextMove', () => {
       benchWorkout(90, 5, 3, daysAgo(3)), // recent best e1rm = 105
       benchWorkout(100, 5, 3, daysAgo(80)), // all-time best e1rm = 116.7 (outside radar window)
     ];
-    const move = nextMove(workouts, PLANS);
-    expect(move?.kind).toBe('pr-close');
+    // The carousel may show primed/overload first — find pr-close anywhere in the list
+    const moves = nextMoves(workouts, PLANS);
+    const move = moves.find((m) => m.kind === 'pr-close');
+    expect(move).toBeDefined();
     expect(move?.action).toEqual({ type: 'view-exercise', exerciseId: 'bench-press', exerciseName: 'Bench Press' });
     expect(move?.pct).toBeGreaterThanOrEqual(90);
   });
@@ -870,12 +877,18 @@ describe('nextMove', () => {
       benchWorkout(60, 5, 1, daysAgo(4)),
       benchWorkout(60, 5, 1, daysAgo(5)),
     ];
-    const move = nextMove(workouts, PLANS);
-    expect(move?.kind).toBe('plateau');
+    // The carousel may show primed/overload first — find plateau anywhere in the list
+    const moves = nextMoves(workouts, PLANS);
+    const move = moves.find((m) => m.kind === 'plateau');
+    expect(move).toBeDefined();
     expect(move?.action).toEqual({ type: 'view-exercise', exerciseId: 'bench-press', exerciseName: 'Bench Press' });
   });
 
-  it('returns null when there is nothing worth saying', () => {
+
+  it('always returns at least one card — never empty — even for active consistent trainers', () => {
+    // Both muscles trained recently (within 4 days), bench steadily improving (no plateau),
+    // bench is far below all-time PR (no pr-close). Old engine returned null; new engine
+    // finds something meaningful (overload, primed, or volume-balance).
     const workouts = [
       makeWorkout({ title: 'Push Day', startTime: daysAgo(1), endTime: daysAgo(1), exercises: [makeWorkoutExercise('bench-press', [makeSet({ weightKg: 70, reps: 5, completed: true })])] }),
       makeWorkout({ title: 'Leg Day', startTime: daysAgo(2), endTime: daysAgo(2), exercises: [makeWorkoutExercise('squat', [makeSet({ weightKg: 80, reps: 5, completed: true })])] }),
@@ -883,7 +896,11 @@ describe('nextMove', () => {
       benchWorkout(65, 5, 1, daysAgo(4)),
       benchWorkout(70, 5, 1, daysAgo(3)),
     ];
-    expect(nextMove(workouts, PLANS)).toBeNull();
+    const move = nextMove(workouts, PLANS);
+    // Section should never be empty — engine must return something meaningful
+    expect(move).not.toBeNull();
+    // It must be one of the intelligent card kinds (not a broken undefined)
+    expect(['recovery', 'starter', 'primed', 'overload', 'untrained', 'pr-close', 'plateau', 'volume-balance']).toContain(move?.kind);
   });
 });
 

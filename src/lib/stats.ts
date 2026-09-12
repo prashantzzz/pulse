@@ -250,8 +250,9 @@ export function longestStreak(workouts: Workout[]): number {
       const [cy, cm, cd] = key.split('-').map(Number);
       const gap = (new Date(cy, cm - 1, cd).getTime() - new Date(py, pm - 1, pd).getTime()) / 86400000;
       // gap 1 = consecutive days, gap 2 = one rest day between sessions —
-      // both keep the run alive (same rule as the current streak)
-      run = gap <= 2 ? run + 1 : 1;
+      // both keep the run alive (same rule as the current streak).
+      // Use Math.round to tolerate DST 23h/25h shifts.
+      run = Math.round(gap) <= 2 ? run + 1 : 1;
     } else {
       run = 1;
     }
@@ -425,7 +426,7 @@ export function dailyVolume(workouts: Workout[], days = 7): DayVolume[] {
   const out: DayVolume[] = [];
   const now = new Date();
   for (let i = days - 1; i >= 0; i -= 1) {
-    const d = new Date(now.getTime() - i * 86400000);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     out.push({ date: d.toDateString(), label: d.toLocaleDateString('en-US', { weekday: 'short' }), volume: 0, workouts: 0 });
   }
   for (const w of workouts) {
@@ -444,7 +445,7 @@ export function weeklyVolumes(workouts: Workout[], weeks = 8): { label: string; 
   const out: { label: string; volume: number; sets: number }[] = [];
   const now = new Date();
   for (let i = weeks - 1; i >= 0; i -= 1) {
-    const end = new Date(now.getTime() - i * 7 * 86400000);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i * 7);
     const label =
       weeks <= 8
         ? end.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
@@ -452,7 +453,9 @@ export function weeklyVolumes(workouts: Workout[], weeks = 8): { label: string; 
     out.push({ label, volume: 0, sets: 0 });
   }
   for (const w of workouts) {
-    const ageDays = Math.floor((Date.now() - new Date(w.endTime).getTime()) / 86400000);
+    const workoutTime = new Date(w.endTime || w.startTime).getTime();
+    if (Number.isNaN(workoutTime)) continue;
+    const ageDays = Math.floor((Date.now() - workoutTime) / 86400000);
     const idx = Math.floor(ageDays / 7);
     if (idx >= 0 && idx < weeks) {
       const st = workoutStats(w);
@@ -543,12 +546,16 @@ export function volumePerSessionByWeek(workouts: Workout[], weeks = 8): { label:
   const weeksData = weeklyVolumes(workouts, weeks);
   const byWeek = new Map<string, { volume: number; sessions: number }>();
   const labels = weeksData.map((w) => w.label);
-  labels.forEach((l, i) => byWeek.set(`${i}`, { volume: 0, sessions: 0 }));
+  labels.forEach((_, i) => byWeek.set(`${i}`, { volume: 0, sessions: 0 }));
   for (const w of workouts) {
-    const ageDays = Math.floor((Date.now() - new Date(w.endTime).getTime()) / 86400000);
+    const workoutTime = new Date(w.endTime || w.startTime).getTime();
+    if (Number.isNaN(workoutTime)) continue;
+    const ageDays = Math.floor((Date.now() - workoutTime) / 86400000);
     const idx = Math.floor(ageDays / 7);
     if (idx < 0 || idx >= weeks) continue;
-    const entry = byWeek.get(`${idx}`)!;
+    // Map chronologically: oldest week at index 0, current week at index weeks - 1
+    const slot = weeks - 1 - idx;
+    const entry = byWeek.get(`${slot}`)!;
     entry.volume += workoutStats(w).volumeKg;
     entry.sessions += 1;
   }
@@ -782,21 +789,46 @@ export function workoutRepeatSpecs(workout: Workout): WorkoutRepeatSpec[] {
 }
 
 // ---------------------------------------------------------------------------
-// "Your next move" — one deterministic recommendation
+// "Your next move" — intelligent multi-tier recommendation engine
 // ---------------------------------------------------------------------------
+
+/**
+ * All possible card kinds, in priority order used by nextMoves().
+ *   recovery       — same-day or consecutive-day fatigue advisory
+ *   starter        — onboarding guidance for users with 0 workouts
+ *   primed         — supercompensation window: muscle rested 48–96 h
+ *   overload       — progressive overload micro-target (+2.5 kg / +1 rep)
+ *   untrained      — plan not trained >= 4 days, or never trained at all
+ *   pr-close       — exercise within 85–99% of all-time best e1rm
+ *   plateau        — stalled lift coaching
+ *   volume-balance — muscle group < 6 sets in the past 7 days
+ */
+export type NextMoveKind =
+  | 'recovery'
+  | 'starter'
+  | 'primed'
+  | 'overload'
+  | 'untrained'
+  | 'pr-close'
+  | 'plateau'
+  | 'volume-balance';
 
 export type NextMoveAction =
   | { type: 'start-plan'; planId: string; planTitle: string }
-  | { type: 'view-exercise'; exerciseId: string; exerciseName: string };
+  | { type: 'view-exercise'; exerciseId: string; exerciseName: string }
+  | { type: 'view-progress'; tab?: string }
+  | { type: 'browse-plans' };
 
 export interface NextMove {
-  kind: 'untrained' | 'pr-close' | 'plateau';
+  kind: NextMoveKind;
   headline: string;
   detail: string;
   cta: string;
   action: NextMoveAction;
   /** 0-100 closeness to an all-time best (pr-close only) */
   pct?: number;
+  /** Concrete overload targets (overload kind only) */
+  overloadTarget?: { weightKg: number; reps: number; unit: 'kg' | 'lbs' };
 }
 
 const MUSCLE_LABEL: Partial<Record<MuscleGroup, string>> = {
@@ -813,84 +845,269 @@ const MUSCLE_LABEL: Partial<Record<MuscleGroup, string>> = {
 };
 
 /**
- * Pick ONE primary recommendation, in priority order:
- *   1. a planned muscle group that hasn't been trained in a while (start it),
- *   2. an exercise close to an all-time PR (view it / chase it),
- *   3. a stalled exercise (view it, add reps before weight).
- * `todayPlanId` is the plan already offered by the home hero, so the two
- * surfaces never compete. Returns null when there is nothing worth saying.
+ * Returns the start-of-today timestamp (midnight, local timezone).
+ * Using setHours(0,0,0,0) is DST-safe; Date.now() - 86400000 is not.
  */
+function localTodayStart(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 /**
- * Returns a list of contextual training recommendations for the carousel.
+ * Safe timestamp from a workout: prefers endTime, falls back to startTime.
+ * Avoids NaN for CSV-imported workouts where endTime can be an empty string.
+ */
+function safeTs(w: Workout): number {
+  const ts = new Date(w.endTime || w.startTime).getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
+/**
+ * Intelligent multi-tier "Your Next Move" recommendation engine.
+ *
+ * Priority order (first matching kind wins per tier, diversity-filtered):
+ *   Tier 1: recovery       — user worked out today, or has 3+ consecutive days
+ *   Tier 2: starter        — 0 workouts logged → onboarding card
+ *   Tier 3: primed         — muscles in 48–96 h supercompensation window
+ *   Tier 4: overload       — completed all sets last session → +2.5 kg / +1 rep
+ *   Tier 5: untrained      — plan muscle group >= 4 days ago OR never trained
+ *   Tier 6: pr-close       — within 85–99% of all-time best e1rm
+ *   Tier 7: plateau        — stalled lift (same load N sessions in a row)
+ *   Tier 8: volume-balance — muscle group < 6 sets in the past 7 days
+ *
+ * Diversity guarantee: at most 1 card per kind; final list capped at 4 cards.
+ * `todayPlanId` is the plan offered by the home hero so both surfaces never
+ * compete for the same plan.
  */
 export function nextMoves(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove[] {
-  if (workouts.length === 0) return [];
-  const moves: NextMove[] = [];
+  const candidates: NextMove[] = [];
+  const usedKinds = new Set<NextMoveKind>();
   const now = Date.now();
+  const todayStart = localTodayStart();
 
-  // 1. Untrained muscle groups (plans that haven't been hit recently).
+  const push = (m: NextMove) => {
+    if (!usedKinds.has(m.kind)) {
+      usedKinds.add(m.kind);
+      candidates.push(m);
+    }
+  };
+
+  // ── Tier 1: Recovery advisory ──────────────────────────────────────────
+  // a) Completed a workout today → pivot to recovery focus.
+  const completedToday = workouts.some((w) => safeTs(w) >= todayStart);
+  if (completedToday) {
+    push({
+      kind: 'recovery',
+      headline: 'Recovery is where growth happens.',
+      detail: 'Great session today! Prioritise protein (0.8–1g/lb), hydration, and 7–9 h of sleep to lock in your gains.',
+      cta: 'View Progress',
+      action: { type: 'view-progress' },
+    });
+  }
+
+  // b) 3+ consecutive training days (streak fatigue advisory).
+  if (!usedKinds.has('recovery')) {
+    const streak = currentStreak(workouts);
+    if (streak >= 3) {
+      push({
+        kind: 'recovery',
+        headline: `${streak}-day streak — active recovery day?`,
+        detail: 'Consecutive training days accumulate CNS fatigue. A light walk, stretching, or rest today maximises next session\'s performance.',
+        cta: 'View Progress',
+        action: { type: 'view-progress' },
+      });
+    }
+  }
+
+  // ── Tier 2: Starter (0 workouts → onboarding) ─────────────────────────
+  if (workouts.length === 0) {
+    push({
+      kind: 'starter',
+      headline: "Let's build your first workout.",
+      detail: 'Pick a plan that matches your goals — strength, hypertrophy, or general fitness. Your journey starts here.',
+      cta: 'Browse Plans',
+      action: { type: 'browse-plans' },
+    });
+    // No other tiers make sense with 0 workouts.
+    return candidates.slice(0, 4);
+  }
+
+  // ── Tier 3: Primed (supercompensation window 48–96 h) ─────────────────
   for (const plan of plans) {
     if (todayPlanId && plan.id === todayPlanId) continue;
     const muscleSet = new Set(plan.muscles);
     let lastTs = 0;
     for (const w of workouts) {
-      if (w.title === plan.title) {
-        lastTs = Math.max(lastTs, new Date(w.endTime).getTime());
-        continue;
-      }
+      const ts = safeTs(w);
+      if (w.title === plan.title) { lastTs = Math.max(lastTs, ts); continue; }
       for (const we of w.exercises) {
         const ex = EXERCISE_MAP[we.exerciseId];
-        if (ex && muscleSet.has(ex.muscleGroup)) {
-          lastTs = Math.max(lastTs, new Date(w.endTime).getTime());
-          break;
-        }
+        if (ex && muscleSet.has(ex.muscleGroup)) { lastTs = Math.max(lastTs, ts); break; }
       }
     }
-    if (!lastTs) continue;
-    const days = Math.floor((now - lastTs) / 86400000);
-    if (days >= 4) {
+    if (lastTs <= 0) continue; // never-trained handled in Tier 5
+    const hoursRested = (now - lastTs) / 3600000;
+    if (hoursRested >= 48 && hoursRested < 96) {
       const label = MUSCLE_LABEL[plan.muscles[0] as MuscleGroup] ?? plan.muscles[0];
-      const plural = label.endsWith('s');
-      moves.push({
-        kind: 'untrained',
-        headline: `${label} ${plural ? "haven't" : "hasn't"} been trained recently.`,
-        detail: `${days} days since your last ${plan.title} session — consistency drives results.`,
+      push({
+        kind: 'primed',
+        headline: `${label} is primed for growth.`,
+        detail: `${Math.round(hoursRested)}h of recovery — muscle fibres are repaired and ready for their strongest session.`,
         cta: `Start ${plan.title}`,
         action: { type: 'start-plan', planId: plan.id, planTitle: plan.title },
       });
+      break; // one primed card is enough
     }
   }
 
-  // 2. Close to an all-time personal record (PR radar).
-  const radarList = prRadar(workouts, 2);
-  for (const radar of radarList) {
-    if (radar.pct >= 85) {
-      moves.push({
-        kind: 'pr-close',
-        headline: `You're close to a ${radar.exerciseName} PR.`,
-        detail: `${radar.pct}% of your all-time best — one strong session could set a new record.`,
-        cta: `View ${radar.exerciseName}`,
-        action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
-        pct: radar.pct,
+  // ── Tier 4: Progressive overload micro-target ──────────────────────────
+  // Find the most recently trained exercise where all planned sets were done.
+  if (!usedKinds.has('overload')) {
+    // Sort workouts newest-first
+    const recent = [...workouts].sort((a, b) => safeTs(b) - safeTs(a));
+    overloadSearch: for (const w of recent.slice(0, 5)) {
+      for (const we of w.exercises) {
+        // Only meaningful when plannedSets is set (not ad-hoc free logging)
+        if (we.plannedSets <= 0) continue;
+        const completed = we.sets.filter((s) => s.completed);
+        if (completed.length < we.plannedSets) continue;
+        // Find the best completed weighted set
+        let bestWeight = 0;
+        let bestReps = 0;
+        for (const s of completed) {
+          if (s.weightKg != null && s.weightKg > 0 && s.reps != null) {
+            if (s.weightKg > bestWeight || (s.weightKg === bestWeight && s.reps > bestReps)) {
+              bestWeight = s.weightKg;
+              bestReps = s.reps;
+            }
+          }
+        }
+        if (bestWeight <= 0) continue;
+        const exName = EXERCISE_MAP[we.exerciseId]?.name ?? we.exerciseId;
+        const targetKg = Math.round((bestWeight + 2.5) * 2) / 2; // round to nearest 0.5
+        push({
+          kind: 'overload',
+          headline: `Time to push ${exName} further.`,
+          detail: `Last session: ${bestWeight} kg × ${bestReps} reps — target ${targetKg} kg or ${bestReps + 1} reps next time.`,
+          cta: `View ${exName}`,
+          action: { type: 'view-exercise', exerciseId: we.exerciseId, exerciseName: exName },
+          overloadTarget: { weightKg: targetKg, reps: bestReps + 1, unit: 'kg' },
+        });
+        break overloadSearch;
+      }
+    }
+  }
+
+  // ── Tier 5: Untrained (>= 4 days OR never trained) ────────────────────
+  if (!usedKinds.has('untrained')) {
+    for (const plan of plans) {
+      if (todayPlanId && plan.id === todayPlanId) continue;
+      const muscleSet = new Set(plan.muscles);
+      let lastTs = 0;
+      for (const w of workouts) {
+        const ts = safeTs(w);
+        if (w.title === plan.title) { lastTs = Math.max(lastTs, ts); continue; }
+        for (const we of w.exercises) {
+          const ex = EXERCISE_MAP[we.exerciseId];
+          if (ex && muscleSet.has(ex.muscleGroup)) { lastTs = Math.max(lastTs, ts); break; }
+        }
+      }
+      const label = MUSCLE_LABEL[plan.muscles[0] as MuscleGroup] ?? plan.muscles[0];
+      const plural = label.endsWith('s');
+      if (lastTs === 0) {
+        // Never trained — highest urgency within this tier
+        push({
+          kind: 'untrained',
+          headline: `${label} ${plural ? "haven't" : "hasn't"} been trained yet.`,
+          detail: `${plan.title} is in your plan but you haven't started it — balanced training prevents imbalances.`,
+          cta: `Start ${plan.title}`,
+          action: { type: 'start-plan', planId: plan.id, planTitle: plan.title },
+        });
+        break;
+      }
+      const days = Math.floor((now - lastTs) / 86400000);
+      if (days >= 4) {
+        push({
+          kind: 'untrained',
+          headline: `${label} ${plural ? "haven't" : "hasn't"} been trained recently.`,
+          detail: `${days} days since your last ${plan.title} session — consistency drives results.`,
+          cta: `Start ${plan.title}`,
+          action: { type: 'start-plan', planId: plan.id, planTitle: plan.title },
+        });
+        break;
+      }
+    }
+  }
+
+  // ── Tier 6: PR radar (85–99% of all-time best) ────────────────────────
+  if (!usedKinds.has('pr-close')) {
+    const radarList = prRadar(workouts, 2);
+    for (const radar of radarList) {
+      if (radar.pct >= 85) {
+        push({
+          kind: 'pr-close',
+          headline: `You're close to a ${radar.exerciseName} PR.`,
+          detail: `${radar.pct}% of your all-time best — one strong session could set a new record.`,
+          cta: `View ${radar.exerciseName}`,
+          action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
+          pct: radar.pct,
+        });
+        break;
+      }
+    }
+  }
+
+  // ── Tier 7: Plateau detection ──────────────────────────────────────────
+  if (!usedKinds.has('plateau')) {
+    const plateaus = detectPlateaus(workouts, { limit: 1 });
+    if (plateaus.length > 0) {
+      const plateau = plateaus[0];
+      push({
+        kind: 'plateau',
+        headline: `${plateau.exerciseName} may be plateauing.`,
+        detail: `Same load across your last ${plateau.sessions} sessions. Try adding 1–2 reps before increasing weight.`,
+        cta: `View ${plateau.exerciseName}`,
+        action: { type: 'view-exercise', exerciseId: plateau.exerciseId, exerciseName: plateau.exerciseName },
       });
     }
   }
 
-  // 3. Stalled strength exercises.
-  const plateaus = detectPlateaus(workouts, { limit: 2 });
-  for (const plateau of plateaus) {
-    moves.push({
-      kind: 'plateau',
-      headline: `${plateau.exerciseName} may be plateauing.`,
-      detail: `Same load across your last ${plateau.sessions} sessions. Try adding 1-2 reps before increasing weight.`,
-      cta: `View ${plateau.exerciseName}`,
-      action: { type: 'view-exercise', exerciseId: plateau.exerciseId, exerciseName: plateau.exerciseName },
-    });
+  // ── Tier 8: Volume balance (< 6 sets per muscle group in past 7 days) ──
+  if (!usedKinds.has('volume-balance') && candidates.length < 4) {
+    const cutoff7d = now - 7 * 86400000;
+    const setsByMuscle = new Map<string, number>();
+    for (const w of workouts) {
+      if (safeTs(w) < cutoff7d) continue;
+      for (const we of w.exercises) {
+        const ex = EXERCISE_MAP[we.exerciseId];
+        if (!ex) continue;
+        const muscle = MUSCLE_LABEL[ex.muscleGroup] ?? ex.muscleGroup;
+        const done = we.sets.filter((s) => s.completed).length;
+        setsByMuscle.set(muscle, (setsByMuscle.get(muscle) ?? 0) + done);
+      }
+    }
+    // Find a muscle referenced in any plan that has low volume
+    for (const plan of plans) {
+      const label = MUSCLE_LABEL[plan.muscles[0] as MuscleGroup] ?? plan.muscles[0];
+      const weekSets = setsByMuscle.get(label) ?? 0;
+      if (weekSets > 0 && weekSets < 6) {
+        push({
+          kind: 'volume-balance',
+          headline: `${label} volume is below optimal this week.`,
+          detail: `Only ${weekSets} set${weekSets === 1 ? '' : 's'} logged this week — most research recommends 10–20 sets per muscle weekly.`,
+          cta: `Start ${plan.title}`,
+          action: { type: 'start-plan', planId: plan.id, planTitle: plan.title },
+        });
+        break;
+      }
+    }
   }
 
-  return moves.slice(0, 4);
+  return candidates.slice(0, 4);
 }
 
+/** Returns the top recommendation (backwards-compatible single-item wrapper). */
 export function nextMove(workouts: Workout[], plans: WorkoutPlan[], todayPlanId?: string): NextMove | null {
   const moves = nextMoves(workouts, plans, todayPlanId);
   return moves.length > 0 ? moves[0] : null;

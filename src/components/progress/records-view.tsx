@@ -27,7 +27,7 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
   const weightUnit = usePulse((s) => s.weightUnit);
 
   const workoutRecords: RecordEntry[] = [...new Set(workouts.flatMap((w) => w.exercises.map((we) => we.exerciseId)))]
-    .map((id) => {
+    .map((id): RecordEntry | null => {
       const best = bestForExercise(workouts, id);
       if (!best) return null;
       return {
@@ -36,9 +36,10 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
         weightKg: best.maxWeight.weightKg,
         reps: best.maxWeight.reps,
         e1rmKg: best.maxE1rm.e1rm,
+        date: best.maxE1rm.date ?? best.maxWeight.date,
       };
     })
-    .filter((r): r is RecordEntry => !!r);
+    .filter((r): r is RecordEntry => r !== null);
 
   const manualRecords: RecordEntry[] = manualPRs.map((pr) => ({
     id: pr.id,
@@ -49,14 +50,23 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
     date: pr.date,
   }));
 
-  const records = [...manualRecords, ...workoutRecords].sort((a, b) => b.e1rmKg - a.e1rmKg).slice(0, 8);
+  // Dedupe records by exercise so an exercise doesn't appear twice (pick highest 1RM)
+  const byExercise = new Map<string, RecordEntry>();
+  for (const r of [...manualRecords, ...workoutRecords]) {
+    const cur = byExercise.get(r.exerciseId);
+    if (!cur || r.e1rmKg > cur.e1rmKg) {
+      byExercise.set(r.exerciseId, r);
+    }
+  }
+
+  const records = [...byExercise.values()].sort((a, b) => b.e1rmKg - a.e1rmKg).slice(0, 8);
   const bestE1rmKg = Math.max(...records.map((r) => r.e1rmKg), 0);
 
   return (
     <>
       <Row gap={spacing.sm}>
         <SummaryCard label="PRs (all)" value={`${records.length}`} accent icon="trophy" flex1 />
-        <SummaryCard label="Best 1RM" value={formatUserWeightWithUnit(bestE1rmKg, weightUnit)} icon="flash" flex1 />
+        <SummaryCard label="Best 1RM" value={bestE1rmKg > 0 ? formatUserWeightWithUnit(bestE1rmKg, weightUnit) : '—'} icon="flash" flex1 />
       </Row>
 
       {records.length === 0 ? (
