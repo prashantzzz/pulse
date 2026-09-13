@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
-import { formatAuthError, signInWithEmail, signInWithGoogle } from '../../lib/auth';
+import { formatAuthError, isValidEmail, signInWithEmail, signInWithGoogle } from '../../lib/auth';
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
@@ -47,9 +47,16 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSignIn = async () => {
-    if (!email.trim() || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
       setErrorMessage('Please enter both email and password.');
       toast('Please fill in both email and password');
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setErrorMessage('Please enter a valid email address.');
+      toast('Please enter a valid email address');
       return;
     }
 
@@ -58,10 +65,18 @@ export default function LoginScreen() {
     useAuth.setState({ isVerifyingUser: true });
 
     try {
-      const data = await signInWithEmail(email, password);
+      const data = await signInWithEmail(cleanEmail, password);
       if (data?.user) {
         toast('Signed in successfully');
-        await syncUserDataFromCloud(data.user.id);
+        // Quick cloud sync with bounded timeout so slow network doesn't freeze the screen
+        try {
+          await Promise.race([
+            syncUserDataFromCloud(data.user.id),
+            new Promise((resolve) => setTimeout(resolve, 3500)),
+          ]);
+        } catch {
+          // Background sync will continue
+        }
         const isUserOnboarded = usePulse.getState().onboarded;
         useAuth.setState({ isVerifyingUser: false });
         if (isUserOnboarded || onboarded) {
@@ -86,6 +101,8 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (loading || googleLoading) return;
+
     setErrorMessage(null);
     setGoogleLoading(true);
     useAuth.setState({ isVerifyingUser: true });
@@ -98,7 +115,15 @@ export default function LoginScreen() {
       }
       if (result.session?.user) {
         toast('Signed in with Google');
-        await syncUserDataFromCloud(result.session.user.id);
+        // Quick cloud sync with bounded timeout
+        try {
+          await Promise.race([
+            syncUserDataFromCloud(result.session.user.id),
+            new Promise((resolve) => setTimeout(resolve, 3500)),
+          ]);
+        } catch {
+          // Background sync will continue
+        }
         const isUserOnboarded = usePulse.getState().onboarded;
         useAuth.setState({ isVerifyingUser: false });
         if (isUserOnboarded || onboarded) {
@@ -108,6 +133,8 @@ export default function LoginScreen() {
         }
       } else {
         useAuth.setState({ isVerifyingUser: false });
+        setErrorMessage('Unable to establish session. Please try again.');
+        toast('Unable to establish session');
       }
     } catch (err: unknown) {
       useAuth.setState({ isVerifyingUser: false });

@@ -3,7 +3,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { BottomSheet, EmptyState, toast } from '../../components/misc';
@@ -322,6 +322,12 @@ export default function WorkoutsScreen() {
         onClose={() => setSourcesOpen(false)}
         title="Evidence-Based Programming">
         <View style={{ gap: spacing.md, paddingBottom: spacing.md }}>
+          <Image
+            source={require('../../../assets/images/template-calculation.png')}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+
           <T variant="small" dim style={{ lineHeight: 20 }}>
             NextRep&apos;s workout templates are synthesized from peer-reviewed sports science, progressive overload
             principles, and the latest resistance training consensus.
@@ -347,28 +353,23 @@ export default function WorkoutsScreen() {
           <T variant="label" accent style={{ marginTop: 6 }}>
             RESEARCH CITATIONS
           </T>
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 6 }}>
             {SCIENTIFIC_CITATIONS.map((cit) => (
               <Pressable
                 key={cit.id}
                 onPress={() => Linking.openURL(cit.url).catch(() => toast('Could not open link'))}
                 style={({ pressed }) => [styles.citationCard, pressed && { opacity: 0.85 }]}>
-                <View style={{ flex: 1 }}>
-                  <Row align="space-between">
-                    <T variant="smallSemi" numberOfLines={1} style={{ flex: 1 }}>
-                      {cit.title}
-                    </T>
-                    <Row gap={4} align="center">
-                      <T variant="micro" accent>
-                        {cit.sourceName}
-                      </T>
-                      <Ionicons name="open-outline" size={13} color={colors.accent} />
-                    </Row>
-                  </Row>
-                  <T variant="micro" dim style={{ marginTop: 4, lineHeight: 15 }}>
-                    {cit.summary}
+                <Row align="space-between" style={{ width: '100%' }}>
+                  <T variant="smallSemi" numberOfLines={1} style={{ flex: 1, marginRight: spacing.sm }}>
+                    {cit.title}
                   </T>
-                </View>
+                  <Row gap={4} align="center">
+                    <T variant="micro" accent>
+                      {cit.sourceName}
+                    </T>
+                    <Ionicons name="open-outline" size={13} color={colors.accent} />
+                  </Row>
+                </Row>
               </Pressable>
             ))}
           </View>
@@ -925,9 +926,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     marginTop: 6,
   },
+  bannerImage: {
+    width: '100%',
+    height: 110,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   citationCard: {
     backgroundColor: colors.surface3,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,

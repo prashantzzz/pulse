@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
-import { formatAuthError, signUpWithEmail, signInWithGoogle } from '../../lib/auth';
+import { formatAuthError, isValidEmail, signUpWithEmail, signInWithGoogle } from '../../lib/auth';
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
@@ -63,8 +63,16 @@ export default function SignupScreen() {
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
 
   const handleSignUp = async () => {
-    if (!email.trim()) {
+    if (loading || googleLoading) return;
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
       setErrorMessage('Please enter your email.');
+      return;
+    }
+    if (!isValidEmail(cleanEmail)) {
+      setErrorMessage('Please enter a valid email address.');
+      toast('Please enter a valid email address');
       return;
     }
     if (!password) {
@@ -82,21 +90,33 @@ export default function SignupScreen() {
 
     setErrorMessage(null);
     setLoading(true);
+    useAuth.setState({ isVerifyingUser: true });
 
     try {
-      const data = await signUpWithEmail(email, password);
+      const data = await signUpWithEmail(cleanEmail, password);
       if (data?.user) {
         if (data.session) {
           // If auto-confirm is enabled or session is created immediately
           toast('Account created successfully');
-          await syncUserDataFromCloud(data.user.id);
+          try {
+            await Promise.race([
+              syncUserDataFromCloud(data.user.id),
+              new Promise((resolve) => setTimeout(resolve, 3500)),
+            ]);
+          } catch {
+            // Background sync will continue
+          }
           const isUserOnboarded = usePulse.getState().onboarded;
+          useAuth.setState({ isVerifyingUser: false });
           router.replace(isUserOnboarded || onboarded ? '/(tabs)/home' : '/onboarding');
         } else {
           // Email confirmation is required by Supabase project settings
+          useAuth.setState({ isVerifyingUser: false });
           setSuccessInfo('Account created! Please check your email inbox to confirm your account.');
           toast('Check your email to confirm your account');
         }
+      } else {
+        useAuth.setState({ isVerifyingUser: false });
       }
     } catch (err: unknown) {
       useAuth.setState({ isVerifyingUser: false });
@@ -112,6 +132,8 @@ export default function SignupScreen() {
   };
 
   const handleGoogleSignUp = async () => {
+    if (loading || googleLoading) return;
+
     setErrorMessage(null);
     setGoogleLoading(true);
     useAuth.setState({ isVerifyingUser: true });
@@ -124,7 +146,14 @@ export default function SignupScreen() {
       }
       if (result.session?.user) {
         toast('Signed in with Google');
-        await syncUserDataFromCloud(result.session.user.id);
+        try {
+          await Promise.race([
+            syncUserDataFromCloud(result.session.user.id),
+            new Promise((resolve) => setTimeout(resolve, 3500)),
+          ]);
+        } catch {
+          // Background sync will continue
+        }
         const isUserOnboarded = usePulse.getState().onboarded;
         useAuth.setState({ isVerifyingUser: false });
         if (isUserOnboarded || onboarded) {
@@ -134,6 +163,8 @@ export default function SignupScreen() {
         }
       } else {
         useAuth.setState({ isVerifyingUser: false });
+        setErrorMessage('Unable to establish session. Please try again.');
+        toast('Unable to establish session');
       }
     } catch (err: unknown) {
       useAuth.setState({ isVerifyingUser: false });

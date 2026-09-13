@@ -28,10 +28,20 @@ export default function AuthCallbackScreen() {
         const targetUrl = webUrl || nativeUrl;
 
         if (targetUrl) {
+          // If this is a password recovery link, route directly to reset password
+          if (targetUrl.includes('type=recovery') || targetUrl.includes('reset-password')) {
+            await handleAuthUrl(targetUrl).catch(() => null);
+            useAuth.setState({ isVerifyingUser: false });
+            if (mounted) {
+              router.replace('/auth/reset-password' as never);
+            }
+            return;
+          }
+
           const session = await handleAuthUrl(targetUrl);
           if (session?.user && mounted) {
             toast('Signed in successfully');
-            await syncUserDataFromCloud(session.user.id);
+            await syncUserDataFromCloud(session.user.id).catch(() => {});
             useAuth.setState({ isVerifyingUser: false });
             const isUserOnboarded = usePulse.getState().onboarded;
             if (isUserOnboarded || onboarded) {

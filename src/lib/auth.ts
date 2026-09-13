@@ -27,6 +27,31 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Validate email format using standard RFC-compatible pattern.
+ */
+export function isValidEmail(email: string): boolean {
+  return Boolean(email && EMAIL_REGEX.test(email.trim()));
+}
+
+/**
+ * Guard an async auth operation with a client-side timeout so hanging network calls don't freeze the UI.
+ */
+export function withAuthTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 15000,
+  timeoutMessage = 'Connection timed out. Please check your internet connection and try again.'
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    ),
+  ]);
+}
+
 /**
  * Format raw error objects into clean, user-friendly messages.
  */
@@ -37,7 +62,7 @@ export function formatAuthError(error: unknown): string {
   const msg = (error as { message?: string }).message ?? '';
   const lower = msg.toLowerCase();
 
-  if (lower.includes('invalid login credentials') || lower.includes('invalid_grant')) {
+  if (lower.includes('invalid login credentials') || lower.includes('invalid_grant') || lower.includes('invalid email or password')) {
     return 'Invalid email or password.';
   }
   if (lower.includes('user already registered') || lower.includes('already exists')) {
@@ -49,11 +74,23 @@ export function formatAuthError(error: unknown): string {
   if (lower.includes('email not confirmed')) {
     return 'Please check your email to confirm your account.';
   }
-  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch')) {
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch') || lower.includes('network request failed')) {
     return 'Network connection issue. Please check your internet connection.';
   }
-  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'Connection timed out. Please check your internet connection and try again.';
+  }
+  if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('over_email_send_rate_limit')) {
     return 'Too many attempts. Please wait a moment and try again.';
+  }
+  if (lower.includes('user_banned') || lower.includes('banned') || lower.includes('account has been disabled')) {
+    return 'This account has been suspended or disabled.';
+  }
+  if (lower.includes('code: 10') || lower.includes('developer_error') || lower.includes('code 10')) {
+    return 'Google Sign-In configuration mismatch (Code 10). Please verify Google Cloud SHA-1 fingerprint and Web Client ID.';
+  }
+  if (lower.includes('play services') || lower.includes('play_services')) {
+    return 'Google Play Services is unavailable or needs to be updated.';
   }
   if (lower.includes('unauthorized') || lower.includes('jwt')) {
     return 'Session expired. Please sign in again.';
@@ -158,18 +195,27 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     throw new Error('Supabase is not configured yet. Please provide your Supabase credentials in .env.');
   }
 
-  const { data, error } = await supabase.auth.signUp({
-    email: email.trim(),
-    password,
-    options: {
-      data: {
-        display_name: displayName?.trim() || email.split('@')[0],
-      },
-    },
-  });
+  const cleanEmail = email.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
 
-  if (error) throw error;
-  return data;
+  return await withAuthTimeout(
+    (async () => {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            display_name: displayName?.trim() || cleanEmail.split('@')[0],
+          },
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    })()
+  );
 }
 
 /**
@@ -180,13 +226,22 @@ export async function signInWithEmail(email: string, password: string) {
     throw new Error('Supabase is not configured yet. Please provide your Supabase credentials in .env.');
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  });
+  const cleanEmail = email.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
 
-  if (error) throw error;
-  return data;
+  return await withAuthTimeout(
+    (async () => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) throw error;
+      return data;
+    })()
+  );
 }
 
 /**
@@ -199,44 +254,63 @@ export async function signInWithGoogle(): Promise<{ cancelled?: boolean; session
 
   // Native Android / iOS implementation using @react-native-google-signin/google-signin
   if (Platform.OS !== 'web') {
-    try {
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
+    return await withAuthTimeout(
+      (async () => {
+        try {
+          const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+          if (!webClientId) {
+            throw new Error('Google Web Client ID is not configured in the app build. Please check EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+          }
 
-      if (isSuccessResponse(response)) {
-        const idToken = response.data?.idToken;
+          GoogleSignin.configure({
+            webClientId,
+          });
 
-        if (!idToken) {
-          throw new Error('No ID token present!');
-        }
+          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+          const response = await GoogleSignin.signIn();
 
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: 'google',
-          token: idToken,
-        });
+          if (isSuccessResponse(response)) {
+            const idToken = response.data?.idToken;
 
-        if (error) throw error;
-        return { session: data.session };
-      } else {
-        // sign in was cancelled by user
-        return { cancelled: true };
-      }
-    } catch (error: any) {
-      if (isErrorWithCode(error)) {
-        switch (error.code) {
-          case statusCodes.IN_PROGRESS:
-            throw new Error('Sign in is in progress already');
-          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            throw new Error('Play services not available or outdated');
-          case statusCodes.SIGN_IN_CANCELLED:
+            if (!idToken) {
+              throw new Error('Google did not return an ID token. Verify that your Web Client ID is valid and configured.');
+            }
+
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: idToken,
+            });
+
+            if (error) throw error;
+            if (!data?.session) {
+              throw new Error('Authentication succeeded with Google but Supabase did not create a session. Please check your Supabase Google provider settings.');
+            }
+
+            return { session: data.session };
+          } else {
+            // sign in was cancelled by user
             return { cancelled: true };
-          default:
-            throw new Error('Some other error happened: ' + error.message);
+          }
+        } catch (error: any) {
+          if (isErrorWithCode(error)) {
+            switch (error.code) {
+              case statusCodes.IN_PROGRESS:
+                return { cancelled: true };
+              case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+                throw new Error('Google Play Services is unavailable or needs to be updated.');
+              case statusCodes.SIGN_IN_CANCELLED:
+                return { cancelled: true };
+              default:
+                throw new Error(error.message || 'Google sign-in failed (Code: ' + error.code + ')');
+            }
+          } else {
+            throw error;
+          }
         }
-      } else {
-        throw new Error('An error occurred during Google sign in: ' + error?.message);
-      }
-    }
+      })(),
+      30000,
+      'Google sign-in timed out. Please try again.'
+    );
   }
 
   // Web fallback using OAuth (redirects to Supabase)
@@ -262,16 +336,25 @@ export async function sendPasswordResetEmail(email: string) {
     throw new Error('Supabase is not configured yet. Please provide your Supabase credentials in .env.');
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
+
   const redirectUrl = Platform.OS === 'web'
     ? (typeof window !== 'undefined' ? `${window.location.origin}/auth/reset-password` : undefined)
     : Linking.createURL('auth/reset-password', { scheme: 'nextrep' });
 
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: redirectUrl,
-  });
+  return await withAuthTimeout(
+    (async () => {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: redirectUrl,
+      });
 
-  if (error) throw error;
-  return data;
+      if (error) throw error;
+      return data;
+    })()
+  );
 }
 
 /**

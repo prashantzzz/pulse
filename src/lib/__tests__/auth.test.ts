@@ -1,5 +1,5 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
-import { extractParamsFromUrl, formatAuthError } from '../auth';
+import { extractParamsFromUrl, formatAuthError, isValidEmail, withAuthTimeout } from '../auth';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 jest.mock('@react-native-google-signin/google-signin', () => ({
@@ -61,10 +61,60 @@ describe('Auth Helpers', () => {
       expect(formatAuthError(err)).toBe('Sign in was cancelled.');
     });
 
+    it('formats timeout errors', () => {
+      const err = { message: 'Connection timed out' };
+      expect(formatAuthError(err)).toBe('Connection timed out. Please check your internet connection and try again.');
+    });
+
+    it('formats banned or disabled account errors', () => {
+      const err = { message: 'user_banned by administrator' };
+      expect(formatAuthError(err)).toBe('This account has been suspended or disabled.');
+    });
+
+    it('formats Google Code 10 developer configuration error', () => {
+      const err = { message: 'Google sign-in failed (Code: 10)' };
+      expect(formatAuthError(err)).toBe(
+        'Google Sign-In configuration mismatch (Code 10). Please verify Google Cloud SHA-1 fingerprint and Web Client ID.'
+      );
+    });
+
+    it('formats play services errors', () => {
+      const err = { message: 'Play services not available or outdated' };
+      expect(formatAuthError(err)).toBe('Google Play Services is unavailable or needs to be updated.');
+    });
+
     it('returns custom message or fallback for unknown errors', () => {
       const err = { message: 'Something custom happened' };
       expect(formatAuthError(err)).toBe('Something custom happened');
       expect(formatAuthError(null)).toBe('An unexpected error occurred.');
+    });
+  });
+
+  describe('isValidEmail', () => {
+    it('validates correct email formats', () => {
+      expect(isValidEmail('athlete@nextrep.com')).toBe(true);
+      expect(isValidEmail('user.name+tag@gmail.com')).toBe(true);
+      expect(isValidEmail('  athlete@domain.org  ')).toBe(true);
+    });
+
+    it('rejects invalid email formats', () => {
+      expect(isValidEmail('')).toBe(false);
+      expect(isValidEmail('invalid')).toBe(false);
+      expect(isValidEmail('user@')).toBe(false);
+      expect(isValidEmail('@domain.com')).toBe(false);
+      expect(isValidEmail('user@domain')).toBe(false);
+    });
+  });
+
+  describe('withAuthTimeout', () => {
+    it('resolves quickly if promise fulfills within timeout', async () => {
+      const fastPromise = Promise.resolve('ok');
+      await expect(withAuthTimeout(fastPromise, 500)).resolves.toBe('ok');
+    });
+
+    it('rejects with friendly timeout message if promise takes too long', async () => {
+      const slowPromise = new Promise((resolve) => setTimeout(resolve, 200));
+      await expect(withAuthTimeout(slowPromise, 50, 'Request timed out')).rejects.toThrow('Request timed out');
     });
   });
 
