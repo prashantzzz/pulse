@@ -62,11 +62,15 @@ interface PulseState {
   /** User-remembered preferred/last weights and reps for exercises */
   exerciseDefaults: Record<string, { weightKg: number; reps: number }>;
   activeWorkout: ActiveWorkout | null;
+  autoRestTimer: boolean;
+  hapticsEnabled: boolean;
 
   setHydrated: () => void;
   completeOnboarding: (profile: UserProfile) => void;
   setAccent: (key: AccentKey) => void;
   setWeightUnit: (unit: 'kg' | 'lbs') => void;
+  setAutoRestTimer: (enabled: boolean) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
   toggleFavorite: (exerciseId: string) => void;
   setProfile: (p: Partial<UserProfile>) => void;
   addFriend: (friend: Friend) => void;
@@ -145,6 +149,7 @@ function applySetCompletionToWorkout(
   setId: string,
   weightUnit: 'kg' | 'lbs',
   workouts: Workout[],
+  autoRest: boolean = true,
 ): {
   updatedWorkout: ActiveWorkout;
   completedSetIndex: number;
@@ -169,7 +174,7 @@ function applySetCompletionToWorkout(
   const doneSets = updatedExercises.reduce((sum, we) => sum + we.sets.filter((x) => x.completed).length, 0);
 
   let nextRestTimer: RestTimerState | null = null;
-  if (totalSets > 0 && doneSets < totalSets) {
+  if (autoRest && totalSets > 0 && doneSets < totalSets) {
     const rec = getRecommendedRestSeconds(exerciseId);
     const ex = EXERCISE_MAP[exerciseId];
     const completedSet = updatedExercises.find((we) => we.exerciseId === exerciseId)?.sets.find((st) => st.id === setId);
@@ -233,6 +238,8 @@ export const usePulse = create<PulseState>()(
       manualPRs: [],
       exerciseDefaults: {},
       activeWorkout: null,
+      autoRestTimer: true,
+      hapticsEnabled: true,
 
       setHydrated: () => set({ hydrated: true }),
 
@@ -240,6 +247,9 @@ export const usePulse = create<PulseState>()(
         applyAccent(key);
         set({ accentKey: key });
       },
+
+      setAutoRestTimer: (enabled) => set({ autoRestTimer: enabled }),
+      setHapticsEnabled: (enabled) => set({ hapticsEnabled: enabled }),
 
       setWeightUnit: (unit) => {
         set({ weightUnit: unit });
@@ -510,6 +520,7 @@ export const usePulse = create<PulseState>()(
             setId,
             s.weightUnit,
             s.workouts,
+            s.autoRestTimer !== false,
           );
           return { activeWorkout: updatedWorkout };
         }),
@@ -549,6 +560,7 @@ export const usePulse = create<PulseState>()(
             targetSetId,
             s.weightUnit,
             s.workouts,
+            s.autoRestTimer !== false,
           );
 
           result = {

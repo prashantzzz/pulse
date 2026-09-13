@@ -4,12 +4,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AccentPreview } from '../components/accent-preview';
 import { T } from '../components/Text';
 import { BottomSheet, toast } from '../components/misc';
-import { Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
+import { Card, Icon, Row, Screen, ScreenHeader, Toggle } from '../components/ui';
 import { upsertProfile } from '../lib/auth';
 import { parseWorkoutsCsv, workoutsToCsv, type CsvImportResult } from '../lib/csv';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -35,6 +35,10 @@ export default function SettingsScreen() {
   const clearAllData = usePulse((s) => s.clearAllData);
   const weightUnit = usePulse((s) => s.weightUnit);
   const setWeightUnit = usePulse((s) => s.setWeightUnit);
+  const autoRest = usePulse((s) => s.autoRestTimer ?? true);
+  const setAutoRest = usePulse((s) => s.setAutoRestTimer);
+  const haptics = usePulse((s) => s.hapticsEnabled ?? true);
+  const setHaptics = usePulse((s) => s.setHapticsEnabled);
 
   const [editName, setEditName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile?.name ?? '');
@@ -43,8 +47,6 @@ export default function SettingsScreen() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const [haptics, setHaptics] = useState(true);
-  const [autoRest, setAutoRest] = useState(true);
   const [importPreview, setImportPreview] = useState<CsvImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -324,14 +326,24 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flexDirection: 'row', backgroundColor: colors.surface3, borderRadius: radius.pill, padding: 3, borderWidth: 1, borderColor: colors.border }}>
               <Pressable
-                onPress={() => setWeightUnit('kg')}
+                onPress={() => {
+                  if (weightUnit !== 'kg') {
+                    setWeightUnit('kg');
+                    toast('Units: Metric (kg)');
+                  }
+                }}
                 style={[{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill }, weightUnit === 'kg' && { backgroundColor: colors.accent }]}>
                 <T variant="micro" style={{ color: weightUnit === 'kg' ? colors.bg : colors.textDim, fontWeight: '700' }}>
                   KG
                 </T>
               </Pressable>
               <Pressable
-                onPress={() => setWeightUnit('lbs')}
+                onPress={() => {
+                  if (weightUnit !== 'lbs') {
+                    setWeightUnit('lbs');
+                    toast('Units: Imperial (lbs)');
+                  }
+                }}
                 style={[{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.pill }, weightUnit === 'lbs' && { backgroundColor: colors.accent }]}>
                 <T variant="micro" style={{ color: weightUnit === 'lbs' ? colors.bg : colors.textDim, fontWeight: '700' }}>
                   LBS
@@ -339,8 +351,26 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
           </View>
-          <PrefRow label="Auto-start rest timer" desc="After completing a set" onToggle={() => setAutoRest((v) => !v)} switchValue={autoRest} />
-          <PrefRow label="Haptic feedback" desc="Vibration on set completion" onToggle={() => setHaptics((v) => !v)} switchValue={haptics} />
+          <PrefRow
+            label="Auto-start rest timer"
+            desc="After completing a set"
+            onToggle={() => {
+              const next = !autoRest;
+              setAutoRest(next);
+              toast(next ? 'Auto rest timer enabled' : 'Auto rest timer disabled');
+            }}
+            switchValue={autoRest}
+          />
+          <PrefRow
+            label="Haptic feedback"
+            desc="Vibration on set completion"
+            onToggle={() => {
+              const next = !haptics;
+              setHaptics(next);
+              toast(next ? 'Haptics enabled' : 'Haptics disabled');
+            }}
+            switchValue={haptics}
+          />
         </Card>
 
         {/* Data Management */}
@@ -688,16 +718,28 @@ function ImportStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function PrefRow({ label, desc, switchValue, onToggle, right }: { label: string; desc: string; switchValue: boolean; onToggle: () => void; right?: React.ReactNode }) {
+function PrefRow({
+  label,
+  desc,
+  switchValue,
+  onToggle,
+  right,
+}: {
+  label: string;
+  desc: string;
+  switchValue: boolean;
+  onToggle: () => void;
+  right?: React.ReactNode;
+}) {
   return (
     <View style={[styles.settingRow, { alignItems: 'center' }]}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingRight: spacing.md }}>
         <T variant="bodySemi">{label}</T>
         <T variant="micro" muted>
           {desc}
         </T>
       </View>
-      {right ?? <Switch value={switchValue} onValueChange={onToggle} trackColor={{ true: colors.accentDim, false: colors.surface4 }} thumbColor={switchValue ? colors.accent : colors.textMuted} />}
+      {right ?? <Toggle value={switchValue} onValueChange={onToggle} accessibilityLabel={label} />}
     </View>
   );
 }

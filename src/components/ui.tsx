@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Dimensions,
@@ -784,6 +784,104 @@ export function Row({
 }
 
 // ---------------------------------------------------------------------------
+// Toggle (Theme-Specific Switch)
+// ---------------------------------------------------------------------------
+
+export interface ToggleProps {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+  activeColor?: string;
+  inactiveColor?: string;
+  thumbActiveColor?: string;
+  thumbInactiveColor?: string;
+  size?: 'sm' | 'md';
+  accessibilityLabel?: string;
+}
+
+export function Toggle({
+  value,
+  onValueChange,
+  disabled = false,
+  activeColor,
+  inactiveColor,
+  thumbActiveColor,
+  thumbInactiveColor,
+  size = 'md',
+  accessibilityLabel,
+}: ToggleProps) {
+  useAccent();
+  const isSm = size === 'sm';
+  const trackWidth = isSm ? 42 : 50;
+  const trackHeight = isSm ? 24 : 28;
+  const thumbSize = isSm ? 18 : 22;
+  const padding = 3;
+  const travelDistance = trackWidth - thumbSize - padding * 2;
+
+  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: value ? 1 : 0,
+      useNativeDriver: true,
+      bounciness: 2,
+      speed: 24,
+    }).start();
+  }, [value, anim]);
+
+  const handlePress = () => {
+    if (disabled) return;
+    hapticsLight();
+    onValueChange(!value);
+  };
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, travelDistance],
+  });
+
+  const bgActive = activeColor || colors.accent;
+  const bgInactive = inactiveColor || colors.surface4;
+  const knobActive = thumbActiveColor || colors.bg;
+  const knobInactive = thumbInactiveColor || colors.textMuted;
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      hitSlop={8}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value, disabled }}
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        styles.toggleTrack,
+        {
+          width: trackWidth,
+          height: trackHeight,
+          borderRadius: trackHeight / 2,
+          padding,
+          backgroundColor: value ? bgActive : bgInactive,
+          borderColor: value ? bgActive : colors.borderBright,
+          opacity: disabled ? 0.5 : 1,
+        },
+      ]}>
+      <Animated.View
+        style={[
+          styles.toggleThumb,
+          {
+            width: thumbSize,
+            height: thumbSize,
+            borderRadius: thumbSize / 2,
+            backgroundColor: value ? knobActive : knobInactive,
+            transform: [{ translateX }],
+          },
+        ]}
+      />
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // styles
 // ---------------------------------------------------------------------------
 
@@ -921,6 +1019,17 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+  },
+  toggleTrack: {
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  toggleThumb: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });
 
