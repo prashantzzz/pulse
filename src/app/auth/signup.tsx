@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Image,
   KeyboardAvoidingView,
@@ -171,6 +172,9 @@ export default function SignupScreen() {
       const msg = formatAuthError(err);
       setErrorMessage(msg);
       toast(msg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Google Sign-In', msg);
+      }
     } finally {
       setGoogleLoading(false);
       if (!useAuth.getState().isAuthenticated) {
