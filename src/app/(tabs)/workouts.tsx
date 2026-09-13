@@ -322,11 +322,13 @@ export default function WorkoutsScreen() {
         onClose={() => setSourcesOpen(false)}
         title="Evidence-Based Programming">
         <View style={{ gap: spacing.md, paddingBottom: spacing.md }}>
-          <Image
-            source={require('../../../assets/images/template-calculation.png')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
+          <View style={styles.bannerImageWrap}>
+            <Image
+              source={require('../../../assets/images/template-calculation.png')}
+              style={styles.bannerImage}
+              resizeMode="contain"
+            />
+          </View>
 
           <T variant="small" dim style={{ lineHeight: 20 }}>
             NextRep&apos;s workout templates are synthesized from peer-reviewed sports science, progressive overload
@@ -926,13 +928,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     marginTop: 6,
   },
-  bannerImage: {
+  bannerImageWrap: {
     width: '100%',
-    height: 110,
+    aspectRatio: 1805 / 793,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: '#080A0E',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
   },
   citationCard: {
     backgroundColor: colors.surface3,
