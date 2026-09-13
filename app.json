@@ -8,7 +8,6 @@
     "scheme": "nextrep",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0B0D",
-    "jsEngine": "hermes",
     "ios": {
       "icon": "./assets/images/logo.png",
       "supportsTablet": true,
