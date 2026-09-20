@@ -20,15 +20,14 @@ describe('Recommendations & Goal Modifiers Engine', () => {
       { exp: 'Advanced', days: 5, expectedId: 'advanced-5day' },
     ] as const;
 
-    it.each(matrix)(
-      'should select $expectedId for $exp with $days days/week',
-      ({ exp, days, expectedId }) => {
+    it('selects the correct base template for all 9 experience × days combinations', () => {
+      for (const { exp, days, expectedId } of matrix) {
         const template = selectBaseTemplate(exp, days);
         expect(template.id).toBe(expectedId);
         expect(template.experience).toBe(exp);
         expect(template.daysPerWeek).toBe(days);
-      },
-    );
+      }
+    });
 
     it('should gracefully fallback when experience or days are missing or out-of-range', () => {
       // Missing values
@@ -60,9 +59,8 @@ describe('Recommendations & Goal Modifiers Engine', () => {
       ['Lose Weight', 'Get Stronger'],
     ];
 
-    it.each(goalPairs)(
-      'should produce identical profiles regardless of order: [%s, %s] vs [%s, %s]',
-      (goalA, goalB) => {
+    it('produces identical profiles regardless of goal order for all pairs', () => {
+      for (const [goalA, goalB] of goalPairs) {
         const profileAB = getGoalProfile([goalA, goalB]);
         const profileBA = getGoalProfile([goalB, goalA]);
 
@@ -72,8 +70,8 @@ describe('Recommendations & Goal Modifiers Engine', () => {
         expect(profileAB.strengthBias).toBe(profileBA.strengthBias);
         expect(profileAB.goalBadges).toEqual(profileBA.goalBadges);
         expect(profileAB.cardioGuidance?.title).toBe(profileBA.cardioGuidance?.title);
-      },
-    );
+      }
+    });
 
     it('handles Muscle + Strength with strength bias and no extra cardio', () => {
       const profile = getGoalProfile(['Build Muscle', 'Get Stronger']);

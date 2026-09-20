@@ -21,71 +21,31 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
 
 describe('Auth Helpers', () => {
   describe('formatAuthError', () => {
-    it('formats invalid login credentials', () => {
-      const err = { message: 'Invalid login credentials' };
-      expect(formatAuthError(err)).toBe('Invalid email or password.');
-    });
+    it('maps known Supabase/Google error messages to friendly copy', () => {
+      const cases: [string, string][] = [
+        ['Invalid login credentials', 'Invalid email or password.'],
+        ['invalid_grant: error verifying credentials', 'Invalid email or password.'],
+        ['User already registered', 'An account with this email already exists.'],
+        ['Password should be at least 6 characters', 'Password must be at least 6 characters.'],
+        ['Email not confirmed', 'Please check your email to confirm your account.'],
+        ['TypeError: Failed to fetch', 'Network connection issue. Please check your internet connection.'],
+        ['too many requests, rate limit exceeded', 'Too many attempts. Please wait a moment and try again.'],
+        ['User cancelled authentication', 'Sign in was cancelled.'],
+        ['Connection timed out', 'Connection timed out. Please check your internet connection and try again.'],
+        ['user_banned by administrator', 'This account has been suspended or disabled.'],
+        [
+          'Google sign-in failed (Code: 10)',
+          'Google Sign-In configuration mismatch (Code 10). Please verify Google Cloud SHA-1 fingerprint and Web Client ID.',
+        ],
+        ['Play services not available or outdated', 'Google Play Services is unavailable or needs to be updated.'],
+      ];
 
-    it('formats invalid_grant error', () => {
-      const err = { message: 'invalid_grant: error verifying credentials' };
-      expect(formatAuthError(err)).toBe('Invalid email or password.');
-    });
+      for (const [message, expected] of cases) {
+        expect(formatAuthError({ message })).toBe(expected);
+      }
 
-    it('formats user already registered error', () => {
-      const err = { message: 'User already registered' };
-      expect(formatAuthError(err)).toBe('An account with this email already exists.');
-    });
-
-    it('formats short password error', () => {
-      const err = { message: 'Password should be at least 6 characters' };
-      expect(formatAuthError(err)).toBe('Password must be at least 6 characters.');
-    });
-
-    it('formats unconfirmed email error', () => {
-      const err = { message: 'Email not confirmed' };
-      expect(formatAuthError(err)).toBe('Please check your email to confirm your account.');
-    });
-
-    it('formats network / fetch failures', () => {
-      const err = { message: 'TypeError: Failed to fetch' };
-      expect(formatAuthError(err)).toBe('Network connection issue. Please check your internet connection.');
-    });
-
-    it('formats rate limit errors', () => {
-      const err = { message: 'too many requests, rate limit exceeded' };
-      expect(formatAuthError(err)).toBe('Too many attempts. Please wait a moment and try again.');
-    });
-
-    it('formats cancellation', () => {
-      const err = { message: 'User cancelled authentication' };
-      expect(formatAuthError(err)).toBe('Sign in was cancelled.');
-    });
-
-    it('formats timeout errors', () => {
-      const err = { message: 'Connection timed out' };
-      expect(formatAuthError(err)).toBe('Connection timed out. Please check your internet connection and try again.');
-    });
-
-    it('formats banned or disabled account errors', () => {
-      const err = { message: 'user_banned by administrator' };
-      expect(formatAuthError(err)).toBe('This account has been suspended or disabled.');
-    });
-
-    it('formats Google Code 10 developer configuration error', () => {
-      const err = { message: 'Google sign-in failed (Code: 10)' };
-      expect(formatAuthError(err)).toBe(
-        'Google Sign-In configuration mismatch (Code 10). Please verify Google Cloud SHA-1 fingerprint and Web Client ID.'
-      );
-    });
-
-    it('formats play services errors', () => {
-      const err = { message: 'Play services not available or outdated' };
-      expect(formatAuthError(err)).toBe('Google Play Services is unavailable or needs to be updated.');
-    });
-
-    it('returns custom message or fallback for unknown errors', () => {
-      const err = { message: 'Something custom happened' };
-      expect(formatAuthError(err)).toBe('Something custom happened');
+      // Custom messages pass through; nullish falls back.
+      expect(formatAuthError({ message: 'Something custom happened' })).toBe('Something custom happened');
       expect(formatAuthError(null)).toBe('An unexpected error occurred.');
     });
   });
