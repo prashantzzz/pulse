@@ -2,7 +2,7 @@
 
 A dark, premium React Native fitness and gym companion: teach, track, analyze, motivate, and sync seamlessly to the cloud.
 
-NextRep is a **coach in your pocket**. It ships with a comprehensive exercise knowledge base (form guides, common mistakes, breathing cues, progression tips), bundled high-fidelity animated exercise media (HD clips + GIFs), flexible workout templates, a custom workout builder, live workout notifications with quick actions, deep progress analytics (strength trends, volume, regularity streaks, personal records), body measurements, CSV import/export, and offline-first Supabase cloud synchronization.
+NextRep is a **coach in your pocket**. It ships with a comprehensive exercise knowledge base (form guides, common mistakes, breathing cues, progression tips), bundled high-fidelity animated exercise media (HD clips), flexible workout templates, a custom workout builder, live workout notifications with quick actions, deep progress analytics (strength trends, volume, regularity streaks, personal records), body measurements, CSV import/export, and offline-first Supabase cloud synchronization.
 
 ---
 
@@ -15,7 +15,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage.
 - **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal.
 - **Progress Analytics & Heatmap** — All-time cumulative muscle development heatmap (with primary and secondary fractional volume crediting), estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
-- **Friend Challenges & Social** — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
+- **Friend Challenges & Social** *(coming soon — currently gated behind a feature flag)* — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
 - **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Full verification guard ensuring smooth post-auth transitions without onboarding flashes, bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
 - **CSV Import / Export** — Export and import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
 - **Dynamic Theming & Ambient Background** — 8 live accent color palettes (default: Mint) with real-time UI propagation across home cards, muscle graphics, and gradients.
@@ -31,7 +31,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Supabase (PostgreSQL + Auth + RLS + Storage)** — Cloud database, authentication, and avatar storage
 - **react-native-svg** & **lucide-react-native** — Interactive charts, body heatmaps, and background doodle patterns
 - **expo-notifications** — Live workout status notifications with interactive action buttons
-- **expo-video / expo-image** — Bundled HD exercise clips (MP4) and animated GIFs
+- **expo-video / expo-image** — Bundled HD exercise clips (MP4)
 - **jest-expo** — Unit test suite for stats, notifications, csv, templates, account isolation, and security regression
 
 ---
@@ -150,7 +150,7 @@ Home's **Today's Workout** hero is driven by `getSmartTodayPlan(workouts, plans,
 
 ## State Management
 
-- **Global (Zustand, persisted):** `workouts`, `plans`, `exerciseDefaults`, `measurements`, `favorites`, `friends`, `profile`, `activeWorkout`, `accentKey`, and onboarding flags. Persisted to AsyncStorage under `nextrep-store-v1`.
+- **Global (Zustand, persisted):** `workouts`, `plans`, `exerciseDefaults`, `measurements`, `favorites`, `friends`, `profile`, `activeWorkout`, `accentKey`, `weightUnit`, `autoRestTimer`, `hapticsEnabled`, and onboarding flags. Persisted to AsyncStorage under `nextrep-store-v1`.
 - **Local (useState):** UI state that belongs to one screen — filters, sheets, tabs, form drafts.
 - **Derived values are never stored.** Volume, PRs, streaks, progress percentages are recomputed from `workouts` on demand by `lib/stats.ts`.
 
@@ -167,7 +167,7 @@ File-based routing via `expo-router` (root `Stack` in `src/app/_layout.tsx`, tab
 | `/exercise/[id]` | Exercise detail / form guide |
 | `/workout/[id]` (+ `/log`, `/rest`, `/summary`) | Active workout flow, set logger, rest timer + live status notification |
 | `/auth/login`, `/signup`, `/forgot-password`, `/reset-password`, `/callback` | Auth screens |
-| `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
+| `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/records`, `/replay/[id]`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
 
 Pass **ids, not objects**, between screens (e.g. `/exercise/${id}`, `/workout/${id}`).
 
@@ -200,11 +200,11 @@ Local Cache (AsyncStorage)     Supabase Cloud Layer
 **Email / Password:**
 - Sign Up → creates `auth.users` record, auto-creates `profiles` row via DB trigger.
 - Password Reset → recovery link sent to email, redirects to `/auth/reset-password`.
-- Sign Out → clears cloud session; local workouts are preserved.
+- Sign Out → clears the cloud session and the local cache; data remains in the cloud and is restored on next sign-in.
 
 **Google OAuth:**
-- Uses `expo-web-browser` with custom deep-link scheme `nextrep://auth/callback`.
-- On web, redirects to `${window.location.origin}/auth/callback`.
+- Native (Android/iOS) uses `@react-native-google-signin/google-signin`, then exchanges the Google token with Supabase.
+- Web uses `expo-web-browser`; the custom deep-link scheme is `nextrep://auth/callback`, and web redirects to `${window.location.origin}/auth/callback`.
 
 ---
 
@@ -241,6 +241,7 @@ Created a `.env` file at the project root (never commit this file):
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<your-google-web-client-id>
 ```
 
 For EAS builds, configure credentials via EAS Secrets rather than hardcoding them in `eas.json`:
@@ -248,6 +249,7 @@ For EAS builds, configure credentials via EAS Secrets rather than hardcoding the
 ```bash
 eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>"
 eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<key>"
+eas secret:create --scope project --name EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID --value "<google-web-client-id>"
 ```
 
 Install and run:
@@ -264,7 +266,7 @@ Quality gates:
 
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
-npm run lint       # expo lint (must be 0 errors)
+npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
 npm test           # jest — 31 unit, integration, and security regression test suites (385 tests)
 ```
 
@@ -274,7 +276,7 @@ npm test           # jest — 31 unit, integration, and security regression test
 npx supabase db push   # apply all pending migrations to the remote project
 ```
 
-Migrations live in `supabase/migrations/` and are applied in timestamp order. They are idempotent — safe to re-run.
+Migrations live in `supabase/migrations/` and are applied in timestamp order. The CLI records each applied version, so `db push` only runs new migrations (already-applied ones are never re-run).
 
 ### Android Build & Release
 
