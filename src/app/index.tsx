@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
+import { resolveLaunchRoute } from '../lib/launch';
 
 import { T } from '../components/Text';
 import { accentTint, colors, type, useAccent } from '../theme';
@@ -104,13 +105,12 @@ export default function SplashScreen() {
   useEffect(() => {
     if (!hydrated || !isInitialized || isVerifyingUser) return;
 
-    if (!isAuthenticated) {
-      router.replace('/auth/login' as never);
-    } else if (onboarded) {
-      router.replace('/(tabs)/home');
-    } else {
-      router.replace('/onboarding');
-    }
+    const route = resolveLaunchRoute({
+      isAuthenticated,
+      onboarded,
+      activeWorkoutId: usePulse.getState().activeWorkout?.id ?? null,
+    });
+    router.replace(route as never);
   }, [hydrated, isInitialized, isAuthenticated, isVerifyingUser, onboarded, router]);
 
   const ambientScale = glowPulse.interpolate({

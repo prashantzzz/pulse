@@ -13,7 +13,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Workout Customization & Weight/Reps Persistence** — Real-time persistence of customized weights and reps into the athlete's personal routine (`plans`) and global exercise memory (`exerciseDefaults`). When an athlete modifies weights or reps during a workout session, values forward-propagate to subsequent uncompleted sets, synchronize across all plans and workout days containing that exercise, and persist to the user's DB even if the session is later discarded. Target weights are fully customizable in the Workout Builder and synced with Supabase cloud (`workout_plan_exercises.target_weight`).
 - **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping.
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage (duplicate routine titles are blocked).
-- **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal.
+- **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal. An in-progress workout is restored automatically on cold start.
 - **Progress Analytics & Heatmap** — All-time cumulative muscle development heatmap (with primary and secondary fractional volume crediting), estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
 - **Friend Challenges & Social** *(coming soon — currently gated behind a feature flag)* — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
 - **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Full verification guard ensuring smooth post-auth transitions without onboarding flashes, bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
@@ -267,7 +267,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
-npm test           # jest — 27 consolidated test suites (366 tests)
+npm test           # jest — 28 consolidated test suites (367 tests)
 ```
 
 ### Database Migrations
