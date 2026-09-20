@@ -84,7 +84,7 @@ export default function HomeScreen() {
   return (
     <Screen
       scroll
-      onSwipeLeft={() => router.push('/workouts' as never)}
+      onSwipeLeft={() => router.navigate('/(tabs)/workouts' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
       <Row align="space-between" style={{ marginBottom: spacing.lg }}>
@@ -132,7 +132,7 @@ export default function HomeScreen() {
               Select an evidence-based routine from our template library, built on 2026 ACSM guidelines.
             </T>
             <Pressable
-              onPress={() => router.push('/workouts' as never)}
+              onPress={() => router.navigate('/(tabs)/workouts' as never)}
               style={({ pressed }) => [styles.starterCta, pressed && { opacity: 0.9 }]}>
               <LinearGradient key={`starter-cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
               <T variant="bodySemi" style={{ color: colors.bg, fontSize: 14.5 }}>
@@ -309,7 +309,7 @@ export default function HomeScreen() {
             }}
             onViewExercise={(id) => router.push(`/exercise/${id}` as never)}
             onViewProgress={(tab) => router.push(tab ? `/(tabs)/progress?tab=${tab}` as never : '/(tabs)/progress' as never)}
-            onBrowsePlans={() => router.push('/(tabs)/workouts' as never)}
+            onBrowsePlans={() => router.navigate('/(tabs)/workouts' as never)}
           />
         </Section>
       ) : null}

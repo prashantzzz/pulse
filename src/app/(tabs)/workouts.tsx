@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -40,7 +40,13 @@ export default function WorkoutsScreen() {
   const setPlans = usePulse((s) => s.setPlans);
   const profile = usePulse((s) => s.profile);
 
-  const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<'My Plans' | 'Templates'>(params.tab === 'templates' ? 'Templates' : 'My Plans');
+
+  // Allow deep-linking straight to the Templates segment (e.g. from the Log hub).
+  useEffect(() => {
+    if (params.tab === 'templates') setTab('Templates');
+  }, [params.tab]);
 
   // Compute personalized template recommendation from canonical user profile
   const recommendation = useMemo(() => {
@@ -103,8 +109,8 @@ export default function WorkoutsScreen() {
   return (
     <Screen
       scroll
-      onSwipeRight={() => router.push('/home' as never)}
-      onSwipeLeft={() => router.push('/progress' as never)}
+      onSwipeRight={() => router.navigate('/(tabs)/home' as never)}
+      onSwipeLeft={() => router.navigate('/(tabs)/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* Header */}
       <Row align="space-between" style={{ marginBottom: spacing.md }}>

@@ -60,7 +60,7 @@ export default function HistoryScreen() {
             title="No workouts yet"
             body="Start your first workout and your progress story begins here."
             cta="Start Workout"
-            onCta={() => router.push('/log' as never)}
+            onCta={() => router.navigate('/(tabs)/log' as never)}
           />
         ) : (
           filtered.map((w) => {

@@ -89,7 +89,7 @@ function PulseTabBar({
               <Pressable
                 onPress={() => {
                   hapticsLight();
-                  router.push('/log' as never);
+                  router.navigate('/(tabs)/log' as never);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Log"
@@ -116,7 +116,7 @@ function PulseTabBar({
               const target = state.routeNames[i];
               const evt = navigation.emit({ type: 'tabPress', target });
               if (!evt.defaultPrevented) {
-                router.push(`/${tab.name}` as never);
+                router.navigate(`/(tabs)/${tab.name}` as never);
               }
             }}>
             <View style={[styles.iconWrap, focused && { backgroundColor: colors.accent }]}>

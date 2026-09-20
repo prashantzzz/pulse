@@ -92,7 +92,10 @@ export default function LogScreen() {
             <Pressable
               onPress={() => {
                 setPlanSheet(false);
-                router.push('/workouts' as never);
+                // `navigate` (not `push`) switches the tab navigator to the
+                // Workouts tab; `push` cannot target a tab route and silently
+                // leaves the user on this screen.
+                router.navigate('/(tabs)/workouts?tab=templates' as never);
               }}
               style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.85 }]}>
               <View style={styles.planEmoji}>
