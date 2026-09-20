@@ -11,6 +11,19 @@ export const ACTIVE_WORKOUT_CATEGORY = 'active-workout-category';
 export const ACTIVE_WORKOUT_PAUSED_CATEGORY = 'active-workout-paused-category';
 export const ACTIVE_WORKOUT_RESTING_CATEGORY = 'active-workout-resting-category';
 
+/**
+ * Resolves the in-app route a tapped notification should open, if any.
+ * Live-workout notifications carry both `workoutId` and `url`; the workout id
+ * is preferred so callers can de-duplicate against the already-open screen.
+ */
+export function resolveNotificationRoute(
+  data?: { url?: string; workoutId?: string } | null,
+): string | null {
+  if (data?.workoutId) return `/workout/${data.workoutId}`;
+  if (data?.url) return data.url;
+  return null;
+}
+
 let cachedUsePulse: any = null;
 function getStoreState(): { workouts: Workout[]; activeWorkout: ActiveWorkout | null } | null {
   try {

@@ -11,6 +11,7 @@ import {
   handleNotificationPresentation,
   isReminderSuppressed,
   presentActiveWorkoutNotification,
+  resolveNotificationRoute,
   scheduleEveningReminder,
   setupNotificationCategories,
   syncActiveWorkoutNotification,
@@ -522,5 +523,15 @@ describe('Notifications System', () => {
         shouldShowList: true,
       });
     });
+  });
+});
+
+describe('resolveNotificationRoute', () => {
+  it('prefers workoutId over url and returns null when neither is present', () => {
+    expect(resolveNotificationRoute({ workoutId: 'w-1', url: '/workout/w-1' })).toBe('/workout/w-1');
+    expect(resolveNotificationRoute({ url: '/(tabs)/workouts' })).toBe('/(tabs)/workouts');
+    expect(resolveNotificationRoute({})).toBeNull();
+    expect(resolveNotificationRoute(null)).toBeNull();
+    expect(resolveNotificationRoute(undefined)).toBeNull();
   });
 });

@@ -10,7 +10,7 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, Platform, View } from 'react-native';
@@ -26,6 +26,7 @@ import {
   EVENING_REMINDER_ID,
   isReminderSuppressed,
   requestNotificationPermissions,
+  resolveNotificationRoute,
   setupNotificationCategories,
   syncWorkoutReminder,
 } from '../lib/notifications';
@@ -78,6 +79,7 @@ export default function RootLayout() {
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
   const isVerifyingUser = useAuth((s) => s.isVerifyingUser);
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
 
   // Initialize Supabase auth session check and subscription
@@ -171,12 +173,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
+    // Open a route from a tapped notification without stacking a duplicate of
+    // the screen that is already focused (e.g. the live-workout screen).
+    const openRoute = (target: string | null) => {
+      if (!target || pathname === target) return;
+      router.navigate(target as never);
+    };
+
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const actionId = response.actionIdentifier;
       const data = response.notification.request.content.data as { url?: string; workoutId?: string } | undefined;
 
       if (actionId === 'START_WORKOUT') {
-        router.push('/(tabs)/workouts' as never);
+        openRoute('/(tabs)/workouts');
       } else if (actionId === 'NEXT_REP') {
         usePulse.getState().completeNextSetAndStartRest();
         const curr = usePulse.getState().activeWorkout;
@@ -225,22 +234,18 @@ export default function RootLayout() {
         const finished = usePulse.getState().finishWorkout();
         if (finished) {
           router.replace(`/workout/${finished.id}/summary` as never);
-        } else if (data?.workoutId) {
-          router.push(`/workout/${data.workoutId}` as never);
+        } else {
+          openRoute(resolveNotificationRoute(data));
         }
       } else if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-        if (data?.url) {
-          router.push(data.url as never);
-        } else if (data?.workoutId) {
-          router.push(`/workout/${data.workoutId}` as never);
-        }
+        openRoute(resolveNotificationRoute(data));
       }
     });
 
     return () => {
       sub.remove();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   // Global active workout rest timer listener:
   // When rest timer expires on its own (without user clicking Skip Rest), play rest_over.mp3 once
