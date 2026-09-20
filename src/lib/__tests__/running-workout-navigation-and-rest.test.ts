@@ -101,9 +101,7 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
     jest.restoreAllMocks();
   });
 
-  it('navigates back to previous screen when canGoBack is true without minimizing the app', () => {
-    mockCanGoBack.mockReturnValue(true);
-
+  it('opens the options popup when hardware back is pressed (does NOT navigate directly)', () => {
     let root: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(React.createElement(ActiveWorkoutScreen));
@@ -116,8 +114,9 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
       handled = backHandlerCallback!();
     });
 
+    // Back press is consumed (returns true) and the menu opens — no direct navigation
     expect(handled).toBe(true);
-    expect(mockBack).toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
 
     act(() => {
@@ -125,9 +124,7 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
     });
   });
 
-  it('safely falls back to Workouts tab when canGoBack is false (e.g. on budget devices after process recreation)', () => {
-    mockCanGoBack.mockReturnValue(false);
-
+  it('opens the options popup on second hardware back press when menu is already open (toggles off then on)', () => {
     let root: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(React.createElement(ActiveWorkoutScreen));
@@ -135,22 +132,24 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
 
     expect(backHandlerCallback).toBeDefined();
 
-    let handled = false;
+    // First press — opens menu
     act(() => {
-      handled = backHandlerCallback!();
+      backHandlerCallback!();
+    });
+    // Second press — menu is open, so it closes (no navigation)
+    act(() => {
+      backHandlerCallback!();
     });
 
-    expect(handled).toBe(true);
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/workouts');
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
 
     act(() => {
       root.unmount();
     });
   });
 
-  it('intercepts back swipe gesture (beforeRemove) and redirects to Workouts tab if back-stack is empty', () => {
-    mockCanGoBack.mockReturnValue(false);
-
+  it('intercepts back swipe gesture (beforeRemove) and shows options popup instead of navigating', () => {
     let root: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(React.createElement(ActiveWorkoutScreen));
@@ -163,8 +162,9 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
       beforeRemoveCallback!({ preventDefault });
     });
 
+    // Navigation is always prevented; the popup opens instead
     expect(preventDefault).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/workouts');
+    expect(mockReplace).not.toHaveBeenCalled();
 
     act(() => {
       root.unmount();

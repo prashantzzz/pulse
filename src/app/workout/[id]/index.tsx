@@ -410,18 +410,14 @@ export default function ActiveWorkoutScreen() {
   const isCompletingWorkoutRef = useRef(false);
   const navigation = useNavigation();
 
-  // Safely navigate back to previous screen (or Workouts tab if history is empty) without minimizing the app
+  // Show the workout options popup when the user tries to go back
   const handleBack = useCallback(() => {
     if (menuOpen) {
       setMenuOpen(false);
       return;
     }
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/workouts' as never);
-    }
-  }, [menuOpen, router]);
+    setMenuOpen(true);
+  }, [menuOpen]);
 
   // Handle hardware back press on Android (crucial for 3-button navigation on budget/older devices)
   useEffect(() => {
@@ -437,20 +433,14 @@ export default function ActiveWorkoutScreen() {
   // Handle gesture navigation / screen pop (Android edge-swipe & iOS swipe)
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (menuOpen) {
-        // If options menu is open, intercept pop and close menu instead
-        e.preventDefault();
-        setMenuOpen(false);
-        return;
-      }
-      // If native stack has nowhere to go back to, intercept removal to avoid app minimizing
-      if (!router.canGoBack()) {
-        e.preventDefault();
-        router.replace('/(tabs)/workouts' as never);
-      }
+      // Allow navigation when explicitly finishing or discarding the workout
+      if (isCompletingWorkoutRef.current) return;
+      // Otherwise intercept and show the options popup
+      e.preventDefault();
+      setMenuOpen(true);
     });
     return unsubscribe;
-  }, [navigation, menuOpen, router]);
+  }, [navigation]);
 
   const workout = activeWorkout && activeWorkout.id === id ? activeWorkout : workouts.find((w) => w.id === id);
 
@@ -852,6 +842,7 @@ export default function ActiveWorkoutScreen() {
               const finished = finishWorkout();
               if (finished) {
                 hapticsSuccess();
+                isCompletingWorkoutRef.current = true;
                 router.replace(`/workout/${finished.id}/summary`);
               }
             }}
@@ -861,6 +852,7 @@ export default function ActiveWorkoutScreen() {
               setMenuOpen(false);
               dismissActiveWorkoutNotification();
               cancelActiveWorkout();
+              isCompletingWorkoutRef.current = true;
               router.replace('/(tabs)/home' as never);
             }}
             hitSlop={6}
