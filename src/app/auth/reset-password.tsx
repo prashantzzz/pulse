@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   BackHandler,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -78,7 +77,7 @@ export default function ResetPasswordScreen() {
       <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg, colors.bg]} style={StyleSheet.absoluteFill} />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={[
