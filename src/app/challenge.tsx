@@ -77,52 +77,10 @@ export default function ChallengeScreen() {
     return () => sub.remove();
   }, [router]);
 
-  if (CHALLENGE_COMING_SOON) {
-    return (
-      <Screen scroll>
-        <ScreenHeader title="Friend Challenges" subtitle="Compete & Win" back onBack={handleBack} />
-        <View style={styles.comingSoonContainer}>
-          <View style={styles.comingSoonGlowBox}>
-            <LinearGradient
-              colors={[accentTint(colors.accent, 0.2), colors.surface2]}
-              style={StyleSheet.absoluteFill}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-            <View style={[styles.comingSoonIconCircle, { backgroundColor: colors.accentSoft }]}>
-              <Ionicons name="ribbon" size={44} color={colors.accent} />
-            </View>
-          </View>
-
-          <View style={[styles.comingSoonBadge, { backgroundColor: colors.accentSoft }]}>
-            <T variant="micro" accent style={{ fontWeight: '700', letterSpacing: 1.2 }}>
-              COMING SOON
-            </T>
-          </View>
-
-          <T variant="h2" center style={{ marginTop: spacing.md }}>
-            Social Challenges & Duels
-          </T>
-
-          <T variant="body" dim center style={{ marginTop: spacing.sm, lineHeight: 22, maxWidth: 320 }}>
-            Challenge your friends to weekly workout volume showdowns, streak battles, and 1RM improvement duels via shareable links. This feature is arriving in an upcoming update!
-          </T>
-
-          <View style={{ marginTop: spacing.xl, width: '100%', maxWidth: 280 }}>
-            <Button
-              label="Back to Home"
-              variant="primary"
-              full
-              onPress={() => router.replace('/(tabs)/home' as never)}
-            />
-          </View>
-        </View>
-      </Screen>
-    );
-  }
-
-  // Check incoming invite params or stored pending invite
+  // Declared before the "coming soon" early return to keep hook order stable.
+  // Both are no-ops while the feature flag is enabled.
   useEffect(() => {
+    if (CHALLENGE_COMING_SOON) return;
     async function checkInvites() {
       // ── SECURITY: Validate all deep link parameters ──────────────────────
       // The nextrep://challenge?from=...&cid=... URL can be crafted by any
@@ -183,6 +141,7 @@ export default function ChallengeScreen() {
 
   // Sync cloud friends on mount
   useEffect(() => {
+    if (CHALLENGE_COMING_SOON) return;
     if (user?.id) {
       fetchCloudFriends(user.id).then((cloudFriends) => {
         if (cloudFriends.length > 0) {
@@ -191,6 +150,50 @@ export default function ChallengeScreen() {
       }).catch(() => {});
     }
   }, [user?.id, setFriends]);
+
+  if (CHALLENGE_COMING_SOON) {
+    return (
+      <Screen scroll>
+        <ScreenHeader title="Friend Challenges" subtitle="Compete & Win" back onBack={handleBack} />
+        <View style={styles.comingSoonContainer}>
+          <View style={styles.comingSoonGlowBox}>
+            <LinearGradient
+              colors={[accentTint(colors.accent, 0.2), colors.surface2]}
+              style={StyleSheet.absoluteFill}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <View style={[styles.comingSoonIconCircle, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="ribbon" size={44} color={colors.accent} />
+            </View>
+          </View>
+
+          <View style={[styles.comingSoonBadge, { backgroundColor: colors.accentSoft }]}>
+            <T variant="micro" accent style={{ fontWeight: '700', letterSpacing: 1.2 }}>
+              COMING SOON
+            </T>
+          </View>
+
+          <T variant="h2" center style={{ marginTop: spacing.md }}>
+            Social Challenges & Duels
+          </T>
+
+          <T variant="body" dim center style={{ marginTop: spacing.sm, lineHeight: 22, maxWidth: 320 }}>
+            Challenge your friends to weekly workout volume showdowns, streak battles, and 1RM improvement duels via shareable links. This feature is arriving in an upcoming update!
+          </T>
+
+          <View style={{ marginTop: spacing.xl, width: '100%', maxWidth: 280 }}>
+            <Button
+              label="Back to Home"
+              variant="primary"
+              full
+              onPress={() => router.replace('/(tabs)/home' as never)}
+            />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   const c = CHALLENGES[challenge];
   const friend = friends.find((f) => f.id === friendId);

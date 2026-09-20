@@ -14,6 +14,7 @@ import {
   removeFavoriteFromCloud,
   pushManualPRToCloud,
   removeManualPRFromCloud,
+  deduplicatePlans,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { templateToPlans } from '../data/templates';
@@ -22,6 +23,7 @@ import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
 import { getDefaultSetValues, previousSet, getRecommendedRestSeconds } from '../lib/stats';
 import { formatUserWeightWithUnit } from '../lib/units';
+import { genUuid } from '../lib/uuid';
 
 import type {
   ActiveWorkout,
@@ -274,6 +276,7 @@ export const usePulse = create<PulseState>()(
           const rec = recommendTemplate(profile);
           activePlans = templateToPlans(rec.modifiedTemplate, get().exerciseDefaults);
         }
+        activePlans = deduplicatePlans(activePlans);
         set({
           onboarded: true,
           profile,
@@ -350,7 +353,7 @@ export const usePulse = create<PulseState>()(
         const resolvedPlanId = planId ?? matchedPlan?.id ?? null;
 
         const active: ActiveWorkout = {
-          id: genId('aw'),
+          id: genUuid(),
           title,
           description: '',
           startTime: now.toISOString(),
@@ -742,7 +745,7 @@ export const usePulse = create<PulseState>()(
 
       saveBuiltWorkout: (title, exercises, startTime, endTime) => {
         const built: Workout = {
-          id: genId('w'),
+          id: genUuid(),
           title,
           description: '',
           startTime,
@@ -788,9 +791,10 @@ export const usePulse = create<PulseState>()(
       },
 
       setPlans: (plans) => {
-        set({ plans });
+        const cleanPlans = deduplicatePlans(plans);
+        set({ plans: cleanPlans });
         supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) pushAllPlansToCloud(user.id, plans).catch(() => {});
+          if (user) pushAllPlansToCloud(user.id, cleanPlans).catch(() => {});
         }).catch(() => {});
       },
 
@@ -867,7 +871,7 @@ export const usePulse = create<PulseState>()(
             .filter((w) => !existing.has(`${w.title}|${w.startTime}`))
             .map((w) => ({
               ...w,
-              id: genId('w'),
+              id: genUuid(),
               source: 'user' as const,
               exercises: w.exercises.map((we) => ({
                 ...we,
@@ -893,7 +897,7 @@ export const usePulse = create<PulseState>()(
         set(() => {
           const fresh = imported.map((w) => ({
             ...w,
-            id: genId('w'),
+            id: genUuid(),
             source: 'user' as const,
             exercises: w.exercises.map((we) => ({
               ...we,
@@ -982,6 +986,8 @@ export const usePulse = create<PulseState>()(
         manualPRs: s.manualPRs,
         exerciseDefaults: s.exerciseDefaults,
         activeWorkout: s.activeWorkout,
+        autoRestTimer: s.autoRestTimer,
+        hapticsEnabled: s.hapticsEnabled,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -1002,14 +1008,19 @@ export const usePulse = create<PulseState>()(
               state.setFriends(cleanFriends);
             }
           }
+          // Automatically clean up any pre-existing duplicated plans in local storage
+          if (state.plans && state.plans.length > 0) {
+            const cleanPlans = deduplicatePlans(state.plans);
+            if (cleanPlans.length !== state.plans.length) {
+              state.setPlans(cleanPlans);
+            }
+          }
           state.setHydrated();
         }
       },
     },
   ),
 );
-
-export const useNextRep = usePulse;
 
 // --- ticking clock for elapsed timers --------------------------------------
 // Cached snapshot + interval so useSyncExternalStore never sees a changing

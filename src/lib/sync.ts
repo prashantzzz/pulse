@@ -114,6 +114,29 @@ function mapCloudMeasurement(raw: RawMeasurement): BodyMeasurement {
 }
 
 /**
+ * Deduplicates workout plans by ID and by case-insensitive title.
+ * Preserves the original order and skips duplicate days (e.g. Upper A added twice).
+ */
+export function deduplicatePlans(plans: WorkoutPlan[]): WorkoutPlan[] {
+  if (!plans || plans.length === 0) return [];
+  const seenIds = new Set<string>();
+  const seenTitles = new Set<string>();
+  const result: WorkoutPlan[] = [];
+
+  for (const p of plans) {
+    if (!p) continue;
+    const normalizedTitle = (p.title || '').trim().toLowerCase();
+    if (p.id && seenIds.has(p.id)) continue;
+    if (normalizedTitle && seenTitles.has(normalizedTitle)) continue;
+
+    if (p.id) seenIds.add(p.id);
+    if (normalizedTitle) seenTitles.add(normalizedTitle);
+    result.push(p);
+  }
+  return result;
+}
+
+/**
  * Full sync: Pulls user's workouts, measurements, plans, and profile from Supabase into Zustand store.
  */
 export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
@@ -252,6 +275,11 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         directPushManualPRToCloud(userId, pr).catch(() => {});
       }
     }
+    // If cloud has 0 plans but local state has initial plans, push them to cloud
+    if (cloudPlans.length === 0 && localState.plans.length > 0) {
+      const cleanLocal = deduplicatePlans(localState.plans);
+      directPushAllPlansToCloud(userId, cleanLocal).catch(() => {});
+    }
 
     const effectiveMeasurements = cloudMeasurements.length > 0 ? cloudMeasurements : localState.measurements;
     const effectiveFavorites = cloudFavorites.length > 0 ? cloudFavorites : localState.favorites;
@@ -297,15 +325,19 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
 
-      // Merge plans by ID to ensure local plans and cloud plans are safely consolidated
-      const planMap = new Map<string, WorkoutPlan>();
-      for (const p of state.plans) {
-        if (p.id) planMap.set(p.id, p);
+      // Consolidate plans without duplication:
+      // If cloud has plans, cloud plans take precedence for this account.
+      // Append any unique local plans (e.g. offline custom builder routines).
+      const rawPlans = cloudPlans.length > 0
+        ? [...cloudPlans, ...state.plans]
+        : state.plans;
+      const consolidatedPlans = deduplicatePlans(rawPlans);
+
+      // If cloud plans contained duplicate routine days (e.g. from previous syncs),
+      // clean them up in the cloud database as well.
+      if (cloudPlans.length > 0 && consolidatedPlans.length < cloudPlans.length) {
+        directPushAllPlansToCloud(userId, consolidatedPlans).catch(() => {});
       }
-      for (const cp of cloudPlans) {
-        if (cp.id) planMap.set(cp.id, cp);
-      }
-      const consolidatedPlans = Array.from(planMap.values());
 
       // Merge exercise defaults from cloud plans so client state inherits cloud numbers
       const mergedDefaults = { ...state.exerciseDefaults };
@@ -527,15 +559,22 @@ async function directPushWorkoutToCloud(userId: string, workout: Workout): Promi
 
   // 2. Fallback: Multi-step direct table inserts
   try {
+    // Reuse the client id when it is already a UUID so a retried/offline-flushed
+    // save updates the same row instead of creating duplicates.
+    const fallbackWorkoutId = isValidUuid(workout.id) ? workout.id : genUuid();
     const { data: wRow, error: wErr } = await (supabase.from('workouts') as any)
-      .insert({
-        user_id: userId,
-        title: workout.title,
-        description: workout.description || null,
-        started_at: workout.startTime,
-        completed_at: workout.endTime,
-        source: workout.source || 'user',
-      })
+      .upsert(
+        {
+          id: fallbackWorkoutId,
+          user_id: userId,
+          title: workout.title,
+          description: workout.description || null,
+          started_at: workout.startTime,
+          completed_at: workout.endTime,
+          source: workout.source || 'user',
+        },
+        { onConflict: 'id' },
+      )
       .select('id')
       .single();
 
@@ -544,6 +583,10 @@ async function directPushWorkoutToCloud(userId: string, workout: Workout): Promi
     }
 
     const workoutId = wRow.id;
+
+    // Clear previously-persisted children so a retried save is idempotent
+    // (mirrors the atomic save_workout RPC behaviour).
+    await (supabase.from('workout_exercises') as any).delete().eq('workout_id', workoutId);
 
     for (let eIdx = 0; eIdx < workout.exercises.length; eIdx++) {
       const we = workout.exercises[eIdx];

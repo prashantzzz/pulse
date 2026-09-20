@@ -46,6 +46,19 @@ export default function LeaderboardScreen() {
     return () => sub.remove();
   }, [router]);
 
+  // Declared before the "coming soon" early return to keep hook order stable.
+  // No-op while the feature flag is enabled.
+  useEffect(() => {
+    if (LEADERBOARD_COMING_SOON) return;
+    if (user?.id) {
+      fetchCloudFriends(user.id).then((cloudFriends) => {
+        if (cloudFriends.length > 0) {
+          setFriends(cloudFriends);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id, setFriends]);
+
   if (LEADERBOARD_COMING_SOON) {
     return (
       <Screen scroll>
@@ -89,17 +102,6 @@ export default function LeaderboardScreen() {
       </Screen>
     );
   }
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchCloudFriends(user.id).then((cloudFriends) => {
-        if (cloudFriends.length > 0) {
-          setFriends(cloudFriends);
-        }
-      }).catch(() => {});
-    }
-  }, [user?.id, setFriends]);
-
   const myScore = progressScore({
     workoutsThisWeek: workoutsInLastDays(workouts, 7).length,
     prsThisMonth: workouts.slice(-30).reduce((n, w) => n + detectPRs(w, workouts).length, 0),

@@ -32,6 +32,14 @@ jest.mock('../supabase', () => ({
     rpc: (...args: any[]) => mockRpc(...args),
     from: jest.fn((table: string) => {
       if (table === 'workouts') {
+        const writeResult = () => ({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { id: 'inserted-workout-uuid' },
+              error: null,
+            }),
+          }),
+        });
         return {
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
@@ -48,14 +56,11 @@ jest.mock('../supabase', () => ({
           }),
           insert: (...args: any[]) => {
             mockWorkoutsInsert(...args);
-            return {
-              select: jest.fn().mockReturnValue({
-                single: jest.fn().mockResolvedValue({
-                  data: { id: 'inserted-workout-uuid' },
-                  error: null,
-                }),
-              }),
-            };
+            return writeResult();
+          },
+          upsert: (...args: any[]) => {
+            mockWorkoutsInsert(...args);
+            return writeResult();
           },
         };
       }
@@ -72,6 +77,9 @@ jest.mock('../supabase', () => ({
               }),
             };
           },
+          delete: () => ({
+            eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
         };
       }
       if (table === 'workout_sets') {
@@ -247,7 +255,8 @@ describe('Sync Optimization & Fallback Tests', () => {
         expect.objectContaining({
           user_id: TEST_USER_ID,
           title: 'Full Body Blast',
-        })
+        }),
+        expect.objectContaining({ onConflict: 'id' })
       );
       expect(mockExercisesInsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -276,6 +285,26 @@ describe('Sync Optimization & Fallback Tests', () => {
       expect(mockWorkoutsInsert).toHaveBeenCalled();
       expect(mockExercisesInsert).toHaveBeenCalled();
       expect(mockSetsInsert).toHaveBeenCalled();
+    });
+
+    it('reuses a valid client UUID in the fallback so retries are idempotent', async () => {
+      const uuidWorkout: Workout = {
+        ...sampleWorkout,
+        id: '11111111-1111-4111-8111-111111111111',
+      };
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'function save_workout does not exist', code: '42883' },
+      });
+
+      const result = await pushWorkoutToCloud(TEST_USER_ID, uuidWorkout);
+
+      expect(result).toBe(true);
+      // The same stable UUID is written, so a retry updates (not duplicates) the row.
+      expect(mockWorkoutsInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ id: '11111111-1111-4111-8111-111111111111' }),
+        expect.objectContaining({ onConflict: 'id' }),
+      );
     });
   });
 });
