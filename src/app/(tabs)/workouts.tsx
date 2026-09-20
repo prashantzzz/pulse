@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -26,6 +26,7 @@ import {
   type RecommendationResult,
 } from '../../lib/recommendations';
 import { usePulse } from '../../store/useStore';
+import { consumeWorkoutsTab } from '../../lib/nav-intent';
 import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { Difficulty, WorkoutPlan } from '../../types';
 
@@ -40,13 +41,16 @@ export default function WorkoutsScreen() {
   const setPlans = usePulse((s) => s.setPlans);
   const profile = usePulse((s) => s.profile);
 
-  const params = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<'My Plans' | 'Templates'>(params.tab === 'templates' ? 'Templates' : 'My Plans');
+  const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
 
-  // Allow deep-linking straight to the Templates segment (e.g. from the Log hub).
-  useEffect(() => {
-    if (params.tab === 'templates') setTab('Templates');
-  }, [params.tab]);
+  // Open a specific segment when arriving with a navigation intent (e.g. the
+  // Log hub's "Browse Workout Templates").
+  useFocusEffect(
+    useCallback(() => {
+      const intent = consumeWorkoutsTab();
+      if (intent) setTab(intent);
+    }, []),
+  );
 
   // Compute personalized template recommendation from canonical user profile
   const recommendation = useMemo(() => {

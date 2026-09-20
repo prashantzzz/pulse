@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -10,6 +10,7 @@ import { BottomSheet } from '../../components/misc';
 import { Button, Icon, Screen } from '../../components/ui';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
+import { requestWorkoutsTab } from '../../lib/nav-intent';
 import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { IonName } from '../../components/ui';
 import type { WorkoutPlan } from '../../types';
@@ -28,11 +29,23 @@ export default function LogScreen() {
   const startWorkout = usePulse((s) => s.startWorkout);
   const plans = usePulse((s) => s.plans);
   const [planSheet, setPlanSheet] = useState(false);
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
+
+  // Navigate only once the bottom sheet has closed — pushing a screen or
+  // switching tabs while the Modal is still mounted is unreliable on web and
+  // Android (the target screen flashes then reverts).
+  useEffect(() => {
+    if (!planSheet && pendingRoute) {
+      const target = pendingRoute;
+      setPendingRoute(null);
+      router.navigate(target as never);
+    }
+  }, [planSheet, pendingRoute, router]);
 
   const begin = (plan: WorkoutPlan) => {
-    setPlanSheet(false);
     const w = startWorkout(plan.title, plan.exercises, plan.id);
-    router.push(`/workout/${w.id}`);
+    setPendingRoute(`/workout/${w.id}`);
+    setPlanSheet(false);
   };
 
   return (
@@ -91,11 +104,9 @@ export default function LogScreen() {
             ))}
             <Pressable
               onPress={() => {
+                requestWorkoutsTab('Templates');
+                setPendingRoute('/(tabs)/workouts');
                 setPlanSheet(false);
-                // `navigate` (not `push`) switches the tab navigator to the
-                // Workouts tab; `push` cannot target a tab route and silently
-                // leaves the user on this screen.
-                router.navigate('/(tabs)/workouts?tab=templates' as never);
               }}
               style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.85 }]}>
               <View style={styles.planEmoji}>
@@ -111,8 +122,8 @@ export default function LogScreen() {
             </Pressable>
             <Pressable
               onPress={() => {
+                setPendingRoute('/builder');
                 setPlanSheet(false);
-                router.push('/builder' as never);
               }}
               style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.85 }]}>
               <View style={styles.planEmoji}>
