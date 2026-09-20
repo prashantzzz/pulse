@@ -369,7 +369,7 @@ export const usePulse = create<PulseState>()(
             const sets: ExerciseSet[] = Array.from({ length: spec.sets }, (_, si) => {
               const setIndex = si + 1;
               const isWarmup = si === 0 && spec.sets > 3;
-              const prev = previousSet(workouts, spec.exerciseId, setIndex);
+              const prev = previousSet(workouts, spec.exerciseId, setIndex, undefined, experience);
               const defaults = getDefaultSetValues(
                 spec.exerciseId,
                 setIndex,

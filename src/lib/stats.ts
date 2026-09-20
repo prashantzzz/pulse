@@ -1313,6 +1313,7 @@ export function previousSet(
   exerciseId: string,
   setIndex: number,
   excludeWorkoutId?: string,
+  experience: 'Beginner' | 'Intermediate' | 'Advanced' = 'Beginner',
 ): { weightKg: number | null; reps: number | null; date: string } | null {
   const resolved = resolveExercise(exerciseId);
   const canonicalId = resolved?.id ?? exerciseId;
@@ -1348,7 +1349,7 @@ export function previousSet(
           if (withWeight) {
             weightKg = withWeight.weightKg;
           } else {
-            const defWeight = getDefaultSetValues(canonicalId, setIndex).weightKg;
+            const defWeight = getDefaultSetValues(canonicalId, setIndex, experience).weightKg;
             weightKg = defWeight > 0 ? defWeight : 10;
           }
         }
@@ -1357,7 +1358,7 @@ export function previousSet(
       }
 
       const withReps = completedSets.find((st) => st.reps != null && st.reps > 0);
-      const reps = matched.reps != null && matched.reps > 0 ? matched.reps : (withReps?.reps ?? getDefaultSetValues(canonicalId, setIndex).reps);
+      const reps = matched.reps != null && matched.reps > 0 ? matched.reps : (withReps?.reps ?? getDefaultSetValues(canonicalId, setIndex, experience).reps);
 
       return { weightKg, reps, date: w.startTime };
     }
@@ -1748,7 +1749,13 @@ export function getDefaultSetValues(
   }
 
   if (isWarmup && weightKg > 0) {
-    weightKg = Math.max(ex.equipment === 'Barbell' ? 20 : 2.5, Math.round((weightKg * 0.5) / 2.5) * 2.5);
+    weightKg = Math.max(ex?.equipment === 'Barbell' ? 20 : 2.5, Math.round((weightKg * 0.5) / 2.5) * 2.5);
+  }
+
+  // Snap the default load to the smallest common plate increment (2.5 kg) so
+  // every suggested weight is loadable (e.g. 8 kg -> 7.5 kg, 12 kg -> 12.5 kg).
+  if (weightKg > 0) {
+    weightKg = Math.round(weightKg / 2.5) * 2.5;
   }
 
   return { weightKg, reps: Math.max(1, reps) };

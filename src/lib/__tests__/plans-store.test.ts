@@ -51,7 +51,7 @@ describe('Workout Exercise Reps and Weight Persistence Regression', () => {
     // 2. User starts the workout
     const active = usePulse.getState().startWorkout(initialPlan.title, initialPlan.exercises, initialPlan.id);
     expect(active.planId).toBe('plan-upper-a');
-    expect(active.exercises[0].sets[0].weightKg).toBe(12); // intermediate default for DB compound
+    expect(active.exercises[0].sets[0].weightKg).toBe(12.5); // intermediate default for DB compound (snapped to 2.5 kg)
 
     const targetEx = active.exercises[0];
     const set1 = targetEx.sets[0];

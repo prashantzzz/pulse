@@ -1,3 +1,4 @@
+import { EXERCISES } from '../../data/exercises';
 import type { ExerciseSet, Workout, WorkoutExercise, WorkoutPlan } from '../../types';
 import {
   bestForExercise,
@@ -1332,6 +1333,31 @@ describe('getDefaultSetValues', () => {
     const work = getDefaultSetValues('bench-press', 2, 'Intermediate', undefined, false);
     const warmup = getDefaultSetValues('bench-press', 1, 'Intermediate', undefined, true);
     expect(warmup.weightKg).toBeLessThanOrEqual(work.weightKg);
+  });
+
+  it('suggests loadable weights (multiples of 2.5 kg) for every exercise and difficulty', () => {
+    const levels = ['Beginner', 'Intermediate', 'Advanced'] as const;
+    const offenders: string[] = [];
+    for (const ex of EXERCISES) {
+      for (const level of levels) {
+        const { weightKg } = getDefaultSetValues(ex.id, 1, level);
+        if (weightKg > 0 && Math.abs(weightKg % 2.5) > 1e-9) {
+          offenders.push(`${ex.id} (${level}) = ${weightKg}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('snaps non-standard dumbbell defaults to the nearest 2.5 kg and scales by difficulty', () => {
+    const beg = getDefaultSetValues('dumbbell-bench-press', 1, 'Beginner').weightKg;
+    const int = getDefaultSetValues('dumbbell-bench-press', 1, 'Intermediate').weightKg;
+    const adv = getDefaultSetValues('dumbbell-bench-press', 1, 'Advanced').weightKg;
+    expect(beg).toBe(7.5); // was 8
+    expect(int).toBe(12.5); // was 12
+    expect(adv).toBe(17.5); // was 18
+    expect(beg).toBeLessThan(int);
+    expect(int).toBeLessThan(adv);
   });
 });
 
