@@ -228,7 +228,10 @@ export default function BuilderScreen() {
           targetWeightKg: d.targetWeightKg ?? null,
         })),
       };
-      updatePlan(plan.id, updatedPlan);
+      if (!updatePlan(plan.id, updatedPlan)) {
+        toast(`A plan named "${updatedPlan.title}" already exists`);
+        return;
+      }
       toast('Workout plan updated!');
       router.back();
       return;
@@ -248,7 +251,10 @@ export default function BuilderScreen() {
       })),
     };
 
-    addPlan(newPlan);
+    if (!addPlan(newPlan)) {
+      toast(`A plan named "${newPlan.title}" already exists`);
+      return;
+    }
     toast('Workout plan added to My Plans!');
     router.back();
   };

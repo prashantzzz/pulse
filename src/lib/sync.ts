@@ -137,6 +137,23 @@ export function deduplicatePlans(plans: WorkoutPlan[]): WorkoutPlan[] {
 }
 
 /**
+ * Returns true when `title` collides (case-insensitively, trimmed) with an
+ * existing plan title, ignoring the plan identified by `excludeId` (used when
+ * renaming a plan so it does not conflict with itself).
+ */
+export function hasDuplicatePlanTitle(
+  plans: WorkoutPlan[],
+  title: string,
+  excludeId?: string,
+): boolean {
+  const normalized = (title || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return (plans || []).some(
+    (p) => p.id !== excludeId && (p.title || '').trim().toLowerCase() === normalized,
+  );
+}
+
+/**
  * Full sync: Pulls user's workouts, measurements, plans, and profile from Supabase into Zustand store.
  */
 export async function syncUserDataFromCloud(userId: string): Promise<boolean> {

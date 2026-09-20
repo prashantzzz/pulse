@@ -98,4 +98,47 @@ describe('Workout Plans Store & Builder Integration', () => {
     expect(usePulse.getState().plans).toHaveLength(1);
     expect(usePulse.getState().plans[0].id).toBe('plan-b');
   });
+
+  it('blocks adding a plan whose title duplicates an existing plan (case-insensitive)', () => {
+    const existing: WorkoutPlan = { id: 'plan-1', title: 'Push Day', emoji: '💪', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([existing]);
+
+    const dup: WorkoutPlan = { id: 'plan-2', title: '  push day ', emoji: '💪', muscles: [], exercises: [] };
+    const ok = usePulse.getState().addPlan(dup);
+
+    expect(ok).toBe(false);
+    expect(usePulse.getState().plans).toHaveLength(1);
+    expect(usePulse.getState().plans[0].id).toBe('plan-1');
+  });
+
+  it('allows adding a plan with a unique title', () => {
+    const existing: WorkoutPlan = { id: 'plan-1', title: 'Push Day', emoji: '💪', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([existing]);
+
+    const unique: WorkoutPlan = { id: 'plan-2', title: 'Pull Day', emoji: '🏹', muscles: [], exercises: [] };
+    expect(usePulse.getState().addPlan(unique)).toBe(true);
+    expect(usePulse.getState().plans).toHaveLength(2);
+  });
+
+  it("blocks renaming a plan onto another plan's title", () => {
+    const p1: WorkoutPlan = { id: 'plan-1', title: 'Push Day', emoji: '💪', muscles: [], exercises: [] };
+    const p2: WorkoutPlan = { id: 'plan-2', title: 'Pull Day', emoji: '🏹', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([p1, p2]);
+
+    const renamed: WorkoutPlan = { ...p2, title: 'push day' };
+    expect(usePulse.getState().updatePlan('plan-2', renamed)).toBe(false);
+    expect(usePulse.getState().plans.find((p) => p.id === 'plan-2')?.title).toBe('Pull Day');
+  });
+
+  it('allows editing a plan while keeping its own title', () => {
+    const p1: WorkoutPlan = { id: 'plan-1', title: 'Push Day', emoji: '💪', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([p1]);
+
+    const edited: WorkoutPlan = {
+      ...p1,
+      exercises: [{ exerciseId: 'bench-press', sets: 4, targetReps: '5' }],
+    };
+    expect(usePulse.getState().updatePlan('plan-1', edited)).toBe(true);
+    expect(usePulse.getState().plans[0].exercises).toHaveLength(1);
+  });
 });

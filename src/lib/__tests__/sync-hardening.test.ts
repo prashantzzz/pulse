@@ -1,6 +1,6 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 
-import { deduplicatePlans } from '../sync';
+import { deduplicatePlans, hasDuplicatePlanTitle } from '../sync';
 import { usePulse } from '../../store/useStore';
 import { isValidUuid } from '../uuid';
 import type { Workout, WorkoutPlan } from '../../types';
@@ -55,6 +55,24 @@ describe('deduplicatePlans — negative & edge cases', () => {
     const input = [makePlan('1', 'Upper'), makePlan('1', 'Upper'), makePlan('2', 'Lower')];
     const once = deduplicatePlans(input);
     expect(deduplicatePlans(once)).toEqual(once);
+  });
+});
+
+describe('hasDuplicatePlanTitle — negative & edge cases', () => {
+  const plans = [makePlan('1', 'Push Day'), makePlan('2', 'Lower B')];
+
+  it('detects case-insensitive and trimmed collisions', () => {
+    expect(hasDuplicatePlanTitle(plans, '  push day ')).toBe(true);
+    expect(hasDuplicatePlanTitle(plans, 'PUSH DAY')).toBe(true);
+  });
+
+  it('returns false for unique or blank titles', () => {
+    expect(hasDuplicatePlanTitle(plans, 'Upper A')).toBe(false);
+    expect(hasDuplicatePlanTitle(plans, '   ')).toBe(false);
+  });
+
+  it('ignores the excluded plan id so a plan can keep its own title', () => {
+    expect(hasDuplicatePlanTitle(plans, 'Push Day', '1')).toBe(false);
   });
 });
 

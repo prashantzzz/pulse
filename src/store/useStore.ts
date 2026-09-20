@@ -15,6 +15,7 @@ import {
   pushManualPRToCloud,
   removeManualPRFromCloud,
   deduplicatePlans,
+  hasDuplicatePlanTitle,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { templateToPlans } from '../data/templates';
@@ -121,12 +122,12 @@ interface PulseState {
   finishWorkout: () => Workout | null;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
-  /** Append a new workout plan (e.g. built via the builder) */
-  addPlan: (plan: WorkoutPlan) => void;
+  /** Append a new workout plan (e.g. built via the builder). Returns false if the title conflicts with an existing plan. */
+  addPlan: (plan: WorkoutPlan) => boolean;
   /** Replace entire active workout plans set (e.g. when applying a template) */
   setPlans: (plans: WorkoutPlan[]) => void;
-  /** Replace an existing plan (edit via the builder) */
-  updatePlan: (id: string, plan: WorkoutPlan) => void;
+  /** Replace an existing plan (edit via the builder). Returns false if the title conflicts with another plan. */
+  updatePlan: (id: string, plan: WorkoutPlan) => boolean;
   /** Remove a plan (only the template — workout history is untouched) */
   removePlan: (id: string) => void;
   addMeasurement: (m: BodyMeasurement) => void;
@@ -769,6 +770,11 @@ export const usePulse = create<PulseState>()(
       },
 
       addPlan: (plan) => {
+        // Block duplicate routine titles (case-insensitive) so a builder plan
+        // cannot collide with an existing in-app workout title.
+        if (hasDuplicatePlanTitle(get().plans, plan.title)) {
+          return false;
+        }
         const nextDefs = { ...get().exerciseDefaults };
         let defsChanged = false;
         for (const e of plan.exercises) {
@@ -788,6 +794,7 @@ export const usePulse = create<PulseState>()(
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushPlanToCloud(user.id, plan).catch(() => {});
         }).catch(() => {});
+        return true;
       },
 
       setPlans: (plans) => {
@@ -799,6 +806,10 @@ export const usePulse = create<PulseState>()(
       },
 
       updatePlan: (id, plan) => {
+        // Block renaming a plan onto another plan's title (its own title is allowed).
+        if (hasDuplicatePlanTitle(get().plans, plan.title, id)) {
+          return false;
+        }
         const nextDefs = { ...get().exerciseDefaults };
         let defsChanged = false;
         for (const e of plan.exercises) {
@@ -818,6 +829,7 @@ export const usePulse = create<PulseState>()(
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushPlanToCloud(user.id, plan).catch(() => {});
         }).catch(() => {});
+        return true;
       },
 
       removePlan: (id) => {
