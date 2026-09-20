@@ -265,7 +265,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (must be 0 errors)
-npm test           # jest — 17 unit, integration, and security regression test suites (218 tests)
+npm test           # jest — 31 unit, integration, and security regression test suites (385 tests)
 ```
 
 ### Database Migrations
