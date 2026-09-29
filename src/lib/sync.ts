@@ -116,21 +116,47 @@ function mapCloudMeasurement(raw: RawMeasurement): BodyMeasurement {
 /**
  * Deduplicates workout plans by ID and by case-insensitive title.
  * Preserves the original order and skips duplicate days (e.g. Upper A added twice).
+ *
+ * When two copies collide, the one that still has exercises wins. This matters
+ * during cloud sync: a Supabase copy whose child exercise rows failed to write
+ * (FK violation / interrupted write) must never clobber the local plan that
+ * still has its exercises. Equal copies keep the first occurrence.
  */
 export function deduplicatePlans(plans: WorkoutPlan[]): WorkoutPlan[] {
   if (!plans || plans.length === 0) return [];
-  const seenIds = new Set<string>();
-  const seenTitles = new Set<string>();
   const result: WorkoutPlan[] = [];
+  const indexById = new Map<string, number>();
+  const indexByTitle = new Map<string, number>();
+  const exerciseCount = (p: WorkoutPlan | undefined): number =>
+    p && Array.isArray(p.exercises) ? p.exercises.length : 0;
 
   for (const p of plans) {
     if (!p) continue;
     const normalizedTitle = (p.title || '').trim().toLowerCase();
-    if (p.id && seenIds.has(p.id)) continue;
-    if (normalizedTitle && seenTitles.has(normalizedTitle)) continue;
+    const existingIdx =
+      (p.id ? indexById.get(p.id) : undefined) ??
+      (normalizedTitle ? indexByTitle.get(normalizedTitle) : undefined);
 
-    if (p.id) seenIds.add(p.id);
-    if (normalizedTitle) seenTitles.add(normalizedTitle);
+    if (existingIdx !== undefined) {
+      if (exerciseCount(p) > exerciseCount(result[existingIdx])) {
+        const previous = result[existingIdx];
+        const previousTitle = (previous?.title || '').trim().toLowerCase();
+        result[existingIdx] = p;
+        if (
+          previousTitle &&
+          previousTitle !== normalizedTitle &&
+          indexByTitle.get(previousTitle) === existingIdx
+        ) {
+          indexByTitle.delete(previousTitle);
+        }
+        if (p.id) indexById.set(p.id, existingIdx);
+        if (normalizedTitle) indexByTitle.set(normalizedTitle, existingIdx);
+      }
+      continue;
+    }
+
+    if (p.id) indexById.set(p.id, result.length);
+    if (normalizedTitle) indexByTitle.set(normalizedTitle, result.length);
     result.push(p);
   }
   return result;
@@ -292,10 +318,13 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         directPushManualPRToCloud(userId, pr).catch(() => {});
       }
     }
-    // If cloud has 0 plans but local state has initial plans, push them to cloud
-    if (cloudPlans.length === 0 && localState.plans.length > 0) {
+    // If cloud has 0 plans but local state has initial plans, push them to
+    // cloud. Never do this when the plans fetch itself failed: a failed fetch
+    // also yields an empty list, and treating that as "cloud is empty" used to
+    // replace every cloud plan with the (possibly stale) local snapshot.
+    if (!plansErr && cloudPlans.length === 0 && localState.plans.length > 0) {
       const cleanLocal = deduplicatePlans(localState.plans);
-      directPushAllPlansToCloud(userId, cleanLocal).catch(() => {});
+      pushAllPlansToCloud(userId, cleanLocal).catch(() => {});
     }
 
     const effectiveMeasurements = cloudMeasurements.length > 0 ? cloudMeasurements : localState.measurements;
@@ -342,18 +371,47 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
 
-      // Consolidate plans without duplication:
-      // If cloud has plans, cloud plans take precedence for this account.
-      // Append any unique local plans (e.g. offline custom builder routines).
-      const rawPlans = cloudPlans.length > 0
+      // Consolidate plans without duplication.
+      // Cloud plans are merged first, but see deduplicatePlans(): a cloud copy
+      // that lost its exercise rows never replaces a richer local plan.
+      const plansFetchFailed = Boolean(plansErr);
+      const rawPlans = !plansFetchFailed && cloudPlans.length > 0
         ? [...cloudPlans, ...state.plans]
         : state.plans;
       const consolidatedPlans = deduplicatePlans(rawPlans);
 
-      // If cloud plans contained duplicate routine days (e.g. from previous syncs),
-      // clean them up in the cloud database as well.
-      if (cloudPlans.length > 0 && consolidatedPlans.length < cloudPlans.length) {
-        directPushAllPlansToCloud(userId, consolidatedPlans).catch(() => {});
+      // Repair the cloud when it is missing something local state still has:
+      //  - cloud duplicates were collapsed by the merge, or
+      //  - a plan only exists locally (offline custom builder routine), or
+      //  - the chosen plan has exercises while its cloud copy is empty
+      //    (child insert previously failed silently).
+      // Never push when the fetch failed, and never replace the account with
+      // an empty list.
+      let needsCloudRepair = false;
+      if (!plansFetchFailed && cloudPlans.length > 0 && consolidatedPlans.length > 0) {
+        if (consolidatedPlans.length < cloudPlans.length) {
+          needsCloudRepair = true;
+        } else {
+          const cloudById = new Map(cloudPlans.map((p) => [p.id, p] as const));
+          const cloudByTitle = new Map(
+            cloudPlans.map((p) => [(p.title || '').trim().toLowerCase(), p] as const),
+          );
+          for (const p of consolidatedPlans) {
+            const cloudCopy =
+              cloudById.get(p.id) ?? cloudByTitle.get((p.title || '').trim().toLowerCase());
+            if (!cloudCopy) {
+              needsCloudRepair = true;
+              break;
+            }
+            if ((cloudCopy.exercises?.length ?? 0) === 0 && (p.exercises?.length ?? 0) > 0) {
+              needsCloudRepair = true;
+              break;
+            }
+          }
+        }
+      }
+      if (needsCloudRepair) {
+        pushAllPlansToCloud(userId, consolidatedPlans).catch(() => {});
       }
 
       // Merge exercise defaults from cloud plans so client state inherits cloud numbers
@@ -403,7 +461,8 @@ export type OfflineMutation =
   | { type: 'wipe_all_user_data'; userId: string; timestamp: number }
   | { type: 'upsert_measurement'; userId: string; measurement: BodyMeasurement; timestamp: number }
   | { type: 'upsert_profile'; userId: string; profile: Partial<UserProfile>; timestamp: number }
-  | { type: 'push_all_plans'; userId: string; plans: WorkoutPlan[]; timestamp: number };
+  | { type: 'push_all_plans'; userId: string; plans: WorkoutPlan[]; timestamp: number }
+  | { type: 'delete_plan'; userId: string; planId: string; planTitle?: string; timestamp: number };
 
 async function getOfflineQueue(): Promise<OfflineMutation[]> {
   try {
@@ -422,10 +481,39 @@ async function saveOfflineQueue(queue: OfflineMutation[]): Promise<void> {
   }
 }
 
+// Serialize read-modify-write cycles on the persisted queue so concurrent
+// enqueues (e.g. a plan push failing while a workout push also fails) cannot
+// drop each other's mutations.
+let queueWriteChain: Promise<void> = Promise.resolve();
+
 export async function enqueueOfflineMutation(mutation: OfflineMutation): Promise<void> {
-  const queue = await getOfflineQueue();
-  queue.push(mutation);
-  await saveOfflineQueue(queue);
+  const write = queueWriteChain.then(async () => {
+    const queue = await getOfflineQueue();
+    let nextQueue: OfflineMutation[];
+    if (mutation.type === 'push_all_plans') {
+      // Whole-state snapshot: keep only the newest one per user so a stale
+      // list can never replay over newer data, and retries cannot grow the
+      // queue without bound.
+      nextQueue = queue.filter(
+        (item) => !(item.type === 'push_all_plans' && item.userId === mutation.userId),
+      );
+    } else if (mutation.type === 'delete_plan') {
+      nextQueue = queue.filter(
+        (item) =>
+          !(
+            item.type === 'delete_plan' &&
+            item.userId === mutation.userId &&
+            item.planId === mutation.planId
+          ),
+      );
+    } else {
+      nextQueue = queue;
+    }
+    nextQueue.push(mutation);
+    await saveOfflineQueue(nextQueue);
+  });
+  queueWriteChain = write.catch(() => {});
+  await write.catch(() => {});
   // Attempt to immediately process if online
   await flushOfflineSyncQueue().catch(() => {});
 }
@@ -488,6 +576,8 @@ export async function flushOfflineSyncQueue(): Promise<boolean> {
           success = !!res;
         } else if (item.type === 'push_all_plans') {
           success = await directPushAllPlansToCloud(item.userId, item.plans);
+        } else if (item.type === 'delete_plan') {
+          success = await directRemovePlanFromCloud(item.userId, item.planId, item.planTitle);
         }
       } catch (err) {
         console.warn('Error processing queued mutation:', err);
@@ -661,8 +751,32 @@ async function directPushMeasurementToCloud(userId: string, m: BodyMeasurement):
   return !error;
 }
 
-async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
-  if (!isSupabaseConfigured || !userId) return false;
+/**
+ * Plan cloud writes are serialized through a single promise chain. Call sites
+ * (setPlans, addPlan/updatePlan, patchSet, offline queue flushes, sync repair)
+ * used to run "delete everything, then re-insert" concurrently; interleaved
+ * deletes could wipe plans or their exercises, and the next sync then adopted
+ * that broken cloud state. Serializing keeps every plan mutation ordered.
+ */
+let planOpChain: Promise<unknown> = Promise.resolve();
+function withPlanLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = planOpChain.then(fn, fn);
+  planOpChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/**
+ * Pushes a single plan and returns its cloud id on success, or null on any
+ * failure. Exercise rows are upserted BEFORE stale rows are removed, so a
+ * failed write (missing exercise in the server catalog, transient error,
+ * interrupted request) can never wipe the exercises already stored in the
+ * cloud — the caller retries instead of silently saving an empty plan.
+ */
+async function pushPlanToCloudUnlocked(userId: string, plan: WorkoutPlan): Promise<string | null> {
+  if (!isSupabaseConfigured || !userId) return null;
   try {
     const validId = isValidUuid(plan.id) ? plan.id : genUuid();
     const { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
@@ -676,12 +790,10 @@ async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise
       .select('id')
       .single();
 
-    if (pErr || !pRow) return false;
-    const planId = pRow.id;
+    if (pErr || !pRow) return null;
+    const planId: string = pRow.id;
 
-    await (supabase.from('workout_plan_exercises') as any).delete().eq('plan_id', planId);
-
-    const exercisesToInsert = plan.exercises.map((e, idx) => ({
+    const exerciseRows = (plan.exercises || []).map((e, idx) => ({
       plan_id: planId,
       exercise_id: e.exerciseId,
       order_index: idx,
@@ -690,41 +802,111 @@ async function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise
       target_weight: e.targetWeightKg ?? null,
     }));
 
-    if (exercisesToInsert.length > 0) {
-      await (supabase.from('workout_plan_exercises') as any).insert(exercisesToInsert);
+    if (exerciseRows.length > 0) {
+      const { error: upsertErr } = await (supabase.from('workout_plan_exercises') as any)
+        .upsert(exerciseRows, { onConflict: 'plan_id,order_index' });
+      if (upsertErr) return null;
     }
-    return true;
-  } catch {
-    return false;
-  }
-}
 
-async function directRemovePlanFromCloud(userId: string, planId: string): Promise<boolean> {
-  if (!isSupabaseConfigured || !userId) return false;
-  // If planId is not a valid UUID (e.g. legacy/local-only id), nothing exists in Supabase to delete
-  if (!isValidUuid(planId)) return true;
-  try {
-    const { error } = await (supabase.from('workout_plans') as any)
+    // Only after the new rows are stored, drop leftovers from a previously
+    // longer version of this plan.
+    const { error: trimErr } = await (supabase.from('workout_plan_exercises') as any)
       .delete()
-      .eq('id', planId)
-      .eq('user_id', userId);
-    return !error;
+      .eq('plan_id', planId)
+      .gte('order_index', exerciseRows.length);
+    if (trimErr) return null;
+
+    return planId;
   } catch {
-    return false;
+    return null;
   }
 }
 
-async function directPushAllPlansToCloud(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
+function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<string | null> {
+  return withPlanLock(() => pushPlanToCloudUnlocked(userId, plan));
+}
+
+async function removePlanFromCloudUnlocked(
+  userId: string,
+  planId: string,
+  planTitle?: string,
+): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
   try {
-    await (supabase.from('workout_plans') as any).delete().eq('user_id', userId);
-    for (const p of plans) {
-      await directPushPlanToCloud(userId, p);
+    if (isValidUuid(planId)) {
+      const { error } = await (supabase.from('workout_plans') as any)
+        .delete()
+        .eq('id', planId)
+        .eq('user_id', userId);
+      return !error;
+    }
+    // Legacy/local-only ids were never stored as-is in Supabase (every push
+    // generated a fresh UUID). Remove cloud copies by exact title so a delete
+    // cannot leave a ghost plan that later shadows a re-created plan.
+    if (planTitle) {
+      const { error } = await (supabase.from('workout_plans') as any)
+        .delete()
+        .eq('user_id', userId)
+        .eq('name', planTitle);
+      return !error;
     }
     return true;
   } catch {
     return false;
   }
+}
+
+function directRemovePlanFromCloud(
+  userId: string,
+  planId: string,
+  planTitle?: string,
+): Promise<boolean> {
+  return withPlanLock(() => removePlanFromCloudUnlocked(userId, planId, planTitle));
+}
+
+/**
+ * Replaces the account's plans with `plans` without the previous
+ * "delete everything up front" window. Every plan is pushed first (each push
+ * is itself non-destructive); only when all pushes succeeded are cloud rows
+ * that are no longer part of the list removed. A crash or failed request
+ * mid-way therefore leaves extra plans at worst, never zero plans.
+ */
+async function replaceAllPlansUnlocked(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
+  if (!isSupabaseConfigured || !userId) return false;
+  try {
+    const keptCloudIds = new Set<string>();
+    let allPushed = true;
+    for (const p of plans) {
+      const cloudId = await pushPlanToCloudUnlocked(userId, p);
+      if (cloudId) keptCloudIds.add(cloudId);
+      else allPushed = false;
+    }
+    if (!allPushed) return false;
+
+    const { data: existing, error: fetchErr } = await (supabase.from('workout_plans') as any)
+      .select('id')
+      .eq('user_id', userId);
+    if (fetchErr) return true; // plans are safe; stale cleanup can wait for the next sync
+
+    const staleIds = ((existing || []) as { id: string }[])
+      .map((row) => row.id)
+      .filter((id) => !keptCloudIds.has(id));
+
+    if (staleIds.length > 0) {
+      const { error: deleteErr } = await (supabase.from('workout_plans') as any)
+        .delete()
+        .eq('user_id', userId)
+        .in('id', staleIds);
+      if (deleteErr) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function directPushAllPlansToCloud(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
+  return withPlanLock(() => replaceAllPlansUnlocked(userId, plans));
 }
 
 /**
@@ -747,8 +929,8 @@ export async function pushWorkoutToCloud(userId: string, workout: Workout): Prom
 export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
   if (!userId) return false;
   try {
-    const success = await directPushPlanToCloud(userId, plan);
-    if (!success) {
+    const cloudId = await directPushPlanToCloud(userId, plan);
+    if (!cloudId) {
       await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
     }
     return true;
@@ -758,13 +940,21 @@ export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promis
   }
 }
 
-export async function removePlanFromCloud(userId: string, planId: string): Promise<boolean> {
+export async function removePlanFromCloud(
+  userId: string,
+  planId: string,
+  planTitle?: string,
+): Promise<boolean> {
   if (!userId) return false;
   try {
-    await directRemovePlanFromCloud(userId, planId);
+    const success = await directRemovePlanFromCloud(userId, planId, planTitle);
+    if (!success) {
+      await enqueueOfflineMutation({ type: 'delete_plan', userId, planId, planTitle, timestamp: Date.now() });
+    }
     return true;
   } catch {
-    return false;
+    await enqueueOfflineMutation({ type: 'delete_plan', userId, planId, planTitle, timestamp: Date.now() });
+    return true;
   }
 }
 

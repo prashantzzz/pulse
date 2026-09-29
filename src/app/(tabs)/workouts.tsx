@@ -27,6 +27,7 @@ import {
 } from '../../lib/recommendations';
 import { usePulse } from '../../store/useStore';
 import { consumeWorkoutsTab } from '../../lib/nav-intent';
+import { shouldConfirmTemplateReplace } from '../../lib/plan-replacement';
 import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 import type { Difficulty, WorkoutPlan } from '../../types';
 
@@ -85,7 +86,7 @@ export default function WorkoutsScreen() {
   };
 
   const handleApplyTemplate = (template: ProgramTemplate) => {
-    if (plans.length > 0) {
+    if (shouldConfirmTemplateReplace(plans)) {
       setReplaceTarget(template);
     } else {
       applyTemplateDirectly(template);

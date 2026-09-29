@@ -13,9 +13,9 @@ function esc(str) {
   return `'${String(str).replace(/'/g, "''")}'`;
 }
 
-function arrToSql(arr) {
-  if (!arr || arr.length === 0) return "'{}'";
-  return `ARRAY[${arr.map(esc).join(', ')}]`;
+function arrToSql(arr, cast = '') {
+  const literal = !arr || arr.length === 0 ? "'{}'" : `ARRAY[${arr.map(esc).join(', ')}]`;
+  return cast ? `${literal}::${cast}` : literal;
 }
 
 const lines = [];
@@ -24,6 +24,33 @@ lines.push('-- Migration 010: seed exercise catalog');
 lines.push('-- Auto-generated from src/data/exercises.ts');
 lines.push('-- ============================================================');
 lines.push('');
+
+// Single source of truth for the target columns. Keeping `vals` and
+// `columns` in lockstep is what prevents "INSERT has more target columns
+// than expressions" when this script is used to generate a migration.
+const columns = [
+  'id',
+  'canonical_name',
+  'description',
+  'exercise_type',
+  'difficulty',
+  'movement_pattern',
+  'body_region',
+  'primary_muscle',
+  'secondary_muscles',
+  'equipment',
+  'location',
+  'beginner_friendly',
+  'animation_key',
+  'steps',
+  'common_mistakes',
+  'breathing',
+  'rep_range',
+  'beginner_tips',
+  'progression_tips',
+  'safety_tips',
+  'alternatives',
+];
 
 for (const ex of EXERCISES) {
   const stepsJson = JSON.stringify(
@@ -39,7 +66,7 @@ for (const ex of EXERCISES) {
     esc(ex.movement),
     esc(ex.region),
     esc(ex.muscleGroup),
-    arrToSql(ex.secondaryMuscles),
+    arrToSql(ex.secondaryMuscles, 'public.muscle_group[]'),
     esc(ex.equipment),
     esc(ex.location),
     esc(ex.beginnerFriendly),
@@ -54,7 +81,14 @@ for (const ex of EXERCISES) {
     arrToSql(ex.alternatives),
   ];
 
-  lines.push(`INSERT INTO public.exercises (id, canonical_name, description, exercise_type, difficulty, movement_pattern, body_region, primary_muscle, secondary_muscles, equipment, location, beginner_friendly, animation_key, about, steps, common_mistakes, breathing, rep_range, beginner_tips, progression_tips, safety_tips, alternatives) VALUES`);
+  if (vals.length !== columns.length) {
+    throw new Error(
+      `Seed column/value mismatch for exercise "${ex.id}": ` +
+        `${columns.length} columns vs ${vals.length} values`,
+    );
+  }
+
+  lines.push(`INSERT INTO public.exercises (${columns.join(', ')}) VALUES`);
   lines.push(`  (${vals.join(',\n    ')})`);
   lines.push(`ON CONFLICT (id) DO NOTHING;`);
 

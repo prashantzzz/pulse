@@ -833,11 +833,12 @@ export const usePulse = create<PulseState>()(
       },
 
       removePlan: (id) => {
+        const removed = get().plans.find((p) => p.id === id);
         set((s) => ({
           plans: s.plans.filter((p) => p.id !== id),
         }));
         supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) removePlanFromCloud(user.id, id).catch(() => {});
+          if (user) removePlanFromCloud(user.id, id, removed?.title).catch(() => {});
         }).catch(() => {});
       },
 
