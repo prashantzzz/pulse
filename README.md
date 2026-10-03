@@ -11,7 +11,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Exercise Library & Detail Guides** — Coached exercises searchable by muscle, equipment, and difficulty, each with step-by-step form guides, animated media, and muscle target heatmaps.
 - **Evidence-Based Templates & Recommendation System** — 9 curated resistance templates (3×3 matrix: Beginner/Intermediate/Advanced × 3/4/5 days, strictly 1–5 exercises/day) tailored by a pure, commutative goal-modifier engine (Muscle, Strength, Weight Loss, Endurance, Health) with dedicated cardio guidance add-ons, personalized hero recommendations, and safe active routine replacement that strictly preserves completed workout history. New accounts start with an **empty My Plans routine** — the personalized hero (or any template) is one tap from activation, and nothing is auto-added. Curated reference templates remain strictly immutable.
 - **Workout Customization & Weight/Reps Persistence** — Real-time persistence of customized weights and reps into the athlete's personal routine (`plans`) and global exercise memory (`exerciseDefaults`). When an athlete modifies weights or reps during a workout session, values forward-propagate to subsequent uncompleted sets, synchronize across all plans and workout days containing that exercise, and persist to the user's DB even if the session is later discarded. Target weights are fully customizable in the Workout Builder and synced with Supabase cloud (`workout_plan_exercises.target_weight`).
-- **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping.
+- **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping. The rotation always follows the **user's My Plans order** (Day 1 = the first plan in the list, including after a long-layoff reset).
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage (duplicate routine titles are blocked).
 - **Drag & Drop Routine Ordering** — Press and hold any plan in **My Plans** to lift it, drag it into a new position, and drop it in place while the other cards slide to reveal the slot. The custom order is persisted locally and to the cloud (`workout_plans.sort_order`), so the routine sequence survives restarts, reinstalls, and syncs across devices. Accessible "Move up / Move down" actions are exposed for assistive tech.
 - **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal. An in-progress workout is restored automatically on cold start.
@@ -144,7 +144,7 @@ Home's **Today's Workout** hero is driven by `getSmartTodayPlan(workouts, plans,
 
 1. **Live Priority:** If an active workout is in progress, displays a live resume card with completed set count and live duration.
 2. **Same-Day Celebration:** If the athlete already completed a session today, presents a celebratory summary (`COMPLETED TODAY 🎉`) with volume/sets and a button previewing the next upcoming routine.
-3. **Sequential State Continuity:** Recommends the next plan in sequence based on the last completed workout rather than naive calendar day modulo, preserving the split progression across multi-day rest gaps.
+3. **Sequential State Continuity:** Recommends the next plan in sequence based on the last completed workout rather than naive calendar day modulo, preserving the split progression across multi-day rest gaps. The sequence is read from the live My Plans order, so drag-and-drop reordering immediately changes the rotation (and which plan counts as Day 1).
 4. **Long Layoff Auto-Reset:** Inactivity gaps $> 14\text{ days}$ automatically restart from Day 1 of the user's split.
 5. **3-Tier Plan Matching Engine:** Resolves custom and ad-hoc workouts (e.g. *"My Upper"*, *"Session Alpha"*) to the user's saved plans via:
    - **Tier 1:** Exact Title / Plan ID Match
@@ -244,9 +244,39 @@ Configure your project in the [Supabase Dashboard](https://supabase.com/dashboar
 4. Save. Changes take effect immediately — no app rebuild needed for this step.
 
 ### 3. Google OAuth Setup
-1. In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth 2.0 Web Client.
+
+This app uses **Google Cloud OAuth clients directly** (no Firebase /
+`google-services.json`), with the Web Client ID injected at build time via
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (`eas.json` sets it for preview/production).
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth 2.0 **Web** Client in the project that owns `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
 2. Set **Authorized redirect URI** to `https://<your-project-ref>.supabase.co/auth/v1/callback`.
-3. In **Supabase Dashboard** → **Authentication** → **Providers** → **Google**, paste your Client ID and Secret.
+3. In **Supabase Dashboard** → **Authentication** → **Providers** → **Google**, paste your **Web** Client ID and Secret.
+4. In the same Google Cloud project, create an OAuth 2.0 **Android** client:
+   - **Package name:** `com.nextrep.fitnesstracker`
+   - **SHA-1:** the signing certificate of the installed APK (see troubleshooting below)
+   - Each Android client accepts exactly **one** SHA-1; create separate Android clients for Play App Signing, EAS preview builds and local debug builds.
+5. iOS: create an **iOS** OAuth client with the bundle id `com.nextrep.fitnesstracker` and pass its client id / reversed URL scheme through the `@react-native-google-signin/google-signin` plugin options, or add a Firebase `google-services.json` / `GoogleService-Info.plist`.
+
+#### Troubleshooting `DEVELOPER_ERROR` / "Google Sign-In configuration mismatch (Code 10)"
+
+Code 10 comes from Google Play Services **before** Supabase is called. It means
+the running app's **package name + signing SHA-1** do not match any Android
+OAuth client in the Google Cloud project that owns the Web Client ID.
+
+For apps installed **from Google Play**, the APK is re-signed by **Play App
+Signing** — registering only the EAS/upload/debug SHA-1 will fail for every
+store user. Get the right fingerprint from
+**Play Console → Test and release → Setup → App signing → App signing key certificate**
+and register it in Google Cloud Console → APIs & Services → Credentials.
+
+Useful commands:
+```bash
+npx eas-cli credentials            # EAS keystore SHA-1 (preview APKs)
+keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android -keypass android  # local debug
+```
+After saving the credentials, wait up to an hour (Google caches OAuth config)
+and retry — **no app rebuild is required**.
 
 ---
 
@@ -283,7 +313,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
-npm test           # jest — 32 consolidated test suites (423 tests)
+npm test           # jest — 32 consolidated test suites (430 tests)
 ```
 
 ### Database Migrations

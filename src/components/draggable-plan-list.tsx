@@ -18,7 +18,6 @@ import {
   computePlanDragGeometry,
   movePlanByOffset,
   type PlanDragGeometry,
-  type PlanRowLayout,
 } from '../lib/plan-order';
 import { colors, radius, shadows, spacing } from '../theme';
 import type { WorkoutPlan } from '../types';
@@ -38,12 +37,15 @@ import { PlanCard } from './workout-card';
  * - The long press is detected by the PlanCard Pressable itself; the row's
  *   PanResponder only claims the gesture once a drag has been armed and the
  *   finger starts moving, so normal taps / Start / Edit keep working.
- * - Card heights are measured on layout, so expanded cards and mixed card
- *   heights reorder correctly.
+ * - Only card heights are measured on layout; row positions are always derived
+ *   from the live order (react-native-web only re-fires onLayout on size
+ *   changes, so cached y coordinates would go stale after the first reorder).
  */
 
 const SHIFT_DURATION_MS = 170;
 const SETTLE_DURATION_MS = 180;
+/** Must match the flex `gap` used by the list container. */
+const ROW_GAP = spacing.md;
 
 interface DragSession {
   id: string;
@@ -77,7 +79,10 @@ export function DraggablePlanList({
   const plansRef = useRef(plans);
   const onReorderRef = useRef(onReorder);
   const onDragStateChangeRef = useRef(onDragStateChange);
-  const layoutsRef = useRef(new Map<string, PlanRowLayout>());
+  // Measured row heights only. Positions are derived from the live order at
+  // drag time, because onLayout does not reliably re-fire when a card merely
+  // moves to a new slot (react-native-web fires it on size changes only).
+  const rowHeightsRef = useRef(new Map<string, number>());
   const translatesRef = useRef(new Map<string, Animated.Value>());
   const shiftsRef = useRef(new Map<string, number>());
   const dragRef = useRef<DragSession | null>(null);
@@ -116,17 +121,18 @@ export function DraggablePlanList({
   );
 
   const measureRow = useCallback((id: string, e: LayoutChangeEvent) => {
-    const { y, height } = e.nativeEvent.layout;
-    layoutsRef.current.set(id, { y, height });
+    // Only the height matters; y positions are derived from the current order.
+    rowHeightsRef.current.set(id, e.nativeEvent.layout.height);
   }, []);
 
   const computeGeometry = useCallback(
     (dragId: string, dy: number): PlanDragGeometry | null =>
       computePlanDragGeometry(
         plansRef.current.map((p) => p.id),
-        layoutsRef.current,
+        rowHeightsRef.current,
         dragId,
         dy,
+        ROW_GAP,
       ),
     [],
   );
@@ -180,7 +186,7 @@ export function DraggablePlanList({
       if (currentPlans.length < 2) return false;
       const index = currentPlans.findIndex((p) => p.id === id);
       if (index < 0) return false;
-      if (!currentPlans.every((p) => layoutsRef.current.has(p.id))) return false;
+      if (!currentPlans.every((p) => rowHeightsRef.current.has(p.id))) return false;
 
       dragRef.current = {
         id,
@@ -457,7 +463,7 @@ function DraggablePlanRow({
 
 const styles = StyleSheet.create({
   list: {
-    gap: spacing.md,
+    gap: ROW_GAP,
   },
   row: {
     position: 'relative',

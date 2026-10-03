@@ -69,7 +69,7 @@ function renderList(plans: WorkoutPlan[] = PLANS) {
 
   const cards = renderer.root.findAllByType(PlanCard);
 
-  return { createSpy, configs, cards, onReorder };
+  return { renderer, createSpy, configs, cards, onReorder };
 }
 
 describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () => {
@@ -177,5 +177,45 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
       cards[1].props.onMoveDown?.();
     });
     expect(onReorder).toHaveBeenCalledWith(['a', 'c', 'b']);
+  });
+
+  it('reorders correctly on consecutive drags without new onLayout events (react-native-web)', () => {
+    const { renderer, configs, onReorder } = renderList();
+    const cardFor = (id: string) =>
+      renderer.root.findAllByType(PlanCard).find((c) => c.props.plan.id === id)!;
+    // PanResponder configs are created once per row at mount, in PLANS order.
+    const configFor: Record<string, PanConfig> = { a: configs[0], b: configs[1], c: configs[2] };
+
+    // First drag: a down past b -> [b, a, c].
+    act(() => {
+      cardFor('a').props.onLongPress();
+    });
+    act(() => {
+      configFor.a.onPanResponderGrant();
+      configFor.a.onPanResponderMove(null, { dy: 160 });
+      configFor.a.onPanResponderRelease();
+    });
+    expect(onReorder).toHaveBeenLastCalledWith(['b', 'a', 'c']);
+
+    // The parent applies the new order. On react-native-web no onLayout event
+    // fires for the moved cards (heights unchanged), so a naive implementation
+    // would keep using stale y positions here.
+    act(() => {
+      renderer.update(
+        <DraggablePlanList plans={[PLANS[1], PLANS[0], PLANS[2]]} onReorder={onReorder} />,
+      );
+    });
+
+    // Second drag: b (now first) down 150px -> its centre passes a's NEW
+    // midpoint (210) but not c's (330) -> back to [a, b, c].
+    act(() => {
+      cardFor('b').props.onLongPress();
+    });
+    act(() => {
+      configFor.b.onPanResponderGrant();
+      configFor.b.onPanResponderMove(null, { dy: 150 });
+      configFor.b.onPanResponderRelease();
+    });
+    expect(onReorder).toHaveBeenLastCalledWith(['a', 'b', 'c']);
   });
 });

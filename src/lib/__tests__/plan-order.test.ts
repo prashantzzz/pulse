@@ -1,18 +1,18 @@
 import { applyPlanOrder, computePlanDragGeometry, movePlanByOffset } from '../plan-order';
-import type { PlanRowLayout } from '../plan-order';
 import type { WorkoutPlan } from '../../types';
 
 function plan(id: string): WorkoutPlan {
   return { id, title: `Plan ${id}`, emoji: '💪', muscles: [], exercises: [] };
 }
 
-/** Three cards of different heights with a 10px flex gap. */
-const layouts = (): Map<string, PlanRowLayout> =>
-  new Map<string, PlanRowLayout>([
-    ['a', { y: 0, height: 100 }],
-    ['b', { y: 110, height: 150 }],
-    ['c', { y: 270, height: 120 }],
+/** Card heights (a=100, b=150, c=120) for a 10px flex gap. */
+const heights = (): Map<string, number> =>
+  new Map([
+    ['a', 100],
+    ['b', 150],
+    ['c', 120],
   ]);
+const GAP = 10;
 
 describe('applyPlanOrder (My Plans drag & drop)', () => {
   it('returns plans in the dragged id order', () => {
@@ -63,7 +63,7 @@ describe('computePlanDragGeometry (drag projection)', () => {
   const ids = ['a', 'b', 'c'];
 
   it('keeps everything at rest when the card has not moved', () => {
-    const geo = computePlanDragGeometry(ids, layouts(), 'b', 0);
+    const geo = computePlanDragGeometry(ids, heights(), 'b', 0, GAP);
 
     expect(geo).not.toBeNull();
     expect(geo!.targetOrder).toEqual(['a', 'b', 'c']);
@@ -72,8 +72,8 @@ describe('computePlanDragGeometry (drag projection)', () => {
   });
 
   it('drops the dragged card after the next card once its centre passes it', () => {
-    // b's centre (185) must pass c's original centre (330) -> dy > 145.
-    const geo = computePlanDragGeometry(ids, layouts(), 'b', 150)!;
+    // b's centre (185) must pass c's midpoint (330) -> dy > 145.
+    const geo = computePlanDragGeometry(ids, heights(), 'b', 150, GAP)!;
 
     expect(geo.targetOrder).toEqual(['a', 'c', 'b']);
     expect(geo.hoverIndex).toBe(2);
@@ -83,8 +83,8 @@ describe('computePlanDragGeometry (drag projection)', () => {
   });
 
   it('drops the dragged card before the previous card when dragged up', () => {
-    // b's centre (185) must pass a's centre (50) -> dy < -135.
-    const geo = computePlanDragGeometry(ids, layouts(), 'b', -200)!;
+    // b's centre (185) must pass a's midpoint (50) -> dy < -135.
+    const geo = computePlanDragGeometry(ids, heights(), 'b', -200, GAP)!;
 
     expect(geo.targetOrder).toEqual(['b', 'a', 'c']);
     expect(geo.hoverIndex).toBe(0);
@@ -94,7 +94,7 @@ describe('computePlanDragGeometry (drag projection)', () => {
   });
 
   it('clamps at the ends when dragged far past the list', () => {
-    const geo = computePlanDragGeometry(ids, layouts(), 'a', 999)!;
+    const geo = computePlanDragGeometry(ids, heights(), 'a', 999, GAP)!;
 
     expect(geo.targetOrder).toEqual(['b', 'c', 'a']);
     expect(geo.hoverIndex).toBe(2);
@@ -104,15 +104,15 @@ describe('computePlanDragGeometry (drag projection)', () => {
   });
 
   it('handles mixed card heights when a tall card moves between short ones', () => {
-    const mixed = new Map<string, PlanRowLayout>([
-      ['short1', { y: 0, height: 60 }],
-      ['tall', { y: 70, height: 240 }],
-      ['short2', { y: 320, height: 60 }],
+    const mixed = new Map<string, number>([
+      ['short1', 60],
+      ['tall', 240],
+      ['short2', 60],
     ]);
 
-    // Drag the tall card down past short2's centre (350): its centre
+    // Drag the tall card down past short2's midpoint (350): its centre
     // (70 + 120 = 190) must exceed it.
-    const geo = computePlanDragGeometry(['short1', 'tall', 'short2'], mixed, 'tall', 200)!;
+    const geo = computePlanDragGeometry(['short1', 'tall', 'short2'], mixed, 'tall', 200, GAP)!;
 
     expect(geo.targetOrder).toEqual(['short1', 'short2', 'tall']);
     // short2 slides up by the tall card's height + gap (240 + 10).
@@ -121,14 +121,46 @@ describe('computePlanDragGeometry (drag projection)', () => {
   });
 
   it('returns null until every row has been measured', () => {
-    const partial = layouts();
+    const partial = heights();
     partial.delete('c');
-    expect(computePlanDragGeometry(ids, partial, 'b', 100)).toBeNull();
+    expect(computePlanDragGeometry(ids, partial, 'b', 100, GAP)).toBeNull();
   });
 
   it('returns null for an unknown dragged id or a single-card routine', () => {
-    expect(computePlanDragGeometry(ids, layouts(), 'missing', 100)).toBeNull();
-    expect(computePlanDragGeometry(['a'], layouts(), 'a', 100)).toBeNull();
+    expect(computePlanDragGeometry(ids, heights(), 'missing', 100, GAP)).toBeNull();
+    expect(computePlanDragGeometry(['a'], heights(), 'a', 100, GAP)).toBeNull();
+  });
+});
+
+describe('computePlanDragGeometry across consecutive drags (stale-coordinate regression)', () => {
+  const rowHeights = new Map<string, number>([
+    ['a', 100],
+    ['b', 150],
+    ['c', 120],
+  ]);
+  const drag = (order: string[], dragId: string, dy: number): string[] =>
+    computePlanDragGeometry(order, rowHeights, dragId, dy, GAP)!.targetOrder;
+
+  it('applies a chain of swaps using only the live order and measured heights', () => {
+    // c to top.
+    expect(drag(['a', 'b', 'c'], 'c', -280)).toEqual(['c', 'a', 'b']);
+    // b (now last) to top.
+    expect(drag(['c', 'a', 'b'], 'b', -300)).toEqual(['b', 'c', 'a']);
+    // a (now last) into the middle.
+    expect(drag(['b', 'c', 'a'], 'a', -200)).toEqual(['b', 'a', 'c']);
+    // b (now first) to the bottom.
+    expect(drag(['b', 'a', 'c'], 'b', 400)).toEqual(['a', 'c', 'b']);
+    // c (now middle) back to the top.
+    expect(drag(['a', 'c', 'b'], 'c', -130)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('resolves against the new slots immediately after a reorder (web: onLayout only fires on size changes)', () => {
+    // Order changed to [b, a, c] but the cards kept their heights, so no new
+    // onLayout events arrive on react-native-web. Dragging b down 150px must
+    // resolve against a's *new* midpoint, not its old cached position.
+    const geo = computePlanDragGeometry(['b', 'a', 'c'], rowHeights, 'b', 150, GAP)!;
+
+    expect(geo.targetOrder).toEqual(['a', 'b', 'c']);
   });
 });
 

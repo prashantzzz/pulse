@@ -1177,6 +1177,74 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
     expect(result.isLongLayoff).toBe(true);
   });
 
+  it("respects the user's dragged routine order for Day 1 (first plan in My Plans)", () => {
+    // User drags Legs to the top of My Plans: Legs, Push, Pull.
+    const reordered = [samplePlans[2], samplePlans[0], samplePlans[1]];
+
+    const result = getSmartTodayPlan([], reordered);
+
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-legs');
+  });
+
+  it('rotates through the dragged routine order after a completed workout', () => {
+    // User drags Legs to the top of My Plans: Legs, Push, Pull.
+    const reordered = [samplePlans[2], samplePlans[0], samplePlans[1]];
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Legs & Calves', // now Day 1
+        startTime: twoDaysAgo,
+        endTime: twoDaysAgo,
+        exercises: [makeWorkoutExercise('squat', [makeSet({ weightKg: 100, reps: 8, completed: true })])],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, reordered);
+
+    expect(result.state).toBe('READY_TO_START');
+    expect(result.plan?.id).toBe('plan-push'); // Day 2 in the new order
+  });
+
+  it('wraps to the first reordered plan after the last one is completed', () => {
+    const reordered = [samplePlans[2], samplePlans[0], samplePlans[1]]; // Legs, Push, Pull
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Pull Hypertrophy', // last in the new order
+        startTime: twoDaysAgo,
+        endTime: twoDaysAgo,
+        exercises: [
+          makeWorkoutExercise('lat-pulldown', [makeSet({ weightKg: 70, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, reordered);
+
+    expect(result.plan?.id).toBe('plan-legs'); // wraps to the new Day 1
+  });
+
+  it('long-layoff restart uses the first plan of the dragged routine', () => {
+    const reordered = [samplePlans[2], samplePlans[0], samplePlans[1]]; // Legs, Push, Pull
+    const twentyDaysAgo = new Date(Date.now() - 20 * 86400000).toISOString();
+    const workouts: Workout[] = [
+      makeWorkout({
+        title: 'Pull Hypertrophy',
+        startTime: twentyDaysAgo,
+        endTime: twentyDaysAgo,
+        exercises: [
+          makeWorkoutExercise('lat-pulldown', [makeSet({ weightKg: 70, reps: 10, completed: true })]),
+        ],
+      }),
+    ];
+
+    const result = getSmartTodayPlan(workouts, reordered);
+
+    expect(result.isLongLayoff).toBe(true);
+    expect(result.plan?.id).toBe('plan-legs'); // restart at the user's Day 1
+  });
+
   it('handles two-a-day workouts by correctly pointing to the sequence after the latest completed session', () => {
     const now = Date.now();
     const morning = new Date(now - 15 * 60000).toISOString();

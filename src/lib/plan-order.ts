@@ -1,11 +1,5 @@
 import type { WorkoutPlan } from '../types';
 
-export interface PlanRowLayout {
-  /** y offset of the row within the list container */
-  y: number;
-  height: number;
-}
-
 export interface PlanDragGeometry {
   /** full order of plan ids if the drag were released now */
   targetOrder: string[];
@@ -57,39 +51,49 @@ export function applyPlanOrder(
 /**
  * Computes the projected layout for a drag of `dragId` by `dy` pixels.
  *
- * The dragged card's centre picks its slot against the original centres of the
- * remaining rows (monotonic thresholds, so mixed card heights reorder
- * correctly). The projected order is then laid out cumulatively using each
- * row's measured height plus the constant flex gap, which yields the translate
- * every row needs to show the drop slot.
+ * Row tops are always derived from the live id order plus each row's measured
+ * height and the constant flex gap — never from cached `onLayout` coordinates.
+ * On web (react-native-web) `onLayout` is driven by a `ResizeObserver` and
+ * therefore only fires on size changes: a card that merely moves to a new slot
+ * keeps its stale y, which used to corrupt every drag after the first. Heights
+ * do change (a card expands/collapses), so this stays accurate on native and
+ * web alike.
  *
- * Pure function: the drag list feeds it measured layouts and animates the
- * resulting offsets.
+ * The dragged card's centre picks its slot against the other rows' midpoints;
+ * the projected order is then laid out cumulatively to obtain the translate
+ * each row needs to reveal the drop slot.
+ *
+ * Pure function: the drag list feeds it the current order and measured heights
+ * and animates the resulting offsets.
  */
 export function computePlanDragGeometry(
   orderedIds: readonly string[],
-  layouts: ReadonlyMap<string, PlanRowLayout>,
+  rowHeights: ReadonlyMap<string, number>,
   dragId: string,
   dy: number,
+  gap: number,
 ): PlanDragGeometry | null {
   const ids = [...orderedIds];
   if (ids.length < 2 || !ids.includes(dragId)) return null;
-  if (!ids.every((id) => layouts.has(id))) return null;
+  if (!ids.every((id) => rowHeights.has(id))) return null;
 
-  const first = layouts.get(ids[0])!;
-  const second = layouts.get(ids[1])!;
-  const dragged = layouts.get(dragId)!;
+  // Current top of every row under the live order.
+  const tops = new Map<string, number>();
+  let cursor = 0;
+  for (const id of ids) {
+    tops.set(id, cursor);
+    cursor += (rowHeights.get(id) ?? 0) + gap;
+  }
 
-  // Constant gap between rows (the list uses flex `gap`), derived from layout.
-  const gap = Math.max(0, second.y - (first.y + first.height));
-  const baseY = first.y;
+  const draggedTop = tops.get(dragId) ?? 0;
+  const draggedHeight = rowHeights.get(dragId) ?? 0;
+  const draggedCenter = draggedTop + draggedHeight / 2 + dy;
 
-  const draggedCenter = dragged.y + dragged.height / 2 + dy;
   const remaining = ids.filter((id) => id !== dragId);
   let hoverIndex = 0;
   for (const id of remaining) {
-    const row = layouts.get(id)!;
-    if (row.y + row.height / 2 < draggedCenter) hoverIndex += 1;
+    const midpoint = (tops.get(id) ?? 0) + (rowHeights.get(id) ?? 0) / 2;
+    if (midpoint < draggedCenter) hoverIndex += 1;
     else break;
   }
 
@@ -100,22 +104,22 @@ export function computePlanDragGeometry(
   ];
 
   // Cumulative layout of the projected order defines where every row lands.
-  let cursor = baseY;
-  const projected = new Map<string, number>();
+  let projectedCursor = 0;
+  const projectedTops = new Map<string, number>();
   for (const id of targetOrder) {
-    projected.set(id, cursor);
-    cursor += layouts.get(id)!.height + gap;
+    projectedTops.set(id, projectedCursor);
+    projectedCursor += (rowHeights.get(id) ?? 0) + gap;
   }
 
   const shifts = new Map<string, number>();
   for (const id of targetOrder) {
     if (id === dragId) continue;
-    shifts.set(id, (projected.get(id) ?? 0) - layouts.get(id)!.y);
+    shifts.set(id, (projectedTops.get(id) ?? 0) - (tops.get(id) ?? 0));
   }
 
   return {
     targetOrder,
-    snap: (projected.get(dragId) ?? dragged.y) - dragged.y,
+    snap: (projectedTops.get(dragId) ?? draggedTop) - draggedTop,
     shifts,
     hoverIndex,
   };
