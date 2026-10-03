@@ -125,18 +125,21 @@ async function flushUntilScrollSettles(
 
 describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () => {
   let timingSpy: jest.SpyInstance;
+  let springSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // Complete every settle/shift animation synchronously so drop commits are
-    // deterministic in tests.
-    timingSpy = jest.spyOn(Animated, 'timing').mockImplementation(((value: any, config: any) => ({
+    // deterministic in tests (shifts use Animated.spring, the settle timing).
+    const completeImmediately = (value: any, config: any) => ({
       start: (cb?: (result: { finished: boolean }) => void) => {
         value.setValue(config.toValue);
         cb?.({ finished: true });
       },
       stop: jest.fn(),
       reset: jest.fn(),
-    })) as any);
+    });
+    timingSpy = jest.spyOn(Animated, 'timing').mockImplementation(completeImmediately as any);
+    springSpy = jest.spyOn(Animated, 'spring').mockImplementation(completeImmediately as any);
   });
 
   afterEach(() => {
@@ -148,6 +151,7 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
       }
     });
     timingSpy.mockRestore();
+    springSpy.mockRestore();
     jest.restoreAllMocks();
   });
 

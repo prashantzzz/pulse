@@ -53,8 +53,9 @@ import { PlanCard } from './workout-card';
  *   into content coordinates so the lifted card keeps following the finger.
  */
 
-const SHIFT_DURATION_MS = 170;
 const SETTLE_DURATION_MS = 180;
+/** Snappy, non-overshooting spring for rows sliding out of the dragged card's way. */
+const SHIFT_SPRING = { speed: 20, bounciness: 0 } as const;
 /** Must match the flex `gap` used by the list container. */
 const ROW_GAP = spacing.md;
 /**
@@ -140,6 +141,9 @@ export function DraggablePlanList({
   /** Last offset confirmed by the parent's onScroll (stagnation detection). */
   const lastConfirmedOffsetRef = useRef(-1);
   const stagnantFramesRef = useRef(0);
+  /** Pending gesture sample, applied once per animation frame. */
+  const moveFrameRef = useRef<number | null>(null);
+  const pendingMoveRef = useRef<{ id: string; move: DragMoveInfo } | null>(null);
 
   // Keep the gesture handlers reading the latest props without re-creating them.
   useEffect(() => {
@@ -180,12 +184,17 @@ export function DraggablePlanList({
     }
   }, []);
 
-  // Never leave the screen-level swipe lock or the auto-scroll loop engaged if
-  // the list unmounts mid-drag.
+  // Never leave the screen-level swipe lock or any pending frame/auto-scroll
+  // loop engaged if the list unmounts mid-drag.
   useEffect(
     () => () => {
       setInnerHorizontalActive(false);
       stopAutoScroll();
+      if (moveFrameRef.current != null) {
+        cancelAnimationFrame(moveFrameRef.current);
+        moveFrameRef.current = null;
+      }
+      pendingMoveRef.current = null;
     },
     [stopAutoScroll],
   );
@@ -208,13 +217,14 @@ export function DraggablePlanList({
   );
 
   const animateTranslate = useCallback(
-    (id: string, toValue: number, duration = SHIFT_DURATION_MS) => {
+    (id: string, toValue: number) => {
       const value = getTranslate(id);
       value.stopAnimation();
-      Animated.timing(value, {
+      // Springs handle interruption/retargeting much better than fixed-duration
+      // timings, which looked stuttery when dragging quickly across rows.
+      Animated.spring(value, {
         toValue,
-        duration,
-        easing: Easing.out(Easing.cubic),
+        ...SHIFT_SPRING,
         useNativeDriver: true,
       }).start();
     },
@@ -230,9 +240,9 @@ export function DraggablePlanList({
     (session: DragSession) => {
       const offset = scrollOffsetRef?.current ?? 0;
       const contentDy = contentDragDy(session.lastScreenDy, offset, session.scrollOffsetAtStart);
-      const translate = getTranslate(session.id);
-      translate.stopAnimation();
-      translate.setValue(contentDy);
+      // No stopAnimation() here: no animation runs on the dragged row during a
+      // drag, and calling into the native driver on every frame was costly.
+      getTranslate(session.id).setValue(contentDy);
 
       const geometry = computeGeometry(session.id, contentDy);
       if (!geometry) return;
@@ -321,6 +331,39 @@ export function DraggablePlanList({
     [runAutoScrollFrame, scrollLimitRef, scrollOffsetRef, scrollRef, stopAutoScroll],
   );
 
+  // ── Frame-coalesced gesture updates ───────────────────────────────────────
+  // PanResponder can emit several move events per display frame (especially at
+  // 90/120 Hz). Applying each one re-ran the geometry and re-targeted row
+  // springs, so only the latest position is applied once per animation frame.
+
+  const cancelPendingMoveFrame = useCallback(() => {
+    if (moveFrameRef.current != null) {
+      cancelAnimationFrame(moveFrameRef.current);
+      moveFrameRef.current = null;
+    }
+  }, []);
+
+  const processPendingMove = useCallback(() => {
+    moveFrameRef.current = null;
+    const pending = pendingMoveRef.current;
+    pendingMoveRef.current = null;
+    if (!pending) return;
+
+    const session = dragRef.current;
+    if (!session || session.id !== pending.id || !session.active) return;
+
+    // Auto-scroll zones react synchronously in handleDragMove; only the
+    // geometry/animation work is coalesced to one update per frame.
+    session.lastScreenDy = pending.move.dy;
+    applyDragOffset(session);
+  }, [applyDragOffset]);
+
+  /** Applies any queued move immediately (used right before drop/cancel). */
+  const flushPendingMove = useCallback(() => {
+    cancelPendingMoveFrame();
+    processPendingMove();
+  }, [cancelPendingMoveFrame, processPendingMove]);
+
   const resetRows = useCallback(() => {
     for (const value of translatesRef.current.values()) {
       value.stopAnimation();
@@ -403,10 +446,13 @@ export function DraggablePlanList({
       // really starts, so auto-scroll corrections are measured from here.
       session.scrollOffsetAtStart = scrollOffsetRef?.current ?? 0;
       session.startPointerY = Number.isFinite(startPointerY) ? startPointerY : 0;
+      // Clear any leftover settle/snap-back animation once, so the per-frame
+      // path can use plain setValue without native-driver chatter.
+      getTranslate(id).stopAnimation();
       setInnerHorizontalActive(true);
       setDragging(id);
     },
-    [scrollOffsetRef, setDragging],
+    [getTranslate, scrollOffsetRef, setDragging],
   );
 
   const handleDragMove = useCallback(
@@ -414,22 +460,26 @@ export function DraggablePlanList({
       const session = dragRef.current;
       if (!session || session.id !== id || !session.active) return;
 
-      session.lastScreenDy = move.dy;
-      // Prefer the reported pointer position, but fall back to the gesture
-      // origin + dy: some platforms (e.g. react-native-web mouse events) do not
-      // populate moveY reliably.
+      // Edge auto-scroll reacts immediately (cheap zone math)...
       const pointerY =
         Number.isFinite(move.moveY) && move.moveY > 0
           ? move.moveY
           : session.startPointerY + move.dy;
       refreshAutoScroll(pointerY);
-      applyDragOffset(session);
+
+      // ...while the geometry/animation work is coalesced to one update per
+      // frame (PanResponder can emit several move events per display frame).
+      pendingMoveRef.current = { id, move };
+      if (moveFrameRef.current == null) {
+        moveFrameRef.current = requestAnimationFrame(processPendingMove);
+      }
     },
-    [applyDragOffset, refreshAutoScroll],
+    [processPendingMove, refreshAutoScroll],
   );
 
   const handleDragEnd = useCallback(
     (id: string) => {
+      flushPendingMove();
       stopAutoScroll();
       const session = dragRef.current;
       if (!session || session.id !== id) {
@@ -452,26 +502,28 @@ export function DraggablePlanList({
         commitOrder(session.targetOrder);
       });
     },
-    [commitOrder, getTranslate, setDragging, stopAutoScroll],
+    [commitOrder, flushPendingMove, getTranslate, setDragging, stopAutoScroll],
   );
 
   const handleDragCancel = useCallback(
     (id: string) => {
+      cancelPendingMoveFrame();
+      pendingMoveRef.current = null;
       stopAutoScroll();
       const session = dragRef.current;
       if (!session || session.id !== id) return;
       // Animate everything back to rest; the refs are cleared immediately so a
       // new gesture can start before the snap-back finishes.
-      animateTranslate(id, 0, SETTLE_DURATION_MS);
+      animateTranslate(id, 0);
       for (const [rowId, shift] of shiftsRef.current) {
-        if (shift !== 0) animateTranslate(rowId, 0, SETTLE_DURATION_MS);
+        if (shift !== 0) animateTranslate(rowId, 0);
       }
       shiftsRef.current.clear();
       dragRef.current = null;
       setInnerHorizontalActive(false);
       setDragging(null);
     },
-    [animateTranslate, setDragging, stopAutoScroll],
+    [animateTranslate, cancelPendingMoveFrame, setDragging, stopAutoScroll],
   );
 
   /** Accessibility / keyboard move by one slot. */
@@ -614,6 +666,9 @@ function DraggablePlanRow({
   return (
     <Animated.View
       onLayout={(e) => onRowLayout(plan.id, e)}
+      // Promote the lifted card to a hardware layer on Android so translating
+      // it stays smooth while the rest of the list animates around it.
+      renderToHardwareTextureAndroid={dragging}
       style={[
         styles.row,
         dragging && styles.rowDragging,
