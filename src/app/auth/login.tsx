@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,16 +19,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
-import { formatAuthError, isValidEmail, signInWithEmail, signInWithGoogle } from '../../lib/auth';
+import { formatAuthError, isValidEmail, resendConfirmationEmail, signInWithEmail, signInWithGoogle } from '../../lib/auth';
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function LoginScreen() {
   useAccent();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
   const onboarded = usePulse((s) => s.onboarded);
   const isInitialized = useAuth((s) => s.isInitialized);
   const isAuthenticated = useAuth((s) => s.isAuthenticated);
@@ -40,12 +41,37 @@ export default function LoginScreen() {
     }
   }, [isInitialized, isAuthenticated, isVerifyingUser, onboarded, router]);
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => (typeof emailParam === 'string' ? emailParam : ''));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** True when sign-in failed because the account's email is not confirmed. */
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  const handleResendConfirmation = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !isValidEmail(cleanEmail) || resending || resendIn > 0) return;
+    setResending(true);
+    try {
+      await resendConfirmationEmail(cleanEmail);
+      setResendIn(60);
+      toast('Confirmation email sent — check your inbox');
+    } catch (err: unknown) {
+      toast(formatAuthError(err));
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSignIn = async () => {
     const cleanEmail = email.trim().toLowerCase();
@@ -62,6 +88,7 @@ export default function LoginScreen() {
     }
 
     setErrorMessage(null);
+    setNeedsConfirmation(false);
     setLoading(true);
     useAuth.setState({ isVerifyingUser: true });
 
@@ -90,6 +117,10 @@ export default function LoginScreen() {
       }
     } catch (err: unknown) {
       useAuth.setState({ isVerifyingUser: false });
+      const rawMessage = String((err as { message?: string })?.message ?? '').toLowerCase();
+      setNeedsConfirmation(
+        rawMessage.includes('email not confirmed') || rawMessage.includes('email_not_confirmed'),
+      );
       const msg = formatAuthError(err);
       setErrorMessage(msg);
       toast(msg);
@@ -193,6 +224,23 @@ export default function LoginScreen() {
               <T variant="smallMedium" style={{ color: colors.red, flex: 1 }}>
                 {errorMessage}
               </T>
+            </View>
+          ) : null}
+
+          {/* Resend confirmation action (account exists but email is unverified) */}
+          {needsConfirmation ? (
+            <View style={styles.resendCard}>
+              <T variant="micro" dim style={{ flex: 1, lineHeight: 16 }}>
+                Didn&apos;t get the email? We can send the confirmation link again.
+              </T>
+              <Pressable
+                onPress={handleResendConfirmation}
+                disabled={resending || resendIn > 0}
+                hitSlop={8}>
+                <T variant="smallSemi" accent>
+                  {resending ? 'Sending...' : resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend email'}
+                </T>
+              </Pressable>
             </View>
           ) : null}
 
@@ -334,6 +382,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.lg,
+  },
+  resendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginTop: spacing.sm,
   },
   googleBtn: {
     flexDirection: 'row',

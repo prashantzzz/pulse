@@ -81,7 +81,7 @@ export default function OnboardingScreen() {
     { title: 'Pick your accent', subtitle: 'The color that powers NextRep', body: '', cta: 'Next' },
     { title: 'Height & Weight', subtitle: 'Calculate your BMI and set your baseline', body: '', cta: 'Next' },
     { title: "What's your goal?", subtitle: 'Choose up to 2', body: '', cta: 'Next' },
-    { title: 'How experienced are you?', subtitle: 'We tailor your training plan', body: '', cta: 'Next' },
+    { title: 'How experienced are you?', subtitle: "We'll recommend the right plan for you", body: '', cta: 'Next' },
     { title: 'How often do you train?', subtitle: 'A typical week for you', body: '', cta: 'Next' },
     { title: 'What equipment do you have?', subtitle: 'Select all that apply', body: '', cta: 'Next' },
     { title: 'Favorite training style?', subtitle: 'Select all that apply', body: '', cta: 'Next' },

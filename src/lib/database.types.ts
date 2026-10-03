@@ -142,6 +142,8 @@ export interface Database {
           description: string | null;
           emoji: string | null;
           muscles: string[];
+          /** position within the user's active routine (drag & drop order) */
+          sort_order: number;
           created_at: string;
           updated_at: string;
         };

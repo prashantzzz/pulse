@@ -9,7 +9,7 @@ import { T } from '../../components/Text';
 import { BottomSheet, EmptyState, toast } from '../../components/misc';
 import { ExerciseThumb, planIcon } from '../../components/muscle-icon';
 import { Button, Card, Chip, Row, Screen, Segmented, Tag } from '../../components/ui';
-import { PlanCard } from '../../components/workout-card';
+import { DraggablePlanList } from '../../components/draggable-plan-list';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../components/collapsible';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
@@ -40,9 +40,14 @@ export default function WorkoutsScreen() {
   const startWorkout = usePulse((s) => s.startWorkout);
   const plans = usePulse((s) => s.plans);
   const setPlans = usePulse((s) => s.setPlans);
+  const reorderPlans = usePulse((s) => s.reorderPlans);
   const profile = usePulse((s) => s.profile);
 
   const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
+
+  // Disable page scrolling while a plan card is being dragged, so the drag
+  // gesture is never stolen by the ScrollView mid-reorder.
+  const [reorderingPlans, setReorderingPlans] = useState(false);
 
   // Open a specific segment when arriving with a navigation intent (e.g. the
   // Log hub's "Browse Workout Templates").
@@ -114,6 +119,7 @@ export default function WorkoutsScreen() {
   return (
     <Screen
       scroll
+      scrollProps={{ scrollEnabled: !reorderingPlans }}
       onSwipeRight={() => router.navigate('/(tabs)/home' as never)}
       onSwipeLeft={() => router.navigate('/(tabs)/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
@@ -175,14 +181,22 @@ export default function WorkoutsScreen() {
             </View>
           ) : (
             <>
-              {plans.map((p) => (
-                <PlanCard
-                  key={p.id}
-                  plan={p}
-                  onStart={() => begin(p)}
-                  onEdit={() => router.push(`/builder?plan=${p.id}` as never)}
-                />
-              ))}
+              {plans.length > 1 ? (
+                <Row gap={6} align="center" style={{ marginBottom: -4 }}>
+                  <Ionicons name="reorder-three" size={15} color={colors.textMuted} />
+                  <T variant="micro" muted>
+                    Press & hold a plan to reorder
+                  </T>
+                </Row>
+              ) : null}
+
+              <DraggablePlanList
+                plans={plans}
+                onReorder={reorderPlans}
+                onStart={begin}
+                onEdit={(p) => router.push(`/builder?plan=${p.id}` as never)}
+                onDragStateChange={setReorderingPlans}
+              />
 
               <View style={{ marginTop: spacing.md }}>
                 <Button

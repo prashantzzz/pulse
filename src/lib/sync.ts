@@ -257,6 +257,8 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
         name,
         emoji,
         muscles,
+        sort_order,
+        created_at,
         workout_plan_exercises (
           id,
           exercise_id,
@@ -286,20 +288,30 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       date: p.date,
     }));
 
-    const cloudPlans: WorkoutPlan[] = (plansData || []).map((p: any) => ({
-      id: p.id,
-      title: p.name,
-      emoji: p.emoji || '💪',
-      muscles: p.muscles || [],
-      exercises: (p.workout_plan_exercises || [])
-        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map((e: any) => ({
-          exerciseId: e.exercise_id,
-          sets: e.target_sets || 3,
-          targetReps: e.target_reps || '8-12',
-          targetWeightKg: e.target_weight != null ? Number(e.target_weight) : null,
-        })),
-    }));
+    const cloudPlans: WorkoutPlan[] = (plansData || [])
+      .slice()
+      // The user drags plans into their own order; sort_order preserves it
+      // across devices. Ties (pre-migration rows) fall back to creation time.
+      .sort((a: any, b: any) => {
+        const orderA = a.sort_order ?? 0;
+        const orderB = b.sort_order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return String(a.created_at ?? '').localeCompare(String(b.created_at ?? ''));
+      })
+      .map((p: any) => ({
+        id: p.id,
+        title: p.name,
+        emoji: p.emoji || '💪',
+        muscles: p.muscles || [],
+        exercises: (p.workout_plan_exercises || [])
+          .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+          .map((e: any) => ({
+            exerciseId: e.exercise_id,
+            sets: e.target_sets || 3,
+            targetReps: e.target_reps || '8-12',
+            targetWeightKg: e.target_weight != null ? Number(e.target_weight) : null,
+          })),
+      }));
 
     // If cloud has 0 measurements but local state has initial measurements, push them to cloud
     const localState = usePulse.getState();
@@ -775,18 +787,29 @@ function withPlanLock<T>(fn: () => Promise<T>): Promise<T> {
  * interrupted request) can never wipe the exercises already stored in the
  * cloud — the caller retries instead of silently saving an empty plan.
  */
-async function pushPlanToCloudUnlocked(userId: string, plan: WorkoutPlan): Promise<string | null> {
+async function pushPlanToCloudUnlocked(
+  userId: string,
+  plan: WorkoutPlan,
+  sortOrder?: number,
+): Promise<string | null> {
   if (!isSupabaseConfigured || !userId) return null;
   try {
     const validId = isValidUuid(plan.id) ? plan.id : genUuid();
+    const planRow: Record<string, unknown> = {
+      id: validId,
+      user_id: userId,
+      name: plan.title,
+      emoji: plan.emoji || '💪',
+      muscles: plan.muscles || [],
+    };
+    // Persist the plan's slot in the user's active routine. Omit it when the
+    // caller does not know the position, so a partial update cannot shuffle
+    // plans accidentally.
+    if (typeof sortOrder === 'number' && sortOrder >= 0) {
+      planRow.sort_order = sortOrder;
+    }
     const { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
-      .upsert({
-        id: validId,
-        user_id: userId,
-        name: plan.title,
-        emoji: plan.emoji || '💪',
-        muscles: plan.muscles || [],
-      })
+      .upsert(planRow)
       .select('id')
       .single();
 
@@ -822,8 +845,12 @@ async function pushPlanToCloudUnlocked(userId: string, plan: WorkoutPlan): Promi
   }
 }
 
-function directPushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<string | null> {
-  return withPlanLock(() => pushPlanToCloudUnlocked(userId, plan));
+function directPushPlanToCloud(
+  userId: string,
+  plan: WorkoutPlan,
+  sortOrder?: number,
+): Promise<string | null> {
+  return withPlanLock(() => pushPlanToCloudUnlocked(userId, plan, sortOrder));
 }
 
 async function removePlanFromCloudUnlocked(
@@ -876,8 +903,8 @@ async function replaceAllPlansUnlocked(userId: string, plans: WorkoutPlan[]): Pr
   try {
     const keptCloudIds = new Set<string>();
     let allPushed = true;
-    for (const p of plans) {
-      const cloudId = await pushPlanToCloudUnlocked(userId, p);
+    for (let idx = 0; idx < plans.length; idx++) {
+      const cloudId = await pushPlanToCloudUnlocked(userId, plans[idx], idx);
       if (cloudId) keptCloudIds.add(cloudId);
       else allPushed = false;
     }
@@ -928,8 +955,14 @@ export async function pushWorkoutToCloud(userId: string, workout: Workout): Prom
 
 export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promise<boolean> {
   if (!userId) return false;
+  // Keep the plan in its current routine slot (e.g. edits must not reorder it).
+  const localIndex = usePulse.getState().plans.findIndex((p) => p.id === plan.id);
   try {
-    const cloudId = await directPushPlanToCloud(userId, plan);
+    const cloudId = await directPushPlanToCloud(
+      userId,
+      plan,
+      localIndex >= 0 ? localIndex : undefined,
+    );
     if (!cloudId) {
       await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
     }

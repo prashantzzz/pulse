@@ -20,11 +20,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '../../components/misc';
 import { T } from '../../components/Text';
 import { Button, Icon } from '../../components/ui';
-import { formatAuthError, isValidEmail, signUpWithEmail, signInWithGoogle } from '../../lib/auth';
+import { formatAuthError, isValidEmail, resendConfirmationEmail, signUpWithEmail, signInWithGoogle } from '../../lib/auth';
 import { syncUserDataFromCloud } from '../../lib/sync';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
+import { accentTint, colors, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function SignupScreen() {
   useAccent();
@@ -61,7 +61,35 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successInfo, setSuccessInfo] = useState<string | null>(null);
+  /** Set once signup succeeds but Supabase requires email confirmation. */
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  // Simple 1-second cooldown so "Resend" can't be spammed (Supabase rate-limits
+  // confirmation emails and rejects bursts).
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  const handleResendConfirmation = async () => {
+    if (!pendingEmail || resending || resendIn > 0) return;
+    setResending(true);
+    setErrorMessage(null);
+    try {
+      await resendConfirmationEmail(pendingEmail);
+      setResendIn(60);
+      toast('Confirmation email sent again');
+    } catch (err: unknown) {
+      const msg = formatAuthError(err);
+      setErrorMessage(msg);
+      toast(msg);
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSignUp = async () => {
     if (loading || googleLoading) return;
@@ -111,9 +139,12 @@ export default function SignupScreen() {
           useAuth.setState({ isVerifyingUser: false });
           router.replace(isUserOnboarded || onboarded ? '/(tabs)/home' : '/onboarding');
         } else {
-          // Email confirmation is required by Supabase project settings
+          // Email confirmation is required by Supabase project settings.
+          // Show a persistent "confirm your email" screen with instructions,
+          // a resend action and a path back to sign-in.
           useAuth.setState({ isVerifyingUser: false });
-          setSuccessInfo('Account created! Please check your email inbox to confirm your account.');
+          setPendingEmail(cleanEmail);
+          setResendIn(60);
           toast('Check your email to confirm your account');
         }
       } else {
@@ -218,16 +249,6 @@ export default function SignupScreen() {
             </T>
           </View>
 
-          {/* Success banner */}
-          {successInfo ? (
-            <View style={styles.successBanner}>
-              <Icon name="checkmark-circle" size={20} color={colors.success} />
-              <T variant="smallMedium" style={{ color: colors.success, flex: 1 }}>
-                {successInfo}
-              </T>
-            </View>
-          ) : null}
-
           {/* Error banner */}
           {errorMessage ? (
             <View style={styles.errorBanner}>
@@ -238,8 +259,83 @@ export default function SignupScreen() {
             </View>
           ) : null}
 
-          {/* Form */}
-          <View style={styles.form}>
+          {pendingEmail ? (
+            /* ── Email confirmation instructions ─────────────────────────── */
+            <View style={styles.confirmCard}>
+              <View style={styles.confirmIconWrap}>
+                <Icon name="mail-unread-outline" size={30} color={colors.accent} />
+              </View>
+
+              <T variant="h3" center>
+                Confirm your email
+              </T>
+              <T variant="small" dim center style={{ marginTop: 8, lineHeight: 20 }}>
+                We sent a confirmation link to
+              </T>
+              <T variant="bodySemi" accent center numberOfLines={1} style={{ marginTop: 2 }}>
+                {pendingEmail}
+              </T>
+
+              <View style={styles.stepsWrap}>
+                {[
+                  'Open the email from NextRep',
+                  'Tap the "Confirm your email" link',
+                  'Come back here and sign in',
+                ].map((step, index) => (
+                  <View key={step} style={styles.stepRow}>
+                    <View style={styles.stepBadge}>
+                      <T variant="micro" style={{ color: colors.bg, fontWeight: '700' }}>
+                        {index + 1}
+                      </T>
+                    </View>
+                    <T variant="small" style={{ flex: 1 }}>
+                      {step}
+                    </T>
+                  </View>
+                ))}
+              </View>
+
+              <T variant="micro" muted center style={{ marginTop: 10, lineHeight: 16 }}>
+                Can&apos;t find it? Check your spam folder. The link can take a minute to arrive and expires
+                after 1 hour.
+              </T>
+
+              <View style={{ alignSelf: 'stretch', gap: 10, marginTop: spacing.lg }}>
+                <Button
+                  label={
+                    resending
+                      ? 'Sending...'
+                      : resendIn > 0
+                      ? `Resend email in ${resendIn}s`
+                      : 'Resend confirmation email'
+                  }
+                  variant="outline"
+                  full
+                  disabled={resending || resendIn > 0}
+                  onPress={handleResendConfirmation}
+                />
+                <Button
+                  label="I've confirmed — Sign In"
+                  full
+                  onPress={() =>
+                    router.replace({ pathname: '/auth/login', params: { email: pendingEmail } } as never)
+                  }
+                />
+              </View>
+
+              <Pressable
+                onPress={() => setPendingEmail(null)}
+                hitSlop={8}
+                style={{ marginTop: spacing.md }}>
+                <T variant="small" accent>
+                  Use a different email
+                </T>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {/* Form */}
+              <View style={styles.form}>
             <View style={styles.inputGroup}>
               <T variant="smallSemi" muted style={{ marginBottom: 6 }}>
                 Email
@@ -315,6 +411,9 @@ export default function SignupScreen() {
                 full
                 size="lg"
               />
+              <T variant="micro" muted center style={{ marginTop: 10, lineHeight: 16 }}>
+                We&apos;ll email you a confirmation link. Confirm it before signing in.
+              </T>
             </View>
           </View>
 
@@ -361,6 +460,8 @@ export default function SignupScreen() {
               </T>
             </Pressable>
           </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -402,16 +503,46 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.lg,
   },
-  successBanner: {
+  confirmCard: {
+    marginTop: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  confirmIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  stepsWrap: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: spacing.lg,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.emeraldSoft,
-    borderWidth: 1,
-    borderColor: `${colors.success}40`,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
+    gap: 10,
+  },
+  stepBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   googleBtn: {
     flexDirection: 'row',

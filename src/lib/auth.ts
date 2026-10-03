@@ -5,7 +5,6 @@
  * and custom URL scheme deep linking), session management, and profile synchronization.
  */
 
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
@@ -28,6 +27,42 @@ WebBrowser.maybeCompleteAuthSession();
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Deep-link scheme declared in app.json (`expo.scheme`). */
+export const APP_URL_SCHEME = 'nextrep';
+
+/**
+ * Builds the URL Supabase should redirect to after the user taps a link in an
+ * email (signup confirmation, password recovery, ...).
+ *
+ * Web  -> https://<origin>/<path>
+ * App  -> nextrep://<path>   (opens the installed app)
+ *
+ * The resulting URL must also be added to Supabase Dashboard ->
+ * Authentication -> URL Configuration -> Redirect URLs, otherwise Supabase
+ * ignores it and falls back to the project Site URL (the website).
+ */
+export function buildAuthRedirectUrl(options: {
+  path?: string;
+  platform?: string;
+  webOrigin?: string;
+} = {}): string {
+  const cleanPath = (options.path ?? 'auth/callback').replace(/^\/+/, '');
+  const platform = options.platform ?? Platform.OS;
+  const origin =
+    options.webOrigin ??
+    (typeof window !== 'undefined' ? window.location?.origin : undefined);
+
+  if (platform === 'web' && origin) {
+    return `${origin.replace(/\/+$/, '')}/${cleanPath}`;
+  }
+  return `${APP_URL_SCHEME}://${cleanPath}`;
+}
+
+/** Redirect URL for the current platform (see buildAuthRedirectUrl). */
+export function getAuthRedirectUrl(path = 'auth/callback'): string {
+  return buildAuthRedirectUrl({ path });
+}
 
 /**
  * Validate email format using standard RFC-compatible pattern.
@@ -72,7 +107,7 @@ export function formatAuthError(error: unknown): string {
     return 'Password must be at least 6 characters.';
   }
   if (lower.includes('email not confirmed')) {
-    return 'Please check your email to confirm your account.';
+    return 'Please confirm your email first. Tap the link we sent to your inbox, then sign in.';
   }
   if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch') || lower.includes('network request failed')) {
     return 'Network connection issue. Please check your internet connection.';
@@ -189,6 +224,10 @@ export async function handleAuthUrl(url: string): Promise<Session | null> {
 
 /**
  * Sign up with email and password.
+ *
+ * The confirmation email Supabase sends uses `emailRedirectTo` so tapping the
+ * link opens the app (`nextrep://auth/callback`) and signs the user in instead
+ * of landing on the website.
  */
 export async function signUpWithEmail(email: string, password: string, displayName?: string) {
   if (!isSupabaseConfigured) {
@@ -206,9 +245,40 @@ export async function signUpWithEmail(email: string, password: string, displayNa
         email: cleanEmail,
         password,
         options: {
+          emailRedirectTo: getAuthRedirectUrl('auth/callback'),
           data: {
             display_name: displayName?.trim() || cleanEmail.split('@')[0],
           },
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    })()
+  );
+}
+
+/**
+ * Re-send the signup confirmation email for an account that has not confirmed
+ * its address yet (e.g. the first email was lost or the link expired).
+ */
+export async function resendConfirmationEmail(email: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured yet. Please provide your Supabase credentials in .env.');
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) {
+    throw new Error('Please enter a valid email address.');
+  }
+
+  return await withAuthTimeout(
+    (async () => {
+      const { data, error } = await supabase.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+        options: {
+          emailRedirectTo: getAuthRedirectUrl('auth/callback'),
         },
       });
 
@@ -341,9 +411,7 @@ export async function sendPasswordResetEmail(email: string) {
     throw new Error('Please enter a valid email address.');
   }
 
-  const redirectUrl = Platform.OS === 'web'
-    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth/reset-password` : undefined)
-    : Linking.createURL('auth/reset-password', { scheme: 'nextrep' });
+  const redirectUrl = getAuthRedirectUrl('auth/reset-password');
 
   return await withAuthTimeout(
     (async () => {
@@ -383,7 +451,7 @@ export async function signOut() {
   if (Platform.OS !== 'web') {
     try {
       await GoogleSignin.signOut();
-    } catch (err) {
+    } catch {
       // User might not have signed in with Google natively; safe to ignore
     }
   }

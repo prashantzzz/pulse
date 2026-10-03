@@ -647,3 +647,50 @@ describe('Workout Plans Store & Builder Integration', () => {
     expect(usePulse.getState().plans[0].exercises).toHaveLength(1);
   });
 });
+
+describe('My Plans drag-and-drop reordering', () => {
+  beforeEach(() => {
+    usePulse.setState({
+      plans: [],
+      workouts: [],
+      measurements: [],
+      favorites: [],
+      manualPRs: [],
+    });
+  });
+
+  it('reorders plans to the dragged order without touching plan contents', () => {
+    const a: WorkoutPlan = { id: 'plan-a', title: 'Day A', emoji: '⚡', muscles: [], exercises: [] };
+    const b: WorkoutPlan = { id: 'plan-b', title: 'Day B', emoji: '⚡', muscles: [], exercises: [] };
+    const c: WorkoutPlan = { id: 'plan-c', title: 'Day C', emoji: '⚡', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([a, b, c]);
+
+    usePulse.getState().reorderPlans(['plan-c', 'plan-a', 'plan-b']);
+
+    const plans = usePulse.getState().plans;
+    expect(plans.map((p) => p.id)).toEqual(['plan-c', 'plan-a', 'plan-b']);
+    expect(plans.find((p) => p.id === 'plan-a')).toBe(usePulse.getState().plans[1]);
+    expect(plans).toHaveLength(3);
+  });
+
+  it('keeps plans missing from the dragged order at the end', () => {
+    const a: WorkoutPlan = { id: 'plan-a', title: 'Day A', emoji: '⚡', muscles: [], exercises: [] };
+    const b: WorkoutPlan = { id: 'plan-b', title: 'Day B', emoji: '⚡', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([a, b]);
+
+    usePulse.getState().reorderPlans(['plan-b']);
+
+    expect(usePulse.getState().plans.map((p) => p.id)).toEqual(['plan-b', 'plan-a']);
+  });
+
+  it('does not replace the plans array when the order is unchanged', () => {
+    const a: WorkoutPlan = { id: 'plan-a', title: 'Day A', emoji: '⚡', muscles: [], exercises: [] };
+    const b: WorkoutPlan = { id: 'plan-b', title: 'Day B', emoji: '⚡', muscles: [], exercises: [] };
+    usePulse.getState().setPlans([a, b]);
+    const before = usePulse.getState().plans;
+
+    usePulse.getState().reorderPlans(['plan-a', 'plan-b']);
+
+    expect(usePulse.getState().plans).toBe(before);
+  });
+});

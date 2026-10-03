@@ -187,7 +187,7 @@ describe('Clear Data & Instant App Open Lifecycle', () => {
       expect(state.onboarded).toBe(false);
     });
 
-    it('fresh onboarding on cleared state generates customized plans matching user profile', () => {
+    it('fresh onboarding starts with an empty My Plans section (no auto-seeded routine)', () => {
       usePulse.getState().clearSessionCache();
       expect(usePulse.getState().plans).toEqual([]);
 
@@ -206,8 +206,39 @@ describe('Clear Data & Instant App Open Lifecycle', () => {
 
       const updated = usePulse.getState();
       expect(updated.onboarded).toBe(true);
-      expect(updated.plans.length).toBeGreaterThan(0);
+      expect(updated.seeded).toBe(true);
+      // New accounts choose a template or build their own day from My Plans.
+      expect(updated.plans).toEqual([]);
       expect(updated.profile?.name).toBe('New Athlete');
+    });
+
+    it('onboarding keeps plans already restored from the cloud', () => {
+      usePulse.getState().clearSessionCache();
+      usePulse.setState({
+        plans: [
+          {
+            id: 'cloud-plan-1',
+            title: 'Cloud Push Day',
+            emoji: '💪',
+            muscles: ['Chest'],
+            exercises: [{ exerciseId: 'bench-press', sets: 3, targetReps: '8-12' }],
+          },
+        ],
+      });
+
+      usePulse.getState().completeOnboarding({
+        name: 'Returning Athlete',
+        gender: 'male',
+        goal: ['Build Muscle'],
+        experience: 'Intermediate',
+        frequencyPerWeek: 4,
+        equipment: ['Barbell'],
+        style: ['Upper / Lower'],
+        trainingAgeMonths: 12,
+        onboarded: true,
+      });
+
+      expect(usePulse.getState().plans.map((p) => p.id)).toEqual(['cloud-plan-1']);
     });
   });
 

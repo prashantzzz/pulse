@@ -18,8 +18,7 @@ import {
   hasDuplicatePlanTitle,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
-import { templateToPlans } from '../data/templates';
-import { recommendTemplate } from '../lib/recommendations';
+import { applyPlanOrder } from '../lib/plan-order';
 import { EXERCISE_MAP } from '../data/exercises';
 import { applyAccent, type AccentKey } from '../theme';
 import { getDefaultSetValues, previousSet, getRecommendedRestSeconds } from '../lib/stats';
@@ -55,7 +54,7 @@ interface PulseState {
   weightUnit: 'kg' | 'lbs';
   profile: UserProfile | null;
   workouts: Workout[];
-  /** user-editable workout plans (seeded from SEED_PLANS) */
+  /** user-editable workout routine (empty until a template is activated or a custom day is built) */
   plans: WorkoutPlan[];
   measurements: BodyMeasurement[];
   favorites: string[];
@@ -126,6 +125,8 @@ interface PulseState {
   addPlan: (plan: WorkoutPlan) => boolean;
   /** Replace entire active workout plans set (e.g. when applying a template) */
   setPlans: (plans: WorkoutPlan[]) => void;
+  /** Reorder active workout plans by id (drag & drop in My Plans); persists order to cloud */
+  reorderPlans: (orderedIds: string[]) => void;
   /** Replace an existing plan (edit via the builder). Returns false if the title conflicts with another plan. */
   updatePlan: (id: string, plan: WorkoutPlan) => boolean;
   /** Remove a plan (only the template — workout history is untouched) */
@@ -271,28 +272,27 @@ export const usePulse = create<PulseState>()(
       },
 
       completeOnboarding: (profile) => {
-        const currentPlans = get().plans;
-        let activePlans = currentPlans;
-        if (!currentPlans || currentPlans.length === 0) {
-          const rec = recommendTemplate(profile);
-          activePlans = templateToPlans(rec.modifiedTemplate, get().exerciseDefaults);
-        }
-        activePlans = deduplicatePlans(activePlans);
+        // New accounts intentionally start with an empty My Plans list — the
+        // user activates a template or builds a custom day from the Workouts
+        // tab (Home shows the NO_PLANS "Choose a Workout Plan" starter card).
+        // Plans already restored locally (e.g. pulled from the cloud before
+        // onboarding) are kept untouched.
+        const existingPlans = deduplicatePlans(get().plans);
         set({
           onboarded: true,
           profile,
           weightUnit: profile.weightUnit ?? 'kg',
           seeded: true,
-          plans: activePlans,
+          plans: existingPlans,
           workouts: get().workouts,
           measurements: get().measurements,
           favorites: get().favorites,
           friends: get().friends,
         });
 
-        if (activePlans !== currentPlans && activePlans.length > 0) {
+        if (existingPlans.length > 0) {
           supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) pushAllPlansToCloud(user.id, activePlans).catch(() => {});
+            if (user) pushAllPlansToCloud(user.id, existingPlans).catch(() => {});
           }).catch(() => {});
         }
       },
@@ -802,6 +802,16 @@ export const usePulse = create<PulseState>()(
         set({ plans: cleanPlans });
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) pushAllPlansToCloud(user.id, cleanPlans).catch(() => {});
+        }).catch(() => {});
+      },
+
+      reorderPlans: (orderedIds) => {
+        const reordered = applyPlanOrder(get().plans, orderedIds);
+        // applyPlanOrder returns the previous array when the order is unchanged
+        if (reordered === get().plans) return;
+        set({ plans: reordered });
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) pushAllPlansToCloud(user.id, reordered).catch(() => {});
         }).catch(() => {});
       },
 

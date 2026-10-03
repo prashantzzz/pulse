@@ -31,10 +31,23 @@ export function PlanCard({
   plan,
   onStart,
   onEdit,
+  onLongPress,
+  onPressOut,
+  onMoveUp,
+  onMoveDown,
+  delayLongPress = 300,
 }: {
   plan: WorkoutPlan;
   onStart?: () => void;
   onEdit?: () => void;
+  /** Press-and-hold handler used by the My Plans screen to start a drag reorder */
+  onLongPress?: () => void;
+  onPressOut?: () => void;
+  /** Accessibility action: move the plan one slot up in My Plans */
+  onMoveUp?: () => void;
+  /** Accessibility action: move the plan one slot down in My Plans */
+  onMoveDown?: () => void;
+  delayLongPress?: number;
 }) {
   const totalSets = plan.exercises.reduce((s, e) => s + e.sets, 0);
   const duration = Math.round(totalSets * 2.8 + plan.exercises.length * 3 + 8);
@@ -49,7 +62,24 @@ export function PlanCard({
     <View style={styles.planCard}>
       <Pressable
         onPress={toggleOpen}
+        onLongPress={onLongPress}
+        onPressOut={onPressOut}
+        delayLongPress={delayLongPress}
         accessibilityLabel={`${plan.title}, ${plan.exercises.length} exercises`}
+        accessibilityHint={onLongPress ? 'Press and hold to reorder' : undefined}
+        accessibilityActions={
+          onMoveUp || onMoveDown
+            ? [
+                ...(onMoveUp ? [{ name: 'moveUp' as const, label: 'Move up' }] : []),
+                ...(onMoveDown ? [{ name: 'moveDown' as const, label: 'Move down' }] : []),
+              ]
+            : undefined
+        }
+        onAccessibilityAction={(e) => {
+          const action = e.nativeEvent.actionName;
+          if (action === 'moveUp') onMoveUp?.();
+          else if (action === 'moveDown') onMoveDown?.();
+        }}
         accessibilityState={{ expanded: open }}
         // note: no accessibilityRole here — the Start button below is nested
         // inside this pressable, and two HTML <button> roles would be invalid

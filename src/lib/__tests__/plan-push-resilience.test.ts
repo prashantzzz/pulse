@@ -521,3 +521,66 @@ describe('Template activation replaces the routine safely', () => {
     expect(usePulse.getState().plans.some((p) => p.title === 'Old Custom Day')).toBe(false);
   });
 });
+
+describe('My Plans order is preserved in the cloud', () => {
+  beforeEach(async () => {
+    mockCloud.workout_plans = [];
+    mockCloud.workout_plan_exercises = [];
+    mockCloud.failPlanExerciseUpsert = false;
+    mockCloud.failPlanDelete = false;
+    mockCloud.failPlansFetch = false;
+    mockCloud.deleteCalls = { plans: 0, planExercises: 0 };
+    usePulse.setState({
+      plans: [],
+      workouts: [],
+      measurements: [],
+      favorites: [],
+      manualPRs: [],
+      exerciseDefaults: {},
+      profile: null,
+    });
+    await AsyncStorage.clear();
+  });
+
+  it('stores each plan slot as sort_order when the routine is pushed', async () => {
+    const a = makePlan('11111111-aaaa-4aaa-8aaa-111111111111', 'Day A', ['squat']);
+    const b = makePlan('22222222-bbbb-4bbb-8bbb-222222222222', 'Day B', ['bench-press']);
+    const c = makePlan('33333333-cccc-4ccc-8ccc-333333333333', 'Day C', ['deadlift']);
+
+    await pushAllPlansToCloud(TEST_USER_ID, [c, a, b]);
+
+    const sortById = new Map(mockCloud.workout_plans.map((p) => [p.id, p.sort_order]));
+    expect(sortById.get(c.id)).toBe(0);
+    expect(sortById.get(a.id)).toBe(1);
+    expect(sortById.get(b.id)).toBe(2);
+  });
+
+  it('a drag reorder rewrites the cloud order', async () => {
+    const a = makePlan('11111111-aaaa-4aaa-8aaa-111111111111', 'Day A', ['squat']);
+    const b = makePlan('22222222-bbbb-4bbb-8bbb-222222222222', 'Day B', ['bench-press']);
+    usePulse.getState().setPlans([a, b]);
+    await settle();
+
+    usePulse.getState().reorderPlans([b.id, a.id]);
+    await settle();
+    await settle();
+
+    const sortById = new Map(mockCloud.workout_plans.map((p) => [p.id, p.sort_order]));
+    expect(sortById.get(b.id)).toBe(0);
+    expect(sortById.get(a.id)).toBe(1);
+  });
+
+  it('restores the dragged order when syncing from the cloud', async () => {
+    // Cloud rows come back unsorted (mock keeps insert order); the client sorts
+    // by sort_order so the user's routine order survives a reinstall.
+    mockCloud.workout_plans = [
+      { id: '11111111-aaaa-4aaa-8aaa-111111111111', user_id: TEST_USER_ID, name: 'Day C', emoji: '💪', muscles: [], sort_order: 2 },
+      { id: '22222222-bbbb-4bbb-8bbb-222222222222', user_id: TEST_USER_ID, name: 'Day A', emoji: '💪', muscles: [], sort_order: 0 },
+      { id: '33333333-cccc-4ccc-8ccc-333333333333', user_id: TEST_USER_ID, name: 'Day B', emoji: '💪', muscles: [], sort_order: 1 },
+    ];
+
+    await syncUserDataFromCloud(TEST_USER_ID);
+
+    expect(usePulse.getState().plans.map((p) => p.title)).toEqual(['Day A', 'Day B', 'Day C']);
+  });
+});

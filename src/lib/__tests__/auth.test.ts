@@ -1,7 +1,26 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
-import { extractParamsFromUrl, formatAuthError, isValidEmail, withAuthTimeout } from '../auth';
+import {
+  buildAuthRedirectUrl,
+  extractParamsFromUrl,
+  formatAuthError,
+  getAuthRedirectUrl,
+  isValidEmail,
+  resendConfirmationEmail,
+  signUpWithEmail,
+  withAuthTimeout,
+} from '../auth';
+import { supabase } from '../supabase';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+jest.mock('../supabase', () => ({
+  isSupabaseConfigured: true,
+  supabase: {
+    auth: {
+      signUp: jest.fn(),
+      resend: jest.fn(),
+    },
+  },
+}));
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
@@ -27,7 +46,10 @@ describe('Auth Helpers', () => {
         ['invalid_grant: error verifying credentials', 'Invalid email or password.'],
         ['User already registered', 'An account with this email already exists.'],
         ['Password should be at least 6 characters', 'Password must be at least 6 characters.'],
-        ['Email not confirmed', 'Please check your email to confirm your account.'],
+        [
+          'Email not confirmed',
+          'Please confirm your email first. Tap the link we sent to your inbox, then sign in.',
+        ],
         ['TypeError: Failed to fetch', 'Network connection issue. Please check your internet connection.'],
         ['too many requests, rate limit exceeded', 'Too many attempts. Please wait a moment and try again.'],
         ['User cancelled authentication', 'Sign in was cancelled.'],
@@ -104,6 +126,81 @@ describe('Auth Helpers', () => {
 
     it('returns empty object for empty or invalid url', () => {
       expect(extractParamsFromUrl('')).toEqual({});
+    });
+  });
+
+  describe('buildAuthRedirectUrl', () => {
+    it('builds an app deep link on native platforms', () => {
+      expect(buildAuthRedirectUrl({ platform: 'ios', path: 'auth/callback' })).toBe(
+        'nextrep://auth/callback',
+      );
+      expect(buildAuthRedirectUrl({ platform: 'android', path: 'auth/callback' })).toBe(
+        'nextrep://auth/callback',
+      );
+    });
+
+    it('builds an https URL on web when an origin is available', () => {
+      expect(
+        buildAuthRedirectUrl({
+          platform: 'web',
+          webOrigin: 'https://app.nextrep.com/',
+          path: '/auth/callback',
+        }),
+      ).toBe('https://app.nextrep.com/auth/callback');
+    });
+
+    it('falls back to the app scheme when web has no origin', () => {
+      expect(buildAuthRedirectUrl({ platform: 'web', path: 'auth/callback' })).toBe(
+        'nextrep://auth/callback',
+      );
+    });
+
+    it('supports the reset-password path', () => {
+      expect(getAuthRedirectUrl('auth/reset-password')).toBe('nextrep://auth/reset-password');
+    });
+  });
+
+  describe('signUpWithEmail', () => {
+    const supabaseAuth = () =>
+      supabase.auth as unknown as { signUp: jest.Mock; resend: jest.Mock };
+
+    beforeEach(() => {
+      supabaseAuth().signUp.mockReset();
+      supabaseAuth().resend.mockReset();
+    });
+
+    it('asks Supabase to redirect the confirmation email back into the app', async () => {
+      supabaseAuth().signUp.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+
+      await signUpWithEmail(' Athlete@Example.com ', 'secret123');
+
+      expect(supabaseAuth().signUp).toHaveBeenCalledWith({
+        email: 'athlete@example.com',
+        password: 'secret123',
+        options: {
+          emailRedirectTo: 'nextrep://auth/callback',
+          data: { display_name: 'athlete' },
+        },
+      });
+    });
+
+    it('resends the signup confirmation with the same in-app redirect', async () => {
+      supabaseAuth().resend.mockResolvedValue({ data: {}, error: null });
+
+      await resendConfirmationEmail('athlete@example.com');
+
+      expect(supabaseAuth().resend).toHaveBeenCalledWith({
+        type: 'signup',
+        email: 'athlete@example.com',
+        options: { emailRedirectTo: 'nextrep://auth/callback' },
+      });
+    });
+
+    it('rejects an invalid email before calling Supabase', async () => {
+      await expect(resendConfirmationEmail('not-an-email')).rejects.toThrow(
+        'Please enter a valid email address.',
+      );
+      expect(supabaseAuth().resend).not.toHaveBeenCalled();
     });
   });
 });
