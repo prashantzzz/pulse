@@ -52,6 +52,17 @@ export default function WorkoutsScreen() {
   const [reorderingPlans, setReorderingPlans] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
+  // Maximum scrollable offset (content − viewport), kept in sync so the drag
+  // list can clamp auto-scroll targets to the real end of the page.
+  const scrollLimitRef = useRef(0);
+  const scrollContentHeightRef = useRef(0);
+  const scrollViewportHeightRef = useRef(0);
+  const syncScrollLimit = () => {
+    scrollLimitRef.current = Math.max(
+      0,
+      scrollContentHeightRef.current - scrollViewportHeightRef.current,
+    );
+  };
 
   // Open a specific segment when arriving with a navigation intent (e.g. the
   // Log hub's "Browse Workout Templates").
@@ -126,9 +137,21 @@ export default function WorkoutsScreen() {
       scrollRef={scrollRef}
       scrollProps={{
         scrollEnabled: !reorderingPlans,
+        // Programmatic scrollTo during a drag; disable the elastic overscroll
+        // so reaching the list end cannot rubber-band / flicker.
+        bounces: !reorderingPlans,
+        overScrollMode: reorderingPlans ? 'never' : 'auto',
         scrollEventThrottle: 16,
         onScroll: (e) => {
           scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        },
+        onContentSizeChange: (_w, h) => {
+          scrollContentHeightRef.current = h;
+          syncScrollLimit();
+        },
+        onLayout: (e) => {
+          scrollViewportHeightRef.current = e.nativeEvent.layout.height;
+          syncScrollLimit();
         },
       }}
       onSwipeRight={() => router.navigate('/(tabs)/home' as never)}
@@ -209,6 +232,7 @@ export default function WorkoutsScreen() {
                 onDragStateChange={setReorderingPlans}
                 scrollRef={scrollRef}
                 scrollOffsetRef={scrollOffsetRef}
+                scrollLimitRef={scrollLimitRef}
               />
 
               <View style={{ marginTop: spacing.md }}>

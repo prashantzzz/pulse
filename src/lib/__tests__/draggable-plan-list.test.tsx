@@ -22,7 +22,7 @@ import type { WorkoutPlan } from '../../types';
 
 type PanConfig = {
   onMoveShouldSetPanResponderCapture: () => boolean;
-  onPanResponderGrant: () => void;
+  onPanResponderGrant: (_e?: unknown, g?: { y0?: number }) => void;
   onPanResponderMove: (_e: unknown, g: { dy: number; moveY: number }) => void;
   onPanResponderRelease: () => void;
   onPanResponderTerminate: () => void;
@@ -44,7 +44,7 @@ const mountedRenderers: ReactTestRenderer[] = [];
 
 function renderList(
   plans: WorkoutPlan[] = PLANS,
-  options: { autoScroll?: boolean; maxScroll?: number } = {},
+  options: { autoScroll?: boolean; maxScroll?: number; blockedScroll?: boolean } = {},
 ) {
   const onReorder = jest.fn();
   const configs: PanConfig[] = [];
@@ -56,9 +56,13 @@ function renderList(
 
   // Fake parent ScrollView: scrollTo moves the offset (clamped like the real
   // list end) so the auto-scroll loop is deterministic under real timers.
+  // `blockedScroll` simulates a platform that ignores programmatic scrolling.
   const maxScroll = options.maxScroll ?? 200;
   const scrollOffsetRef = { current: 0 };
-  const scrollTo = jest.fn(({ y }: { y: number }) => {
+  const scrollLimitRef = { current: maxScroll };
+  const scrollTo = jest.fn((_options: { y: number }) => {
+    if (options.blockedScroll) return;
+    const { y } = _options;
     scrollOffsetRef.current = Math.max(0, Math.min(y, maxScroll));
   });
   const scrollRef = { current: { scrollTo } } as any;
@@ -71,6 +75,7 @@ function renderList(
         onReorder={onReorder}
         scrollRef={options.autoScroll ? scrollRef : undefined}
         scrollOffsetRef={options.autoScroll ? scrollOffsetRef : undefined}
+        scrollLimitRef={options.autoScroll ? scrollLimitRef : undefined}
       />,
     );
   });
@@ -389,5 +394,94 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
     });
 
     expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('clamps to the list end and stops requesting scrolls once it is reached', async () => {
+    const { configs, cards, scrollTo, scrollOffsetRef } = renderList(PLANS, {
+      autoScroll: true,
+      maxScroll: 200,
+    });
+
+    act(() => {
+      cards[1].props.onLongPress();
+    });
+    act(() => {
+      configs[1].onPanResponderGrant();
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: 1330 });
+    });
+
+    await flushUntilScrollSettles(scrollOffsetRef);
+    expect(scrollOffsetRef.current).toBe(200);
+
+    // Never asks the platform to scroll past the real end.
+    const requested = scrollTo.mock.calls.map(([o]: any[]) => o.y as number);
+    expect(Math.max(...requested)).toBeLessThanOrEqual(200);
+    expect(Math.max(...requested)).toBe(200);
+
+    // The loop stops at the end instead of re-issuing scrollTo every frame
+    // (that repetition was what made the page rubber-band / flicker).
+    await flushFrames(40);
+    const callsAtEnd = scrollTo.mock.calls.length;
+    await flushFrames(60);
+    expect(scrollTo.mock.calls.length).toBe(callsAtEnd);
+
+    act(() => {
+      configs[1].onPanResponderRelease();
+    });
+  });
+
+  it('gives up when the platform ignores programmatic scrolling (no runaway loop)', async () => {
+    const { configs, cards, onReorder, scrollTo, scrollOffsetRef } = renderList(PLANS, {
+      autoScroll: true,
+      blockedScroll: true,
+    });
+
+    act(() => {
+      cards[1].props.onLongPress();
+    });
+    act(() => {
+      configs[1].onPanResponderGrant();
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: 1330 });
+    });
+
+    await flushFrames(150);
+
+    // A few attempts, then the loop stops; the offset never ran away.
+    expect(scrollTo.mock.calls.length).toBeGreaterThan(0);
+    expect(scrollTo.mock.calls.length).toBeLessThanOrEqual(6);
+    expect(scrollOffsetRef.current).toBe(0);
+
+    const callsWhenStopped = scrollTo.mock.calls.length;
+    await flushFrames(60);
+    expect(scrollTo.mock.calls.length).toBe(callsWhenStopped);
+
+    act(() => {
+      configs[1].onPanResponderRelease();
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('derives the pointer position from the drag origin when moveY is unreliable', async () => {
+    const { configs, cards, scrollTo, scrollOffsetRef } = renderList(PLANS, {
+      autoScroll: true,
+      maxScroll: 200,
+    });
+
+    act(() => {
+      cards[2].props.onLongPress();
+    });
+    act(() => {
+      // Finger starts in the bottom zone, but the platform reports moveY = 0.
+      configs[2].onPanResponderGrant(null, { y0: 1300 });
+      configs[2].onPanResponderMove(null, { dy: 10, moveY: 0 });
+    });
+
+    await flushUntilScrollSettles(scrollOffsetRef);
+    expect(scrollTo).toHaveBeenCalled();
+    expect(scrollOffsetRef.current).toBeGreaterThan(0);
+
+    act(() => {
+      configs[2].onPanResponderRelease();
+    });
   });
 });

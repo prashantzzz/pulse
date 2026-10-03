@@ -57,6 +57,13 @@ const SHIFT_DURATION_MS = 170;
 const SETTLE_DURATION_MS = 180;
 /** Must match the flex `gap` used by the list container. */
 const ROW_GAP = spacing.md;
+/**
+ * Consecutive auto-scroll frames without an `onScroll` confirmation before the
+ * loop gives up. Protects against a platform that ignores programmatic
+ * scrolling — without it the loop would keep pushing content offsets and make
+ * the card/rows jitter.
+ */
+const AUTO_SCROLL_STAGNANT_FRAMES = 4;
 
 interface DragSession {
   id: string;
@@ -72,6 +79,8 @@ interface DragSession {
   scrollOffsetAtStart: number;
   /** latest raw screen-space gesture dy (before scroll compensation) */
   lastScreenDy: number;
+  /** pointer Y (window coords) when the gesture was claimed */
+  startPointerY: number;
 }
 
 interface DragMoveInfo {
@@ -88,6 +97,7 @@ export function DraggablePlanList({
   onDragStateChange,
   scrollRef,
   scrollOffsetRef,
+  scrollLimitRef,
 }: {
   plans: WorkoutPlan[];
   /** Called on drop with the full desired order of plan ids */
@@ -100,6 +110,13 @@ export function DraggablePlanList({
   scrollRef?: { current: ScrollView | null };
   /** Live ScrollView offset, mirrored from the parent's onScroll */
   scrollOffsetRef?: { current: number };
+  /**
+   * Maximum scrollable offset (content height − viewport height). Auto-scroll
+   * targets are clamped to this, so the loop can never push past the list end
+   * (which caused rubber-banding/flicker on iOS and runaway offsets on web).
+   * When absent, auto-scroll stays off rather than risk unbounded scrolling.
+   */
+  scrollLimitRef?: { current: number };
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -120,6 +137,9 @@ export function DraggablePlanList({
   const autoScrollDirectionRef = useRef<AutoScrollDirection>(0);
   const autoScrollIntensityRef = useRef(0);
   const autoScrollFrameRef = useRef<number | null>(null);
+  /** Last offset confirmed by the parent's onScroll (stagnation detection). */
+  const lastConfirmedOffsetRef = useRef(-1);
+  const stagnantFramesRef = useRef(0);
 
   // Keep the gesture handlers reading the latest props without re-creating them.
   useEffect(() => {
@@ -152,6 +172,8 @@ export function DraggablePlanList({
   const stopAutoScroll = useCallback(() => {
     autoScrollDirectionRef.current = 0;
     autoScrollIntensityRef.current = 0;
+    lastConfirmedOffsetRef.current = -1;
+    stagnantFramesRef.current = 0;
     if (autoScrollFrameRef.current != null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
       autoScrollFrameRef.current = null;
@@ -239,15 +261,38 @@ export function DraggablePlanList({
     const view = scrollRef?.current;
     if (direction === 0 || !session?.active || !view || !scrollOffsetRef) return;
 
+    // The parent's onScroll is the single source of truth for the offset; this
+    // loop never writes it, so a platform that clamps or ignores a scroll
+    // cannot make the offset drift or oscillate.
+    const limit = Math.max(0, scrollLimitRef?.current ?? 0);
+    const before = scrollOffsetRef.current;
     const step = autoScrollStep(autoScrollIntensityRef.current);
-    const next = Math.max(0, scrollOffsetRef.current + direction * step);
-    // Move optimistically so the frame is smooth; the parent's onScroll event
-    // reconciles the ref with the real (clamped) offset right after.
-    scrollOffsetRef.current = next;
-    view.scrollTo({ y: next, animated: false });
+    const target = Math.min(limit, Math.max(0, before + direction * step));
+
+    // Already at the list end (or the list cannot scroll): stop until the
+    // finger changes zone. No repeated scrollTo, so no rubber-band flicker.
+    if (target === before) {
+      stopAutoScroll();
+      return;
+    }
+
+    // If the platform never confirms a scroll attempt (blocked programmatic
+    // scrolling), give up instead of looping forever.
+    if (before === lastConfirmedOffsetRef.current) {
+      stagnantFramesRef.current += 1;
+    } else {
+      lastConfirmedOffsetRef.current = before;
+      stagnantFramesRef.current = 0;
+    }
+    if (stagnantFramesRef.current >= AUTO_SCROLL_STAGNANT_FRAMES) {
+      stopAutoScroll();
+      return;
+    }
+
+    view.scrollTo({ y: target, animated: false });
     applyDragOffset(session);
     autoScrollFrameRef.current = requestAnimationFrame(runAutoScrollFrameRef.current);
-  }, [applyDragOffset, scrollOffsetRef, scrollRef]);
+  }, [applyDragOffset, scrollLimitRef, scrollOffsetRef, scrollRef, stopAutoScroll]);
 
   useEffect(() => {
     runAutoScrollFrameRef.current = runAutoScrollFrame;
@@ -256,8 +301,13 @@ export function DraggablePlanList({
   /** Starts/stops the auto-scroll loop based on the pointer's window Y. */
   const refreshAutoScroll = useCallback(
     (moveY: number) => {
-      if (!scrollRef || !scrollOffsetRef) return;
+      if (!scrollRef || !scrollOffsetRef || !scrollLimitRef) return;
       const zone = computeAutoScrollZone(moveY, windowHeightRef.current);
+      if (zone.direction !== autoScrollDirectionRef.current) {
+        // Fresh direction: restart the stagnation bookkeeping.
+        lastConfirmedOffsetRef.current = -1;
+        stagnantFramesRef.current = 0;
+      }
       autoScrollDirectionRef.current = zone.direction;
       autoScrollIntensityRef.current = zone.intensity;
       if (zone.direction === 0) {
@@ -268,7 +318,7 @@ export function DraggablePlanList({
         autoScrollFrameRef.current = requestAnimationFrame(runAutoScrollFrame);
       }
     },
-    [runAutoScrollFrame, scrollOffsetRef, scrollRef, stopAutoScroll],
+    [runAutoScrollFrame, scrollLimitRef, scrollOffsetRef, scrollRef, stopAutoScroll],
   );
 
   const resetRows = useCallback(() => {
@@ -317,6 +367,7 @@ export function DraggablePlanList({
         hoverIndex: index,
         scrollOffsetAtStart: scrollOffsetRef?.current ?? 0,
         lastScreenDy: 0,
+        startPointerY: 0,
       };
       stopAutoScroll();
       hapticsMedium();
@@ -344,13 +395,14 @@ export function DraggablePlanList({
 
   /** The row PanResponder claimed the gesture (finger moved after the hold). */
   const handleDragActivate = useCallback(
-    (id: string) => {
+    (id: string, startPointerY: number) => {
       const session = dragRef.current;
       if (!session || session.id !== id) return;
       session.active = true;
-      // Capture the scroll position at the moment the drag really starts, so
-      // auto-scroll corrections are measured from here.
+      // Capture the scroll position and finger origin at the moment the drag
+      // really starts, so auto-scroll corrections are measured from here.
       session.scrollOffsetAtStart = scrollOffsetRef?.current ?? 0;
+      session.startPointerY = Number.isFinite(startPointerY) ? startPointerY : 0;
       setInnerHorizontalActive(true);
       setDragging(id);
     },
@@ -363,7 +415,14 @@ export function DraggablePlanList({
       if (!session || session.id !== id || !session.active) return;
 
       session.lastScreenDy = move.dy;
-      refreshAutoScroll(move.moveY);
+      // Prefer the reported pointer position, but fall back to the gesture
+      // origin + dy: some platforms (e.g. react-native-web mouse events) do not
+      // populate moveY reliably.
+      const pointerY =
+        Number.isFinite(move.moveY) && move.moveY > 0
+          ? move.moveY
+          : session.startPointerY + move.dy;
+      refreshAutoScroll(pointerY);
       applyDragOffset(session);
     },
     [applyDragOffset, refreshAutoScroll],
@@ -486,7 +545,7 @@ function DraggablePlanRow({
   onMoveDown?: () => void;
   onDragBegin: (id: string) => boolean;
   onDragBeginEnd: (id: string) => void;
-  onDragActivate: (id: string) => void;
+  onDragActivate: (id: string, startPointerY: number) => void;
   onDragMove: (id: string, move: DragMoveInfo) => void;
   onDragEnd: (id: string) => void;
   onDragCancel: (id: string) => void;
@@ -522,8 +581,8 @@ function DraggablePlanRow({
       onMoveShouldSetPanResponder: () => false,
       // Take over from the PlanCard Pressable once a long press armed the drag.
       onMoveShouldSetPanResponderCapture: () => armedRef.current,
-      onPanResponderGrant: () => {
-        callbacksRef.current.onDragActivate(plan.id);
+      onPanResponderGrant: (_e, g) => {
+        callbacksRef.current.onDragActivate(plan.id, g?.y0 ?? 0);
       },
       onPanResponderMove: (_e, g) => {
         callbacksRef.current.onDragMove(plan.id, { dy: g.dy, moveY: g.moveY });
