@@ -23,7 +23,7 @@ import type { WorkoutPlan } from '../../types';
 type PanConfig = {
   onMoveShouldSetPanResponderCapture: () => boolean;
   onPanResponderGrant: () => void;
-  onPanResponderMove: (_e: unknown, g: { dy: number }) => void;
+  onPanResponderMove: (_e: unknown, g: { dy: number; moveY: number }) => void;
   onPanResponderRelease: () => void;
   onPanResponderTerminate: () => void;
 };
@@ -33,10 +33,19 @@ function plan(id: string): WorkoutPlan {
 }
 
 const PLANS = [plan('a'), plan('b'), plan('c')];
-/** Row heights when measured: a=100, b=150, c=120 with a 10px gap. */
+/** Row heights when measured: a=100, b=150, c=120 with a 16px gap. */
 const ROW_HEIGHTS = [100, 150, 120];
+/** Middle of the mocked viewport (RN jest Dimensions are 750x1334). */
+const MID_MOVE_Y = 600;
 
-function renderList(plans: WorkoutPlan[] = PLANS) {
+/** Every renderer created in a test, unmounted in afterEach so no auto-scroll
+ * frame loop can outlive its test (a leaked loop makes Jest hang). */
+const mountedRenderers: ReactTestRenderer[] = [];
+
+function renderList(
+  plans: WorkoutPlan[] = PLANS,
+  options: { autoScroll?: boolean; maxScroll?: number } = {},
+) {
   const onReorder = jest.fn();
   const configs: PanConfig[] = [];
   const originalCreate = PanResponder.create.bind(PanResponder);
@@ -45,10 +54,27 @@ function renderList(plans: WorkoutPlan[] = PLANS) {
     return originalCreate(config);
   });
 
+  // Fake parent ScrollView: scrollTo moves the offset (clamped like the real
+  // list end) so the auto-scroll loop is deterministic under real timers.
+  const maxScroll = options.maxScroll ?? 200;
+  const scrollOffsetRef = { current: 0 };
+  const scrollTo = jest.fn(({ y }: { y: number }) => {
+    scrollOffsetRef.current = Math.max(0, Math.min(y, maxScroll));
+  });
+  const scrollRef = { current: { scrollTo } } as any;
+
   let renderer!: ReactTestRenderer;
   act(() => {
-    renderer = create(<DraggablePlanList plans={plans} onReorder={onReorder} />);
+    renderer = create(
+      <DraggablePlanList
+        plans={plans}
+        onReorder={onReorder}
+        scrollRef={options.autoScroll ? scrollRef : undefined}
+        scrollOffsetRef={options.autoScroll ? scrollOffsetRef : undefined}
+      />,
+    );
   });
+  mountedRenderers.push(renderer);
 
   // Simulate the measurement pass for each row wrapper (host views that carry
   // the row PanResponder handlers).
@@ -63,13 +89,33 @@ function renderList(plans: WorkoutPlan[] = PLANS) {
     rows.forEach((row, index) => {
       const height = ROW_HEIGHTS[index] ?? 100;
       row.props.onLayout({ nativeEvent: { layout: { x: 0, y, width: 320, height } } });
-      y += height + 10;
+      y += height + 16;
     });
   });
 
   const cards = renderer.root.findAllByType(PlanCard);
 
-  return { renderer, createSpy, configs, cards, onReorder };
+  return { renderer, createSpy, configs, cards, onReorder, scrollTo, scrollOffsetRef, scrollRef };
+}
+
+/** Runs the (setTimeout-backed) animation-frame loop for a while. */
+async function flushFrames(ms = 60) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  });
+}
+
+/** Flushes frames until the auto-scroll offset stops changing (or gives up). */
+async function flushUntilScrollSettles(
+  scrollOffsetRef: { current: number },
+  maxRounds = 40,
+  stepMs = 20,
+) {
+  let previous = Number.NaN;
+  for (let round = 0; round < maxRounds && scrollOffsetRef.current !== previous; round += 1) {
+    previous = scrollOffsetRef.current;
+    await flushFrames(stepMs);
+  }
 }
 
 describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () => {
@@ -89,6 +135,13 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
   });
 
   afterEach(() => {
+    // Unmount everything first: this cancels any in-flight auto-scroll frame
+    // loop, so a failing assertion before release cannot hang Jest.
+    act(() => {
+      while (mountedRenderers.length > 0) {
+        mountedRenderers.pop()!.unmount();
+      }
+    });
     timingSpy.mockRestore();
     jest.restoreAllMocks();
   });
@@ -103,7 +156,7 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
 
     act(() => {
       configs[0].onPanResponderGrant();
-      configs[0].onPanResponderMove(null, { dy: 160 });
+      configs[0].onPanResponderMove(null, { dy: 160, moveY: MID_MOVE_Y });
       configs[0].onPanResponderRelease();
     });
 
@@ -119,7 +172,7 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
     });
     act(() => {
       configs[2].onPanResponderGrant();
-      configs[2].onPanResponderMove(null, { dy: -320 });
+      configs[2].onPanResponderMove(null, { dy: -320, moveY: MID_MOVE_Y });
       configs[2].onPanResponderRelease();
     });
 
@@ -149,7 +202,7 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
     });
     act(() => {
       configs[1].onPanResponderGrant();
-      configs[1].onPanResponderMove(null, { dy: 5 });
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: MID_MOVE_Y });
       configs[1].onPanResponderRelease();
     });
 
@@ -192,7 +245,7 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
     });
     act(() => {
       configFor.a.onPanResponderGrant();
-      configFor.a.onPanResponderMove(null, { dy: 160 });
+      configFor.a.onPanResponderMove(null, { dy: 160, moveY: MID_MOVE_Y });
       configFor.a.onPanResponderRelease();
     });
     expect(onReorder).toHaveBeenLastCalledWith(['b', 'a', 'c']);
@@ -213,9 +266,128 @@ describe('DraggablePlanList gesture wiring (My Plans reorder regression)', () =>
     });
     act(() => {
       configFor.b.onPanResponderGrant();
-      configFor.b.onPanResponderMove(null, { dy: 150 });
+      configFor.b.onPanResponderMove(null, { dy: 150, moveY: MID_MOVE_Y });
       configFor.b.onPanResponderRelease();
     });
     expect(onReorder).toHaveBeenLastCalledWith(['a', 'b', 'c']);
+  });
+
+  // ── Edge auto-scroll for long lists ────────────────────────────────────────
+
+  it('auto-scrolls when dragging near the bottom edge and applies the scroll delta to the drop', async () => {
+    const { configs, cards, onReorder, scrollTo, scrollOffsetRef } = renderList(PLANS, {
+      autoScroll: true,
+      maxScroll: 200,
+    });
+
+    act(() => {
+      cards[0].props.onLongPress();
+    });
+    act(() => {
+      configs[0].onPanResponderGrant();
+      // Finger inside the bottom zone (viewport 1334, zone starts at 1164).
+      configs[0].onPanResponderMove(null, { dy: 10, moveY: 1300 });
+    });
+
+    await flushUntilScrollSettles(scrollOffsetRef);
+    expect(scrollTo).toHaveBeenCalled();
+    expect(scrollOffsetRef.current).toBe(200); // scrolled to the (clamped) end
+
+    act(() => {
+      configs[0].onPanResponderRelease();
+    });
+
+    // Effective content dy = 10 screen + 200 scroll = 210 -> a lands below b.
+    expect(onReorder).toHaveBeenLastCalledWith(['b', 'a', 'c']);
+  });
+
+  it('auto-scrolls back towards the top edge when the finger moves up', async () => {
+    const { configs, cards, onReorder, scrollOffsetRef } = renderList(PLANS, {
+      autoScroll: true,
+      maxScroll: 200,
+    });
+    scrollOffsetRef.current = 100; // page already scrolled down
+
+    act(() => {
+      cards[2].props.onLongPress();
+    });
+    act(() => {
+      configs[2].onPanResponderGrant();
+      configs[2].onPanResponderMove(null, { dy: -100, moveY: 20 }); // top zone
+    });
+
+    await flushUntilScrollSettles(scrollOffsetRef);
+    expect(scrollOffsetRef.current).toBe(0); // scrolled back to the top
+
+    act(() => {
+      configs[2].onPanResponderRelease();
+    });
+
+    // Effective content dy = -100 screen + (0 - 100) scroll = -200 -> c above b.
+    expect(onReorder).toHaveBeenLastCalledWith(['a', 'c', 'b']);
+  });
+
+  it('stops auto-scrolling when the finger returns to the middle', async () => {
+    const { configs, cards, scrollTo } = renderList(PLANS, { autoScroll: true });
+
+    act(() => {
+      cards[1].props.onLongPress();
+    });
+    act(() => {
+      configs[1].onPanResponderGrant();
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: 1300 });
+    });
+    await flushFrames();
+    expect(scrollTo.mock.calls.length).toBeGreaterThan(0);
+
+    act(() => {
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: MID_MOVE_Y });
+    });
+    const callsWhenStopped = scrollTo.mock.calls.length;
+    await flushFrames();
+    expect(scrollTo.mock.calls.length).toBe(callsWhenStopped);
+
+    act(() => {
+      configs[1].onPanResponderRelease();
+    });
+  });
+
+  it('stops auto-scrolling when the card is released', async () => {
+    const { configs, cards, scrollTo } = renderList(PLANS, { autoScroll: true });
+
+    act(() => {
+      cards[1].props.onLongPress();
+    });
+    act(() => {
+      configs[1].onPanResponderGrant();
+      configs[1].onPanResponderMove(null, { dy: 5, moveY: 1300 });
+    });
+    await flushFrames();
+    expect(scrollTo.mock.calls.length).toBeGreaterThan(0);
+
+    act(() => {
+      configs[1].onPanResponderRelease();
+    });
+    const callsAfterRelease = scrollTo.mock.calls.length;
+    await flushFrames();
+    expect(scrollTo.mock.calls.length).toBe(callsAfterRelease);
+  });
+
+  it('does not auto-scroll when used without a parent ScrollView', async () => {
+    const { configs, cards, onReorder } = renderList();
+
+    act(() => {
+      cards[0].props.onLongPress();
+    });
+    act(() => {
+      configs[0].onPanResponderGrant();
+      configs[0].onPanResponderMove(null, { dy: 5, moveY: 10 });
+    });
+    await flushFrames(30);
+    act(() => {
+      configs[0].onPanResponderRelease();
+    });
+
+    expect(onReorder).not.toHaveBeenCalled();
   });
 });

@@ -1057,6 +1057,20 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
     },
   ];
 
+  /**
+   * A timestamp `minutesAgo` in the past that is guaranteed to still fall on
+   * today's local date. Plain `Date.now() - N` flips to yesterday when the
+   * suite runs shortly after midnight, which made the COMPLETED_TODAY tests
+   * time-of-day dependent.
+   */
+  const earlierToday = (minutesAgo: number, floorMs = 1000): string => {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    return new Date(
+      Math.max(Date.now() - minutesAgo * 60000, dayStart.getTime() + floorMs),
+    ).toISOString();
+  };
+
   it('returns NO_PLANS when user has no plans created', () => {
     const result = getSmartTodayPlan([], []);
     expect(result.state).toBe('NO_PLANS');
@@ -1094,7 +1108,7 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('accurately identifies COMPLETED_TODAY when user logged a workout earlier today', () => {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
+    const fiveMinutesAgo = earlierToday(5);
     const workouts: Workout[] = [
       makeWorkout({
         title: 'Push Power',
@@ -1246,9 +1260,8 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('handles two-a-day workouts by correctly pointing to the sequence after the latest completed session', () => {
-    const now = Date.now();
-    const morning = new Date(now - 15 * 60000).toISOString();
-    const afternoon = new Date(now - 5 * 60000).toISOString();
+    const morning = earlierToday(15, 1000);
+    const afternoon = earlierToday(5, 3000);
     const workouts: Workout[] = [
       makeWorkout({
         id: 'w-afternoon',
@@ -1273,7 +1286,7 @@ describe('Smart Next-Workout Recommendation Engine (getSmartTodayPlan)', () => {
   });
 
   it('allows manual swap override even if a workout was completed today', () => {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
+    const fiveMinutesAgo = earlierToday(5);
     const workouts: Workout[] = [
       makeWorkout({
         title: 'Push Power',

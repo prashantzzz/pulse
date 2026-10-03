@@ -357,6 +357,7 @@ export function Screen({
   contentStyle,
   edges = ['top'],
   scrollProps,
+  scrollRef,
   onSwipeLeft,
   onSwipeRight,
 }: {
@@ -366,6 +367,8 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   scrollProps?: ScrollViewProps;
+  /** Ref to the underlying ScrollView (meaningful only when `scroll` is set) */
+  scrollRef?: React.Ref<ScrollView>;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
 }) {
@@ -579,6 +582,7 @@ export function Screen({
       </View>
       <Wrapper
         {...(scrollProps ?? {})}
+        ref={scroll ? scrollRef : undefined}
         style={scroll ? undefined : styles.screenBody}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

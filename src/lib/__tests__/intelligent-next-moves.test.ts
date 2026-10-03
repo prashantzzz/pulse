@@ -17,6 +17,12 @@ function makeWorkoutExercise(exerciseId, sets, partial) {
 const todayLocal = new Date();
 const daysAgo = (n) => new Date(todayLocal.getFullYear(), todayLocal.getMonth(), todayLocal.getDate() - n, 10).toISOString();
 const hoursAgo = (h) => new Date(Date.now() - h * 3600000).toISOString();
+/** h hours in the past, but never before today's local midnight (midnight-safe tests). */
+const hoursAgoToday = (h) => {
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  return new Date(Math.max(Date.now() - h * 3600000, dayStart.getTime() + 60000)).toISOString();
+};
 
 function makeWorkout(partial) {
   partial = partial || {};
@@ -37,7 +43,7 @@ describe('nextMoves intelligent 8-tier engine', () => {
   });
 
   it('returns a recovery card when a workout was completed today', () => {
-    const workouts = [makeWorkout({ title: 'Push Day', startTime: hoursAgo(2), endTime: hoursAgo(1), exercises: [makeWorkoutExercise('bench-press', [makeSet()])] })];
+    const workouts = [makeWorkout({ title: 'Push Day', startTime: hoursAgoToday(2), endTime: hoursAgoToday(1), exercises: [makeWorkoutExercise('bench-press', [makeSet()])] })];
     const moves = nextMoves(workouts, PLANS);
     expect(moves[0].kind).toBe('recovery');
     expect(moves[0].action.type).toBe('view-progress');

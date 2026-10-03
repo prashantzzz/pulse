@@ -10,10 +10,18 @@ import {
   PanResponder,
   StyleSheet,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
+  type ScrollView,
 } from 'react-native';
 
 import { hapticsMedium } from '../lib/haptics';
+import {
+  autoScrollStep,
+  computeAutoScrollZone,
+  contentDragDy,
+  type AutoScrollDirection,
+} from '../lib/auto-scroll';
 import {
   computePlanDragGeometry,
   movePlanByOffset,
@@ -40,6 +48,9 @@ import { PlanCard } from './workout-card';
  * - Only card heights are measured on layout; row positions are always derived
  *   from the live order (react-native-web only re-fires onLayout on size
  *   changes, so cached y coordinates would go stale after the first reorder).
+ * - Dragging near the top/bottom edge auto-scrolls the parent ScrollView
+ *   (`scrollRef` + `scrollOffsetRef` props), and the drag offset is converted
+ *   into content coordinates so the lifted card keeps following the finger.
  */
 
 const SHIFT_DURATION_MS = 170;
@@ -57,6 +68,16 @@ interface DragSession {
   /** translateY that settles the dragged card into its slot */
   snap: number;
   hoverIndex: number;
+  /** scroll offset when the gesture was claimed (content-space correction) */
+  scrollOffsetAtStart: number;
+  /** latest raw screen-space gesture dy (before scroll compensation) */
+  lastScreenDy: number;
+}
+
+interface DragMoveInfo {
+  dy: number;
+  /** pointer position in window coordinates (for edge auto-scroll) */
+  moveY: number;
 }
 
 export function DraggablePlanList({
@@ -65,6 +86,8 @@ export function DraggablePlanList({
   onStart,
   onEdit,
   onDragStateChange,
+  scrollRef,
+  scrollOffsetRef,
 }: {
   plans: WorkoutPlan[];
   /** Called on drop with the full desired order of plan ids */
@@ -73,6 +96,10 @@ export function DraggablePlanList({
   onEdit?: (plan: WorkoutPlan) => void;
   /** Lets the parent disable ScrollView scrolling while a drag is live */
   onDragStateChange?: (dragging: boolean) => void;
+  /** Parent ScrollView, used for edge auto-scroll while dragging */
+  scrollRef?: { current: ScrollView | null };
+  /** Live ScrollView offset, mirrored from the parent's onScroll */
+  scrollOffsetRef?: { current: number };
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -87,6 +114,13 @@ export function DraggablePlanList({
   const shiftsRef = useRef(new Map<string, number>());
   const dragRef = useRef<DragSession | null>(null);
 
+  // Edge auto-scroll state
+  const { height: windowHeight } = useWindowDimensions();
+  const windowHeightRef = useRef(windowHeight);
+  const autoScrollDirectionRef = useRef<AutoScrollDirection>(0);
+  const autoScrollIntensityRef = useRef(0);
+  const autoScrollFrameRef = useRef<number | null>(null);
+
   // Keep the gesture handlers reading the latest props without re-creating them.
   useEffect(() => {
     plansRef.current = plans;
@@ -97,6 +131,9 @@ export function DraggablePlanList({
   useEffect(() => {
     onDragStateChangeRef.current = onDragStateChange;
   }, [onDragStateChange]);
+  useEffect(() => {
+    windowHeightRef.current = windowHeight;
+  }, [windowHeight]);
 
   const getTranslate = useCallback((id: string): Animated.Value => {
     let value = translatesRef.current.get(id);
@@ -112,12 +149,23 @@ export function DraggablePlanList({
     onDragStateChangeRef.current?.(id != null);
   }, []);
 
-  // Never leave the screen-level swipe lock engaged if the list unmounts mid-drag.
+  const stopAutoScroll = useCallback(() => {
+    autoScrollDirectionRef.current = 0;
+    autoScrollIntensityRef.current = 0;
+    if (autoScrollFrameRef.current != null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }, []);
+
+  // Never leave the screen-level swipe lock or the auto-scroll loop engaged if
+  // the list unmounts mid-drag.
   useEffect(
     () => () => {
       setInnerHorizontalActive(false);
+      stopAutoScroll();
     },
-    [],
+    [stopAutoScroll],
   );
 
   const measureRow = useCallback((id: string, e: LayoutChangeEvent) => {
@@ -149,6 +197,78 @@ export function DraggablePlanList({
       }).start();
     },
     [getTranslate],
+  );
+
+  /**
+   * Applies the current gesture position to the dragged row and the projected
+   * layout. Uses content-space coordinates so auto-scrolling the page does not
+   * break the card's tracking of the finger.
+   */
+  const applyDragOffset = useCallback(
+    (session: DragSession) => {
+      const offset = scrollOffsetRef?.current ?? 0;
+      const contentDy = contentDragDy(session.lastScreenDy, offset, session.scrollOffsetAtStart);
+      const translate = getTranslate(session.id);
+      translate.stopAnimation();
+      translate.setValue(contentDy);
+
+      const geometry = computeGeometry(session.id, contentDy);
+      if (!geometry) return;
+      session.targetOrder = geometry.targetOrder;
+      session.snap = geometry.snap;
+      session.hoverIndex = geometry.hoverIndex;
+
+      for (const [rowId, shift] of geometry.shifts) {
+        if (shiftsRef.current.get(rowId) === shift) continue;
+        shiftsRef.current.set(rowId, shift);
+        animateTranslate(rowId, shift);
+      }
+    },
+    [animateTranslate, computeGeometry, getTranslate, scrollOffsetRef],
+  );
+
+  /** One auto-scroll frame: page scrolls, then the drag offset is refreshed. */
+  // Stores the latest loop function so each frame can schedule the next one
+  // without the callback referencing its own binding (React Compiler rule).
+  const runAutoScrollFrameRef = useRef<() => void>(() => {});
+
+  const runAutoScrollFrame = useCallback(() => {
+    autoScrollFrameRef.current = null;
+    const direction = autoScrollDirectionRef.current;
+    const session = dragRef.current;
+    const view = scrollRef?.current;
+    if (direction === 0 || !session?.active || !view || !scrollOffsetRef) return;
+
+    const step = autoScrollStep(autoScrollIntensityRef.current);
+    const next = Math.max(0, scrollOffsetRef.current + direction * step);
+    // Move optimistically so the frame is smooth; the parent's onScroll event
+    // reconciles the ref with the real (clamped) offset right after.
+    scrollOffsetRef.current = next;
+    view.scrollTo({ y: next, animated: false });
+    applyDragOffset(session);
+    autoScrollFrameRef.current = requestAnimationFrame(runAutoScrollFrameRef.current);
+  }, [applyDragOffset, scrollOffsetRef, scrollRef]);
+
+  useEffect(() => {
+    runAutoScrollFrameRef.current = runAutoScrollFrame;
+  }, [runAutoScrollFrame]);
+
+  /** Starts/stops the auto-scroll loop based on the pointer's window Y. */
+  const refreshAutoScroll = useCallback(
+    (moveY: number) => {
+      if (!scrollRef || !scrollOffsetRef) return;
+      const zone = computeAutoScrollZone(moveY, windowHeightRef.current);
+      autoScrollDirectionRef.current = zone.direction;
+      autoScrollIntensityRef.current = zone.intensity;
+      if (zone.direction === 0) {
+        stopAutoScroll();
+        return;
+      }
+      if (autoScrollFrameRef.current == null) {
+        autoScrollFrameRef.current = requestAnimationFrame(runAutoScrollFrame);
+      }
+    },
+    [runAutoScrollFrame, scrollOffsetRef, scrollRef, stopAutoScroll],
   );
 
   const resetRows = useCallback(() => {
@@ -195,12 +315,15 @@ export function DraggablePlanList({
         targetOrder: currentPlans.map((p) => p.id),
         snap: 0,
         hoverIndex: index,
+        scrollOffsetAtStart: scrollOffsetRef?.current ?? 0,
+        lastScreenDy: 0,
       };
+      stopAutoScroll();
       hapticsMedium();
       setDragging(id);
       return true;
     },
-    [setDragging],
+    [scrollOffsetRef, setDragging, stopAutoScroll],
   );
 
   /** Long press released before the finger moved: undo the lift. */
@@ -225,38 +348,30 @@ export function DraggablePlanList({
       const session = dragRef.current;
       if (!session || session.id !== id) return;
       session.active = true;
+      // Capture the scroll position at the moment the drag really starts, so
+      // auto-scroll corrections are measured from here.
+      session.scrollOffsetAtStart = scrollOffsetRef?.current ?? 0;
       setInnerHorizontalActive(true);
       setDragging(id);
     },
-    [setDragging],
+    [scrollOffsetRef, setDragging],
   );
 
   const handleDragMove = useCallback(
-    (id: string, dy: number) => {
+    (id: string, move: DragMoveInfo) => {
       const session = dragRef.current;
       if (!session || session.id !== id || !session.active) return;
 
-      const translate = getTranslate(id);
-      translate.stopAnimation();
-      translate.setValue(dy);
-
-      const geometry = computeGeometry(id, dy);
-      if (!geometry) return;
-      session.targetOrder = geometry.targetOrder;
-      session.snap = geometry.snap;
-      session.hoverIndex = geometry.hoverIndex;
-
-      for (const [rowId, shift] of geometry.shifts) {
-        if (shiftsRef.current.get(rowId) === shift) continue;
-        shiftsRef.current.set(rowId, shift);
-        animateTranslate(rowId, shift);
-      }
+      session.lastScreenDy = move.dy;
+      refreshAutoScroll(move.moveY);
+      applyDragOffset(session);
     },
-    [animateTranslate, computeGeometry, getTranslate],
+    [applyDragOffset, refreshAutoScroll],
   );
 
   const handleDragEnd = useCallback(
     (id: string) => {
+      stopAutoScroll();
       const session = dragRef.current;
       if (!session || session.id !== id) {
         getTranslate(id).setValue(0);
@@ -278,11 +393,12 @@ export function DraggablePlanList({
         commitOrder(session.targetOrder);
       });
     },
-    [commitOrder, getTranslate, setDragging],
+    [commitOrder, getTranslate, setDragging, stopAutoScroll],
   );
 
   const handleDragCancel = useCallback(
     (id: string) => {
+      stopAutoScroll();
       const session = dragRef.current;
       if (!session || session.id !== id) return;
       // Animate everything back to rest; the refs are cleared immediately so a
@@ -296,7 +412,7 @@ export function DraggablePlanList({
       setInnerHorizontalActive(false);
       setDragging(null);
     },
-    [animateTranslate, setDragging],
+    [animateTranslate, setDragging, stopAutoScroll],
   );
 
   /** Accessibility / keyboard move by one slot. */
@@ -371,7 +487,7 @@ function DraggablePlanRow({
   onDragBegin: (id: string) => boolean;
   onDragBeginEnd: (id: string) => void;
   onDragActivate: (id: string) => void;
-  onDragMove: (id: string, dy: number) => void;
+  onDragMove: (id: string, move: DragMoveInfo) => void;
   onDragEnd: (id: string) => void;
   onDragCancel: (id: string) => void;
 }) {
@@ -410,7 +526,7 @@ function DraggablePlanRow({
         callbacksRef.current.onDragActivate(plan.id);
       },
       onPanResponderMove: (_e, g) => {
-        callbacksRef.current.onDragMove(plan.id, g.dy);
+        callbacksRef.current.onDragMove(plan.id, { dy: g.dy, moveY: g.moveY });
       },
       onPanResponderRelease: () => {
         armedRef.current = false;

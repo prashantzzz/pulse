@@ -16,8 +16,8 @@ import { EXERCISE_MAP } from '../../data/exercises';
 import { usePulse } from '../../store/useStore';
 import { colors, layout, spacing, useAccent } from '../../theme';
 
-type ProgressView = 'Strength' | 'Volume' | 'Regularity' | 'Body' | 'Records';
-const VIEWS = ['Strength', 'Volume', 'Regularity', 'Body', 'Records'] as const;
+type ProgressView = 'Body' | 'Strength' | 'Volume' | 'Regularity' | 'Records';
+const VIEWS = ['Body', 'Strength', 'Volume', 'Regularity', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
 
@@ -31,7 +31,7 @@ export default function ProgressScreen() {
   const plans = usePulse((s) => s.plans);
   const measurements = usePulse((s) => s.measurements);
   const profile = usePulse((s) => s.profile);
-  const [view, setView] = useState<ProgressView>('Strength');
+  const [view, setView] = useState<ProgressView>('Body');
   const [tf, setTf] = useState<ProgressTimeframe>('3M');
   const [exerciseId, setExerciseId] = useState<string>('bench-press');
   const [pickerOpen, setPickerOpen] = useState(false);

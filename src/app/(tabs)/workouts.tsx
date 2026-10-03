@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
 import { BottomSheet, EmptyState, toast } from '../../components/misc';
@@ -46,8 +46,12 @@ export default function WorkoutsScreen() {
   const [tab, setTab] = useState<'My Plans' | 'Templates'>('My Plans');
 
   // Disable page scrolling while a plan card is being dragged, so the drag
-  // gesture is never stolen by the ScrollView mid-reorder.
+  // gesture is never stolen by the ScrollView mid-reorder. The list uses this
+  // same ScrollView (ref + offset) to auto-scroll when the finger reaches the
+  // top/bottom edge of a long list.
   const [reorderingPlans, setReorderingPlans] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
 
   // Open a specific segment when arriving with a navigation intent (e.g. the
   // Log hub's "Browse Workout Templates").
@@ -119,7 +123,14 @@ export default function WorkoutsScreen() {
   return (
     <Screen
       scroll
-      scrollProps={{ scrollEnabled: !reorderingPlans }}
+      scrollRef={scrollRef}
+      scrollProps={{
+        scrollEnabled: !reorderingPlans,
+        scrollEventThrottle: 16,
+        onScroll: (e) => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        },
+      }}
       onSwipeRight={() => router.navigate('/(tabs)/home' as never)}
       onSwipeLeft={() => router.navigate('/(tabs)/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
@@ -196,6 +207,8 @@ export default function WorkoutsScreen() {
                 onStart={begin}
                 onEdit={(p) => router.push(`/builder?plan=${p.id}` as never)}
                 onDragStateChange={setReorderingPlans}
+                scrollRef={scrollRef}
+                scrollOffsetRef={scrollOffsetRef}
               />
 
               <View style={{ marginTop: spacing.md }}>
