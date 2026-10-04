@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ExerciseThumb } from '../../components/muscle-icon';
 import { T } from '../../components/Text';
 import { Row, Screen, ScreenHeader, Tag } from '../../components/ui';
+import { WebScreenTransition, useScreenTransition } from '../../components/web-screen-transition';
 import { exercisesForSlug } from '../../data/exercises';
 import { anatomyLabel } from '../../lib/anatomy';
 import { colors, radius, spacing, useAccent } from '../../theme';
@@ -21,6 +22,7 @@ export default function MuscleExercisesScreen() {
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug?: string }>();
   const muscleSlug = typeof slug === 'string' ? slug : '';
+  const { progress, runExit } = useScreenTransition();
 
   // Primary movers first, then secondary — mirrors the ordering used before.
   const exercises = useMemo(
@@ -36,21 +38,24 @@ export default function MuscleExercisesScreen() {
   );
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/progress' as never);
-    }
+    runExit(() => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/progress' as never);
+      }
+    });
   };
 
   return (
-    <Screen>
-      <ScreenHeader
-        title={`Exercises for ${anatomyLabel(muscleSlug)}`}
-        subtitle={`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
-        back
-        onBack={handleBack}
-      />
+    <WebScreenTransition progress={progress}>
+      <Screen>
+        <ScreenHeader
+          title={`Exercises for ${anatomyLabel(muscleSlug)}`}
+          subtitle={`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
+          back
+          onBack={handleBack}
+        />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.list}
@@ -102,7 +107,8 @@ export default function MuscleExercisesScreen() {
           })
         )}
       </ScrollView>
-    </Screen>
+      </Screen>
+    </WebScreenTransition>
   );
 }
 

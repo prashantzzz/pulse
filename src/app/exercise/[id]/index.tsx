@@ -9,6 +9,7 @@ import { BottomSheet } from '../../../components/misc';
 import { MuscleTargetMap } from '../../../components/muscle-map';
 import { T } from '../../../components/Text';
 import { Button, Card, Icon, Row, Screen, ScreenHeader, Section, Tag } from '../../../components/ui';
+import { WebScreenTransition, useScreenTransition } from '../../../components/web-screen-transition';
 import { getExerciseAnimation } from '../../../data/exercise-animations';
 import { EXERCISE_MAP, swapOptions } from '../../../data/exercises';
 import { plateauForExercise } from '../../../lib/stats';
@@ -27,6 +28,22 @@ export default function ExerciseDetailScreen() {
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const isFromRunningWorkout = Boolean(fromRunning) && Boolean(activeWorkout) && !activeWorkout?.endTime;
   const [addSheet, setAddSheet] = useState(false);
+  const { progress, runExit } = useScreenTransition();
+
+  const goBack = useCallback(
+    (fallback: string) => {
+      runExit(() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else if (isFromRunningWorkout && activeWorkout) {
+          router.replace(`/workout/${activeWorkout.id}` as never);
+        } else {
+          router.replace(fallback as never);
+        }
+      });
+    },
+    [runExit, router, isFromRunningWorkout, activeWorkout],
+  );
 
   // Handle hardware back press cleanly when this screen is active
   useFocusEffect(
@@ -36,18 +53,12 @@ export default function ExerciseDetailScreen() {
           setAddSheet(false);
           return true;
         }
-        if (router.canGoBack()) {
-          router.back();
-        } else if (isFromRunningWorkout && activeWorkout) {
-          router.replace(`/workout/${activeWorkout.id}` as never);
-        } else {
-          router.replace('/(tabs)/workouts' as never);
-        }
+        goBack('/(tabs)/workouts');
         return true;
       };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => sub.remove();
-    }, [addSheet, router, isFromRunningWorkout, activeWorkout])
+    }, [addSheet, goBack])
   );
 
   const exercise = id ? EXERCISE_MAP[id] : undefined;
@@ -80,24 +91,17 @@ export default function ExerciseDetailScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <Screen
-        scroll
-        contentStyle={{
-          paddingBottom: isFromRunningWorkout ? spacing.xl : layout.stackContentBottomPad,
-          paddingTop: layout.screenTopPad,
-        }}>
+    <WebScreenTransition progress={progress}>
+      <View style={{ flex: 1 }}>
+        <Screen
+          scroll
+          contentStyle={{
+            paddingBottom: isFromRunningWorkout ? spacing.xl : layout.stackContentBottomPad,
+            paddingTop: layout.screenTopPad,
+          }}>
         <ScreenHeader
           back
-          onBack={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else if (isFromRunningWorkout && activeWorkout) {
-              router.replace(`/workout/${activeWorkout.id}` as never);
-            } else {
-              router.replace('/library' as never);
-            }
-          }}
+          onBack={() => goBack('/library')}
           right={fav ? 'bookmark' : 'bookmark-outline'}
           rightLabel="Toggle favorite"
           onRight={() => toggleFavorite(exercise.id)}
@@ -319,7 +323,8 @@ export default function ExerciseDetailScreen() {
           </View>
         </BottomSheet>
       )}
-    </View>
+      </View>
+    </WebScreenTransition>
   );
 }
 
