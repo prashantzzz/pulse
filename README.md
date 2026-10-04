@@ -174,7 +174,7 @@ File-based routing via `expo-router` (root `Stack` in `src/app/_layout.tsx`, tab
 | `/exercise/[id]` | Exercise detail / form guide |
 | `/workout/[id]` (+ `/log`, `/rest`, `/summary`) | Active workout flow, set logger, rest timer + live status notification |
 | `/auth/login`, `/signup`, `/forgot-password`, `/reset-password`, `/callback` | Auth screens |
-| `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/records`, `/replay/[id]`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
+| `/library`, `/builder`, `/gym-mode`, `/leaderboard`, `/challenge`, `/history`, `/achievements`, `/records`, `/replay/[id]`, `/muscle/[slug]`, `/measure`, `/onboarding`, `/settings` | Standalone screens |
 
 Pass **ids, not objects**, between screens (e.g. `/exercise/${id}`, `/workout/${id}`).
 
@@ -314,7 +314,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
-npm test           # jest — 34 consolidated test suites (452 tests)
+npm test           # jest — 35 consolidated test suites (456 tests)
 ```
 
 ### Database Migrations

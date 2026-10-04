@@ -1,41 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { Slug } from 'react-native-body-highlighter';
 
 import { MuscleLegend, MuscleMap } from '../muscle-map';
 import { T } from '../Text';
-import { ExerciseThumb } from '../muscle-icon';
-import { Button, Card, Row, Screen, Section, Tag } from '../ui';
-import { ANATOMY_LABEL_MAP, exercisesForSlug, resolveExercise } from '../../data/exercises';
+import { Button, Card, Row, Screen, Section } from '../ui';
+import { resolveExercise } from '../../data/exercises';
+import { anatomyLabel } from '../../lib/anatomy';
 import { getTrainingEfficiency, GROUP_TO_SLUGS, volumeByMuscle, volumeBySlug } from '../../lib/stats';
 import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
 import { colors, radius, spacing } from '../../theme';
 import type { BodyMeasurement, MuscleGroup, MuscleSlug, UserProfile, Workout } from '../../types';
-import type { Exercise } from '../../types';
 import { progressStyles } from './shared';
 
 const ALL_MUSCLES: MuscleGroup[] = ['Chest', 'Back', 'Quads', 'Hamstrings', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Calves', 'Glutes', 'Forearms'];
-
-const ANATOMY_LABELS: Partial<Record<Slug, string>> = {
-  'upper-back': 'Lats & Upper Back',
-  trapezius: 'Trapezius (Traps)',
-  'lower-back': 'Lower Back (Lumbar)',
-  deltoids: 'Shoulders (Deltoids)',
-  chest: 'Chest',
-  biceps: 'Biceps',
-  triceps: 'Triceps',
-  abs: 'Abs (Core)',
-  obliques: 'Obliques',
-  forearm: 'Forearms',
-  quadriceps: 'Quadriceps',
-  adductors: 'Adductors',
-  hamstring: 'Hamstrings',
-  gluteal: 'Glutes',
-  calves: 'Calves',
-};
 
 function formatRecency(d?: Date): string {
   if (!d) return 'Not logged yet';
@@ -65,7 +46,6 @@ export function BodyView({
   const weightUnit = usePulse((s) => s.weightUnit);
   const [selMuscle, setSelMuscle] = useState<MuscleGroup | null>(null);
   const [selSlug, setSelSlug] = useState<Slug | null>(null);
-  const [exerciseModalSlug, setExerciseModalSlug] = useState<string | null>(null);
 
   // Calculate training journey span from Day 1 to Today
   const sortedWorkoutsAsc = [...workouts].sort(
@@ -155,24 +135,12 @@ export function BodyView({
     : undefined;
   const recencyText = formatRecency(lastTrainedDate);
 
-  const displayTitle = selSlug && ANATOMY_LABELS[selSlug] ? ANATOMY_LABELS[selSlug] : selMuscle;
+  const displayTitle = selSlug ? anatomyLabel(String(selSlug)) : selMuscle;
   const last = measurements[measurements.length - 1];
-
-  // Exercises for the muscle exercise modal
-  const modalExercises: Exercise[] = exerciseModalSlug
-    ? exercisesForSlug(exerciseModalSlug).sort((a, b) => {
-        const aPrimary = (a.targetSlugs ?? []).includes(exerciseModalSlug as any) ? 0 : 1;
-        const bPrimary = (b.targetSlugs ?? []).includes(exerciseModalSlug as any) ? 0 : 1;
-        return aPrimary - bPrimary;
-      })
-    : [];
-  const modalTitle = exerciseModalSlug
-    ? `Exercises for ${ANATOMY_LABELS[exerciseModalSlug as Slug] ?? ANATOMY_LABEL_MAP[exerciseModalSlug] ?? exerciseModalSlug}`
-    : '';
 
   // Button label for "exercises for this muscle"
   const exerciseBtnLabel = selSlug
-    ? `Exercises for ${ANATOMY_LABELS[selSlug] ?? ANATOMY_LABEL_MAP[selSlug as string] ?? selSlug}`
+    ? `Exercises for ${anatomyLabel(String(selSlug))}`
     : selMuscle
     ? `Exercises for ${selMuscle}`
     : null;
@@ -266,7 +234,7 @@ export function BodyView({
             <Pressable
               onPress={() => {
                 const targetSlug = selSlug ? String(selSlug) : (selMuscle ? GROUP_TO_SLUGS[selMuscle]?.[0] : null);
-                if (targetSlug) setExerciseModalSlug(targetSlug);
+                if (targetSlug) router.push(`/muscle/${targetSlug}` as never);
               }}
               style={styles.exercisesBtn}>
               <Ionicons name="barbell-outline" size={16} color={colors.accent} />
@@ -318,95 +286,6 @@ export function BodyView({
           </Row>
         </Card>
       </Section>
-
-      {/* Exercises for Muscle — Full-screen modal popup */}
-      <Modal
-        visible={!!exerciseModalSlug}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setExerciseModalSlug(null)}>
-        <View style={styles.modalRoot}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View style={{ flex: 1 }}>
-              <T variant="h3" numberOfLines={2}>
-                {modalTitle}
-              </T>
-              <T variant="small" dim style={{ marginTop: 2 }}>
-                {modalExercises.length} exercise{modalExercises.length !== 1 ? 's' : ''}
-              </T>
-            </View>
-            <Pressable onPress={() => setExerciseModalSlug(null)} style={styles.modalClose}>
-              <Ionicons name="close" size={20} color={colors.textDim} />
-            </Pressable>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.divider} />
-
-          {/* Exercise list */}
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 60, gap: spacing.sm }}
-            showsVerticalScrollIndicator={false}>
-            {modalExercises.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
-                <Ionicons name="fitness-outline" size={48} color={colors.textMuted} />
-                <T variant="bodySemi" dim style={{ marginTop: spacing.md }}>
-                  No exercises found
-                </T>
-                <T variant="small" muted style={{ marginTop: 4, textAlign: 'center' }}>
-                  No exercises in the library target this specific muscle
-                </T>
-              </View>
-            ) : (
-              modalExercises.map((ex) => (
-                <Pressable
-                  key={ex.id}
-                  onPress={() => {
-                    // Close the modal first: it is a full-screen native/portal
-                    // overlay, so a pushed screen would render underneath it and
-                    // stay invisible until the list is dismissed.
-                    setExerciseModalSlug(null);
-                    router.push(`/exercise/${ex.id}` as never);
-                  }}
-                  style={({ pressed }) => [styles.modalRow, pressed && { opacity: 0.82 }]}>
-                  <ExerciseThumb muscle={ex.muscleGroup} size={48} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <T variant="bodySemi" numberOfLines={1}>
-                      {ex.name}
-                    </T>
-                    <Row gap={8}>
-                      <Tag label={ex.equipment} color={colors.textDim} bg={colors.surface3} />
-                      <T variant="micro" muted>
-                        {ex.difficulty}
-                      </T>
-                      <T variant="micro" muted>
-                        ·
-                      </T>
-                      <T variant="micro" muted>
-                        {ex.type}
-                      </T>
-                    </Row>
-                    {/* Show if it's primary or secondary for this slug */}
-                    {exerciseModalSlug ? (
-                      <T
-                        variant="micro"
-                        style={{
-                          color: (ex.targetSlugs ?? []).includes(exerciseModalSlug as any)
-                            ? colors.accent
-                            : colors.textMuted,
-                        }}>
-                        {(ex.targetSlugs ?? []).includes(exerciseModalSlug as any) ? '● Primary target' : '○ Secondary muscle'}
-                      </T>
-                    ) : null}
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -430,41 +309,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderColor: `${colors.accent}30`,
-  },
-  modalRoot: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    paddingTop: 56,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
-  },
-  modalClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  modalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
   },
 });

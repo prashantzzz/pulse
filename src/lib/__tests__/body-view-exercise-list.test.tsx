@@ -14,7 +14,7 @@ jest.mock('expo-router', () => ({
 }));
 
 // The heatmap library renders SVG heavy content; the test only needs the
-// selection callback. The exercise thumbnails are irrelevant here too.
+// selection callbacks. The exercise thumbnails are irrelevant here too.
 jest.mock('../../components/muscle-map', () => ({
   MuscleMap: () => null,
   MuscleLegend: () => null,
@@ -24,13 +24,11 @@ jest.mock('../../components/muscle-icon', () => ({
   planIcon: () => 'dumbbell',
 }));
 
-import { Modal } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { MuscleMap } from '../../components/muscle-map';
 import { BodyView } from '../../components/progress/body-view';
 import { T } from '../../components/Text';
-import { exercisesForSlug } from '../../data/exercises';
 
 /** Finds a rendered label and invokes the nearest pressable ancestor. */
 function pressText(renderer: ReactTestRenderer, text: string) {
@@ -42,7 +40,7 @@ function pressText(renderer: ReactTestRenderer, text: string) {
   act(() => node!.props.onPress());
 }
 
-describe('Body tab — "Exercises for <muscle>" list (modal navigation regression)', () => {
+describe('Body tab — "Exercises for <muscle>" opens the list route', () => {
   let renderer: ReactTestRenderer | null = null;
 
   beforeEach(() => {
@@ -56,33 +54,32 @@ describe('Body tab — "Exercises for <muscle>" list (modal navigation regressio
     }
   });
 
-  it('closes the list before opening the tapped exercise so the screen is visible', () => {
+  function renderBodyView() {
     act(() => {
       renderer = create(<BodyView workouts={[]} measurements={[]} profile={null} />);
     });
+    return renderer!;
+  }
 
-    // Select a muscle on the heatmap, then open its exercise list.
+  it('navigates to the muscle list screen instead of opening an overlay', () => {
+    const view = renderBodyView();
+
     act(() => {
-      (renderer!.root.findByType(MuscleMap).props as any).onSelect('Chest');
+      (view.root.findByType(MuscleMap).props as any).onSelect('Chest');
     });
-    pressText(renderer!, 'Exercises for Chest');
-    expect(renderer!.root.findByType(Modal).props.visible).toBe(true);
+    pressText(view, 'Exercises for Chest');
 
-    // The first row is the same one the UI shows (primary targets first).
-    const firstShown = exercisesForSlug('chest')
-      .slice()
-      .sort((a, b) => {
-        const aPrimary = (a.targetSlugs ?? []).includes('chest' as any) ? 0 : 1;
-        const bPrimary = (b.targetSlugs ?? []).includes('chest' as any) ? 0 : 1;
-        return aPrimary - bPrimary;
-      })[0];
-    expect(firstShown).toBeDefined();
+    expect(mockPush).toHaveBeenCalledWith('/muscle/chest');
+  });
 
-    pressText(renderer!, firstShown.name);
+  it('uses the selected anatomy region slug and its curated label', () => {
+    const view = renderBodyView();
 
-    // Regression: the modal must be dismissed as part of the tap, otherwise the
-    // pushed exercise screen renders underneath it and stays invisible.
-    expect(renderer!.root.findByType(Modal).props.visible).toBe(false);
-    expect(mockPush).toHaveBeenCalledWith(`/exercise/${firstShown.id}`);
+    act(() => {
+      (view.root.findByType(MuscleMap).props as any).onSelectSlug('upper-back', 'Back');
+    });
+    pressText(view, 'Exercises for Lats & Upper Back');
+
+    expect(mockPush).toHaveBeenCalledWith('/muscle/upper-back');
   });
 });
