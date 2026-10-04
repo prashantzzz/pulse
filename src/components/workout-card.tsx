@@ -143,7 +143,7 @@ export function PlanCard({
             if (!ex) return null;
             return (
               <View key={spec.exerciseId} style={styles.exRow}>
-                <ExerciseThumb muscle={ex.muscleGroup} size={30} />
+                <ExerciseThumb exerciseId={spec.exerciseId} muscle={ex.muscleGroup} size={30} />
                 <View style={{ flex: 1 }}>
                   <T variant="smallSemi" numberOfLines={1}>
                     {ex.name}
@@ -189,7 +189,7 @@ export function HistoryCard({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.historyCard, pressed && { opacity: 0.9 }]}>
       <View style={styles.historyLeft}>
-        {first ? <ExerciseThumb muscle={first.muscleGroup} size={44} /> : null}
+        {first ? <ExerciseThumb exerciseId={first.id} muscle={first.muscleGroup} size={44} /> : null}
         <View style={{ flex: 1, gap: 3 }}>
           <T variant="bodySemi" numberOfLines={1}>
             {workout.title}
@@ -455,7 +455,7 @@ export function TodayWorkoutCard({
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
         {first ? (
           <View style={styles.heroArt} pointerEvents="none">
-            <ExerciseThumb muscle={first.muscleGroup} size={110} rounded={28} useThemeAccent />
+            <ExerciseThumb exerciseId={first.id} muscle={first.muscleGroup} size={110} rounded={28} useThemeAccent />
           </View>
         ) : null}
         <View style={{ padding: spacing.lg, gap: 10 }}>

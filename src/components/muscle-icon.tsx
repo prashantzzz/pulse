@@ -1,7 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { getExerciseThumb } from '../data/exercise-thumbnails';
 import { colors, gradients, radius, useAccent } from '../theme';
 import type { MuscleGroup } from '../types';
 
@@ -64,12 +66,15 @@ export function MuscleGlyph({ muscle, size = 34, color = colors.bg }: { muscle: 
 }
 
 export function ExerciseThumb({
+  exerciseId,
   muscle,
   size = 56,
   icon,
   rounded = 14,
   useThemeAccent = false,
 }: {
+  /** When the exercise has a video, its first-frame thumbnail is shown */
+  exerciseId?: string;
   muscle: MuscleGroup;
   size?: number;
   icon?: React.ReactNode;
@@ -81,6 +86,7 @@ export function ExerciseThumb({
   const colorsList: [string, string] = useThemeAccent
     ? [gradients.accent[0], gradients.accent[1]]
     : [gradients[g][0], gradients[g][1]];
+  const thumb = exerciseId ? getExerciseThumb(exerciseId) : undefined;
   return (
     <LinearGradient
       key={`${accentKey}-${useThemeAccent}`}
@@ -95,9 +101,21 @@ export function ExerciseThumb({
         justifyContent: 'center',
         overflow: 'hidden',
       }}>
+      {/* Icon underneath: instant placeholder while the photo decodes, and the
+          permanent fallback for exercises without a video. */}
       <View style={{ transform: [{ scale: 1.08 }] }}>
         {icon ?? <MaterialCommunityIcons name={muscleIcon(muscle)} size={size * 0.55} color="#0A0B0D" />}
       </View>
+      {thumb != null ? (
+        <Image
+          source={thumb}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={140}
+          cachePolicy="memory-disk"
+          recyclingKey={exerciseId}
+        />
+      ) : null}
     </LinearGradient>
   );
 }

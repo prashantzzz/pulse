@@ -792,7 +792,7 @@ function CollapsibleTemplateDay({
           if (!ex) return null;
           return (
             <View key={`${spec.exerciseId}-${i}`} style={styles.exRow}>
-              <ExerciseThumb muscle={ex.muscleGroup} size={28} />
+              <ExerciseThumb exerciseId={spec.exerciseId} muscle={ex.muscleGroup} size={28} />
               <View style={{ flex: 1 }}>
                 <T variant="smallSemi" numberOfLines={1}>
                   {ex.name}

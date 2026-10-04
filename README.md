@@ -72,6 +72,7 @@ src/
 ├── data/                 # Static knowledge base
 │   ├── exercises.ts      # Coached exercises (EXERCISES + EXERCISE_MAP)
 │   ├── exercise-animations.ts  # exercise-id → media asset mapping
+│   ├── exercise-thumbnails.ts  # generated first-frame thumbs (scripts/generate-exercise-thumbs.mjs)
 │   └── seed.ts           # Demo profile, plans, workouts, friends
 │
 ├── lib/                  # Pure business logic (no React, fully unit-tested)

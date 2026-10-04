@@ -201,7 +201,7 @@ function ExerciseRow({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}>
-      <ExerciseThumb muscle={exercise.muscleGroup} size={54} />
+      <ExerciseThumb exerciseId={exercise.id} muscle={exercise.muscleGroup} size={54} />
       <View style={{ flex: 1, gap: 3 }}>
         <T variant="bodySemi" numberOfLines={1}>
           {exercise.name}

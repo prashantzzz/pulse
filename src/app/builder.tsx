@@ -334,7 +334,7 @@ export default function BuilderScreen() {
                   if (!e) return null;
                   return (
                     <View key={`${d.exerciseId}-${i}`} style={styles.draftRow}>
-                      <ExerciseThumb muscle={e.muscleGroup} size={40} />
+                      <ExerciseThumb exerciseId={d.exerciseId} muscle={e.muscleGroup} size={40} />
                       <View style={{ flex: 1, gap: 2 }}>
                         <Pressable
                           onPress={() => router.push(`/exercise/${d.exerciseId}` as never)}
@@ -451,7 +451,7 @@ export default function BuilderScreen() {
                   <Pressable
                     onPress={() => router.push(`/exercise/${ex.id}` as never)}
                     style={styles.libraryRowInfo}>
-                    <ExerciseThumb muscle={ex.muscleGroup} size={48} />
+                    <ExerciseThumb exerciseId={ex.id} muscle={ex.muscleGroup} size={48} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <T variant="bodySemi" numberOfLines={1}>
                         {ex.name}
@@ -682,7 +682,7 @@ export default function BuilderScreen() {
                     toast(`Swapped to ${alt.name}`);
                   }}
                   style={styles.swapRow}>
-                  <ExerciseThumb muscle={alt.muscleGroup} size={36} />
+                  <ExerciseThumb exerciseId={alt.id} muscle={alt.muscleGroup} size={36} />
                   <View style={{ flex: 1 }}>
                     <T variant="bodySemi" style={{ fontSize: 14 }}>
                       {alt.name}

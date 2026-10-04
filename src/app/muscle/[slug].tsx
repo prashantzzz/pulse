@@ -80,7 +80,7 @@ export default function MuscleExercisesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${ex.name}`}
                 style={({ pressed }) => [styles.row, pressed && { opacity: 0.82 }]}>
-                <ExerciseThumb muscle={ex.muscleGroup} size={48} />
+                <ExerciseThumb exerciseId={ex.id} muscle={ex.muscleGroup} size={48} />
                 <View style={{ flex: 1, gap: 3 }}>
                   <T variant="bodySemi" numberOfLines={1}>
                     {ex.name}
