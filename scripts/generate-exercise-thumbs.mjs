@@ -20,22 +20,37 @@ const thumbsDir = path.join(root, 'assets', 'thumbs');
 const outMapPath = path.join(root, 'src', 'data', 'exercise-thumbnails.ts');
 
 const source = readFileSync(animationsPath, 'utf8');
-const entryRe = /'([^']+)':\s*\{\s*source:\s*require\('([^']+\.mp4)'\)/g;
 
-const entries = [];
+// 1. Asset key -> video file (ANIMATION_ASSETS).
+const assetRe = /'([^']+)':\s*\{\s*source:\s*require\('([^']+\.mp4)'\)/g;
+const assetVideos = new Map();
 let match;
-while ((match = entryRe.exec(source))) {
-  entries.push({ exerciseId: match[1], video: match[2] });
+while ((match = assetRe.exec(source))) {
+  assetVideos.set(match[1], match[2]);
+}
+
+// 2. Exercise id -> asset key (EXERCISE_ANIMATIONS).
+const exerciseBlock = source.slice(source.indexOf('const EXERCISE_ANIMATIONS'));
+const exerciseRe = /'([^']+)':\s*'([^']+)'/g;
+const entries = [];
+while ((match = exerciseRe.exec(exerciseBlock))) {
+  const exerciseId = match[1];
+  const video = assetVideos.get(match[2]);
+  if (!video) {
+    throw new Error(`Animation asset "${match[2]}" for exercise "${exerciseId}" was not found.`);
+  }
+  entries.push({ exerciseId, video });
 }
 if (entries.length === 0) {
-  throw new Error('No animation entries found — check the exercise-animations.ts format.');
+  throw new Error('No exercise animation entries found — check the exercise-animations.ts format.');
 }
-console.log(`Found ${entries.length} exercise videos.`);
+console.log(`Found ${entries.length} exercise→video mappings (${assetVideos.size} video assets).`);
 
 mkdirSync(thumbsDir, { recursive: true });
 
 const mapLines = [];
 const failed = [];
+const generatedVideos = new Set();
 let totalBytes = 0;
 
 for (const { exerciseId, video } of entries) {
@@ -43,37 +58,42 @@ for (const { exerciseId, video } of entries) {
   const base = path.basename(video).replace(/\.mp4$/i, '');
   const outPath = path.join(thumbsDir, `${base}.jpg`);
 
-  // Sample slightly into the clip to skip black/lead-in frames; fall back to
-  // the very first frame for clips shorter than the seek point.
-  let ok = false;
-  for (const seek of ['0.3', '0']) {
-    try {
-      execFileSync(
-        'ffmpeg',
-        [
-          '-y',
-          '-loglevel', 'error',
-          '-ss', seek,
-          '-i', videoPath,
-          '-frames:v', '1',
-          '-vf', 'scale=128:128:force_original_aspect_ratio=increase,crop=128:128',
-          '-q:v', '4',
-          outPath,
-        ],
-        { stdio: 'pipe' },
-      );
-      ok = true;
-      break;
-    } catch {
-      // retry with the other seek point
+  // Several exercises can share one video asset — encode each file once.
+  if (!generatedVideos.has(videoPath)) {
+    // Sample slightly into the clip to skip black/lead-in frames; fall back to
+    // the very first frame for clips shorter than the seek point.
+    let ok = false;
+    for (const seek of ['0.3', '0']) {
+      try {
+        execFileSync(
+          'ffmpeg',
+          [
+            '-y',
+            '-loglevel', 'error',
+            '-ss', seek,
+            '-i', videoPath,
+            '-frames:v', '1',
+            '-vf', 'scale=128:128:force_original_aspect_ratio=increase,crop=128:128',
+            '-q:v', '4',
+            outPath,
+          ],
+          { stdio: 'pipe' },
+        );
+        ok = true;
+        break;
+      } catch {
+        // retry with the other seek point
+      }
     }
+
+    if (!ok) {
+      failed.push(base);
+      continue;
+    }
+    generatedVideos.add(videoPath);
+    totalBytes += statSync(outPath).size;
   }
 
-  if (!ok) {
-    failed.push(base);
-    continue;
-  }
-  totalBytes += statSync(outPath).size;
   mapLines.push(`  '${exerciseId}': require('../../assets/thumbs/${base}.jpg'),`);
 }
 
@@ -96,7 +116,9 @@ export function getExerciseThumb(exerciseId: string): number | undefined {
 `;
 writeFileSync(outMapPath, generatedMap, 'utf8');
 
-console.log(`Generated ${mapLines.length} thumbnails (${(totalBytes / 1024).toFixed(0)} KB total).`);
+console.log(
+  `Generated ${generatedVideos.size} thumbnails (${(totalBytes / 1024).toFixed(0)} KB) for ${mapLines.length} exercise mappings.`,
+);
 console.log(`Wrote ${path.relative(root, outMapPath)}.`);
 if (failed.length > 0) {
   console.warn(`Failed for ${failed.length} video(s): ${failed.join(', ')}`);
