@@ -1,8 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { accentTint, colors, gradients, radius, spacing, useAccent } from '../theme';
@@ -11,7 +11,6 @@ import { T } from './Text';
 import { Row, Tag } from './ui';
 import { ExerciseThumb, planIcon } from './muscle-icon';
 import { EXERCISE_MAP } from '../data/exercises';
-import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { workoutStats } from '../lib/stats';
 import { formatVolumeWithUnit } from '../lib/units';
 import { usePulse } from '../store/useStore';
@@ -455,7 +454,9 @@ export function TodayWorkoutCard({
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
         {first ? (
           <View style={styles.heroArt} pointerEvents="none">
-            <ExerciseThumb exerciseId={first.id} muscle={first.muscleGroup} size={110} rounded={28} useThemeAccent />
+            {/* Themed vector glyph (not the video photo): the hero art is a
+                decorative background element, so it follows the app accent. */}
+            <ExerciseThumb muscle={first.muscleGroup} size={110} rounded={28} useThemeAccent />
           </View>
         ) : null}
         <View style={{ padding: spacing.lg, gap: 10 }}>

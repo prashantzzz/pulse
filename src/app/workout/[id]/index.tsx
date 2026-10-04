@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   AppState,
@@ -24,7 +24,9 @@ import { Button, Row, Screen } from '../../../components/ui';
 import { AnimatedChevron, CollapsibleContent } from '../../../components/collapsible';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
-import { previousSet, exerciseInvolvesWeights, getDefaultSetValues } from '../../../lib/stats';
+import { bestForExercise, previousSet, exerciseInvolvesWeights, getDefaultSetValues } from '../../../lib/stats';
+import { toUserWeight, formatWeight } from '../../../lib/units';
+import type { ExerciseBest } from '../../../lib/stats';
 import { useNow, usePulse } from '../../../store/useStore';
 import { accentTint, colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsMedium, hapticsSuccess } from '../../../lib/haptics';
@@ -59,6 +61,19 @@ function postWorkoutNotification(w: ActiveWorkout): void {
 }
 
 /**
+ * Compact PR badge for an exercise card, e.g. "45kg × 4" — the heaviest
+ * completed set on record. Bodyweight movements fall back to "12 reps".
+ */
+function formatPRBadge(best: ExerciseBest | null, unit: 'kg' | 'lbs'): string | null {
+  if (!best) return null;
+  if (best.maxWeight.weightKg <= 0) {
+    return best.maxReps.reps > 0 ? `${best.maxReps.reps} reps` : null;
+  }
+  const userWeight = toUserWeight(best.maxWeight.weightKg, unit);
+  return `${formatWeight(userWeight)}${unit} × ${best.maxWeight.reps}`;
+}
+
+/**
  * Animated collapsible Exercise Card using global accordion animations.
  */
 function ExerciseAccordionCard({
@@ -70,6 +85,7 @@ function ExerciseAccordionCard({
   doneCount,
   totalCount,
   prevValues,
+  prLabel,
   nextExerciseId,
   nextIncompleteSetId,
   onToggleExpand,
@@ -84,6 +100,8 @@ function ExerciseAccordionCard({
   doneCount: number;
   totalCount: number;
   prevValues: Map<string, { weightKg: number | null; reps: number | null }>;
+  /** Compact all-time PR for this exercise, e.g. "45kg × 4" */
+  prLabel?: string | null;
   nextExerciseId?: string;
   nextIncompleteSetId?: string;
   onToggleExpand: () => void;
@@ -129,10 +147,14 @@ function ExerciseAccordionCard({
           style={({ pressed }) => [styles.exHeaderRight, pressed && { opacity: 0.75 }]}
           accessibilityRole="button"
           accessibilityLabel={isOpen ? 'Collapse exercise' : 'Expand exercise'}>
-          {isNext ? (
-            <View style={[styles.nextTag, { backgroundColor: colors.accentSoft }]}>
-              <T variant="micro" style={{ color: colors.accent, fontSize: 9 }}>
-                NEXT
+          {prLabel ? (
+            <View style={[styles.prTag, { backgroundColor: colors.goldSoft }]}>
+              <Ionicons name="trophy" size={9} color={colors.gold} />
+              <T
+                variant="micro"
+                numberOfLines={1}
+                style={{ color: colors.gold, fontSize: 9, maxWidth: 92 }}>
+                {prLabel}
               </T>
             </View>
           ) : null}
@@ -394,6 +416,7 @@ export default function ActiveWorkoutScreen() {
   const workouts = usePulse((s) => s.workouts);
   const profile = usePulse((s) => s.profile);
   const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
+  const weightUnit = usePulse((s) => s.weightUnit);
   const completeSet = usePulse((s) => s.completeSet);
   const patchSet = usePulse((s) => s.patchSet);
   const finishWorkout = usePulse((s) => s.finishWorkout);
@@ -453,6 +476,17 @@ export default function ActiveWorkoutScreen() {
   const totalSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.length, 0) : 0;
   const doneSets = workout ? workout.exercises.reduce((s, we) => s + we.sets.filter((x) => x.completed).length, 0) : 0;
   const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
+
+  // All-time PR badge per exercise, recomputed only when history/unit changes.
+  const prLabels = useMemo(() => {
+    const map = new Map<string, string | null>();
+    if (!workout) return map;
+    for (const we of workout.exercises) {
+      if (map.has(we.exerciseId)) continue;
+      map.set(we.exerciseId, formatPRBadge(bestForExercise(workouts, we.exerciseId), weightUnit));
+    }
+    return map;
+  }, [workout, workouts, weightUnit]);
 
   // In-screen automatic adaptive rest timer derived from persistent store
   const storeRestTimer = workout?.restTimer ?? null;
@@ -749,6 +783,7 @@ export default function ActiveWorkoutScreen() {
               doneCount={done}
               totalCount={we.sets.length}
               prevValues={prevValues}
+              prLabel={prLabels.get(we.exerciseId) ?? null}
               nextExerciseId={nextExercise?.id}
               nextIncompleteSetId={nextIncompleteSet?.id}
               onToggleExpand={() => toggleExpanded(isOpen ? null : we.id)}
@@ -930,10 +965,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextTag: {
-    paddingHorizontal: 8,
+  prTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 8,
+    maxWidth: 112,
   },
   restModalOverlay: {
     flex: 1,

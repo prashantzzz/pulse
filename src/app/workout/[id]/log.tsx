@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler, Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { T } from '../../../components/Text';
 import { BottomSheet, Stepper, toast } from '../../../components/misc';
@@ -9,7 +9,7 @@ import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../../../componen
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { platesForTarget } from '../../../lib/plates';
 import { previousSet, warmupSets, exerciseInvolvesWeights } from '../../../lib/stats';
-import { toUserWeight, fromUserWeight, formatWeight, formatWeightWithUnit, getBarWeight, getWeightStep, WeightUnit } from '../../../lib/units';
+import { toUserWeight, fromUserWeight, formatWeightWithUnit, getBarWeight, getWeightStep, WeightUnit } from '../../../lib/units';
 import { usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
 import { hapticsLight, hapticsSuccess } from '../../../lib/haptics';
@@ -46,6 +46,29 @@ export default function LogSetScreen() {
   const [platesOpen, setPlatesOpen] = useState(false);
   const [barWeight, setBarWeight] = useState(() => getBarWeight(weightUnit));
   const [platesTarget, setPlatesTarget] = useState(weight);
+
+  // ── Notes field ↔ keyboard handling ────────────────────────────────────────
+  // The notes card is the last block on the screen. When the keyboard opens
+  // (Android window resize / iOS keyboard inset) or the multiline field grows,
+  // scroll it into view so typed letters are never hidden under the keyboard.
+  const scrollRef = useRef<ScrollView>(null);
+  const notesFocusedRef = useRef(false);
+
+  const scrollNotesIntoView = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (!notesFocusedRef.current) return;
+      // Give the window resize (Android) / keyboard inset (iOS) a beat to
+      // settle before scrolling the notes card above the keyboard.
+      setTimeout(() => scrollNotesIntoView(true), 80);
+    });
+    return () => sub.remove();
+  }, [scrollNotesIntoView]);
 
   const handleBack = () => {
     const savedWeightKg = fromUserWeight(weight, weightUnit);
@@ -175,7 +198,16 @@ export default function LogSetScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen scroll contentStyle={{ paddingBottom: 160, paddingTop: layout.screenTopPad }}>
+      <Screen
+        scroll
+        scrollRef={scrollRef}
+        scrollProps={{
+          keyboardShouldPersistTaps: 'handled',
+          keyboardDismissMode: 'on-drag',
+          // iOS-only: pads the scroll content when the keyboard appears.
+          ...(Platform.OS === 'ios' ? { automaticallyAdjustKeyboardInsets: true } : {}),
+        }}
+        contentStyle={{ paddingBottom: 160, paddingTop: layout.screenTopPad }}>
         <ScreenHeader title={`Set ${current.setIndex} of ${totalInExercise}`} back onBack={handleBack} />
 
         <View>
@@ -297,6 +329,17 @@ export default function LogSetScreen() {
               placeholderTextColor={colors.textMuted}
               style={styles.notesInput}
               multiline
+              onFocus={() => {
+                notesFocusedRef.current = true;
+                scrollNotesIntoView(true);
+              }}
+              onBlur={() => {
+                notesFocusedRef.current = false;
+              }}
+              onContentSizeChange={() => {
+                // Keep the growing multiline field visible while typing.
+                if (notesFocusedRef.current) scrollNotesIntoView(false);
+              }}
             />
           </Card>
         </View>

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { BottomSheet } from '../../components/misc';
@@ -13,11 +13,9 @@ import { VolumeView } from '../../components/progress/volume-view';
 import { T } from '../../components/Text';
 import { Icon, Row, Screen, Segmented } from '../../components/ui';
 import { EXERCISE_MAP } from '../../data/exercises';
+import { consumeProgressTab, PROGRESS_VIEWS, toProgressView, type ProgressView } from '../../lib/nav-intent';
 import { usePulse } from '../../store/useStore';
 import { colors, layout, spacing, useAccent } from '../../theme';
-
-type ProgressView = 'Body' | 'Strength' | 'Volume' | 'Regularity' | 'Records';
-const VIEWS = ['Body', 'Strength', 'Volume', 'Regularity', 'Records'] as const;
 
 const TF_WEEKS: Record<ProgressTimeframe, number> = { '7D': 1, '1M': 4, '3M': 12, '6M': 26, '1Y': 52 };
 
@@ -26,15 +24,27 @@ const TIMEFRAME_VIEWS: ProgressView[] = ['Strength', 'Volume', 'Regularity'];
 export default function ProgressScreen() {
   useAccent();
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { width } = useWindowDimensions();
   const workouts = usePulse((s) => s.workouts);
   const plans = usePulse((s) => s.plans);
   const measurements = usePulse((s) => s.measurements);
   const profile = usePulse((s) => s.profile);
-  const [view, setView] = useState<ProgressView>('Body');
+  // `?tab=` covers external deep links; in-app navigation uses the more
+  // reliable nav-intent (see consumeProgressTab below).
+  const [view, setView] = useState<ProgressView>(() => toProgressView(tab) ?? 'Body');
   const [tf, setTf] = useState<ProgressTimeframe>('3M');
   const [exerciseId, setExerciseId] = useState<string>('bench-press');
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Open the requested segment when arriving with a navigation intent
+  // (e.g. Home's "Personal Record → See all" opens Records).
+  useFocusEffect(
+    useCallback(() => {
+      const intent = consumeProgressTab();
+      if (intent) setView(intent);
+    }, []),
+  );
 
   const chartW = Math.min(width - 32, 600) - 32;
 
@@ -71,7 +81,7 @@ export default function ProgressScreen() {
         ) : null}
       </Row>
 
-      <Segmented options={VIEWS} value={view} onChange={setView} scrollable />
+      <Segmented options={PROGRESS_VIEWS} value={view} onChange={setView} scrollable />
 
       <View style={{ marginTop: spacing.md, gap: spacing.md }}>
         {view === 'Strength' ? (

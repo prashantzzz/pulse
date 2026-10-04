@@ -12,6 +12,7 @@ import { Card, horizontalSwipeLockProps, Icon, ProgressBar, Row, Screen, Section
 import { TodayWorkoutCard } from '../../components/workout-card';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { formatGreetingName, greetingFor } from '../../lib/greeting';
+import { requestProgressTab, toProgressView } from '../../lib/nav-intent';
 import {
   currentStreak,
   detectPRs,
@@ -225,7 +226,14 @@ export default function HomeScreen() {
 
       {/* PR celebration */}
       {pr ? (
-        <Section title="Personal Record" action="See all" onAction={() => router.push('/progress' as never)}>
+        <Section
+          title="Personal Record"
+          action="See all"
+          onAction={() => {
+            // Open the Progress tab with the Records segment active.
+            requestProgressTab('Records');
+            router.navigate('/(tabs)/progress' as never);
+          }}>
           <Animated.View style={{ transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }] }}>
             <Card gradient="charcoal" style={{ overflow: 'hidden' }}>
               <LinearGradient colors={[`${colors.accent}24`, `${colors.accent}00`]} style={StyleSheet.absoluteFill} />
@@ -308,7 +316,11 @@ export default function HomeScreen() {
               router.push(`/workout/${w.id}`);
             }}
             onViewExercise={(id) => router.push(`/exercise/${id}` as never)}
-            onViewProgress={(tab) => router.push(tab ? `/(tabs)/progress?tab=${tab}` as never : '/(tabs)/progress' as never)}
+            onViewProgress={(tab) => {
+              const view = toProgressView(tab);
+              if (view) requestProgressTab(view);
+              router.navigate('/(tabs)/progress' as never);
+            }}
             onBrowsePlans={() => router.navigate('/(tabs)/workouts' as never)}
           />
         </Section>
