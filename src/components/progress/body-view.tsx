@@ -363,6 +363,10 @@ export function BodyView({
                 <Pressable
                   key={ex.id}
                   onPress={() => {
+                    // Close the modal first: it is a full-screen native/portal
+                    // overlay, so a pushed screen would render underneath it and
+                    // stay invisible until the list is dismissed.
+                    setExerciseModalSlug(null);
                     router.push(`/exercise/${ex.id}` as never);
                   }}
                   style={({ pressed }) => [styles.modalRow, pressed && { opacity: 0.82 }]}>
