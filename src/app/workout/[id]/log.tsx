@@ -123,6 +123,17 @@ export default function LogSetScreen() {
   const currentIndex = we.sets.findIndex((s) => s.id === current.id);
   const prevIncomplete = we.sets.slice(0, currentIndex).find((s) => !s.completed);
 
+  // Return to the running workout screen. Popping preserves the existing
+  // workout route (and its unsaved-workout guard); the replace fallback only
+  // matters when the log was opened without a back stack (deep link).
+  const exitToWorkout = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/workout/${workout.id}` as never);
+    }
+  };
+
   const save = (complete: boolean, goNext: boolean) => {
     const savedWeightKg = fromUserWeight(weight, weightUnit);
     patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
@@ -159,11 +170,11 @@ export default function LogSetScreen() {
         if (nextEx && nextExSet) {
           router.replace(`/workout/${workout.id}/log?exercise=${nextEx.exerciseId}&set=${nextExSet.id}`);
         } else {
-          router.back();
+          exitToWorkout();
         }
       }
     } else {
-      router.back();
+      exitToWorkout();
     }
   };
 
@@ -174,7 +185,7 @@ export default function LogSetScreen() {
     patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
     hapticsLight();
     toast('Values saved to workout');
-    router.back();
+    exitToWorkout();
   };
 
   const finish = () => {
@@ -187,13 +198,16 @@ export default function LogSetScreen() {
       .flatMap((x) => x.sets)
       .filter((s) => !s.completed && s.id !== current.id);
 
+    // `save(true, false)` already navigates: it replaces to the summary when
+    // this was the last set, otherwise it exits to the running workout screen.
+    // Navigating again here would replace the workout route and trigger its
+    // unsaved-workout guard — which opened the "Workout options" popup every
+    // time a set was completed.
     save(true, false);
 
-    if (otherIncomplete.length === 0) {
-      return;
+    if (otherIncomplete.length > 0) {
+      toast('Set complete');
     }
-    toast('Set complete');
-    router.replace(`/workout/${workout.id}` as never);
   };
 
   return (
