@@ -94,23 +94,22 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
 
         <StatCard
           icon="flash"
-          tint={colors.purple}
+          tint={colors.accentDim}
           badge={e1rmBadge}
           badgeSub={e1rmBadge ? 'vs prior 3M' : undefined}
           value={summary.bestE1rm > 0 ? formatUserWeightWithUnit(summary.bestE1rm, weightUnit) : '—'}
           label="Best 1RM">
           {e1rmLine.some((v) => v > 0) ? (
-            <Sparkline data={e1rmLine} width={52} height={26} color={colors.purple} />
+            <Sparkline data={e1rmLine} width={52} height={26} color={colors.accentDim} />
           ) : null}
         </StatCard>
       </Row>
 
       <Row align="space-between" style={{ marginTop: spacing.xs }}>
-        <View style={{ flex: 1, paddingRight: spacing.sm }}>
+        {/* minHeight keeps the header block the same height it had with the old
+            subtitle line, so removing the copy does not shift the list up. */}
+        <View style={{ flex: 1, paddingRight: spacing.sm, minHeight: 40 }}>
           <T variant="h3">All Time Records</T>
-          <T variant="micro" dim style={{ marginTop: 2 }}>
-            Your best estimated 1RMs for each exercise
-          </T>
         </View>
         <Pressable
           onPress={() => setSortOpen(true)}
