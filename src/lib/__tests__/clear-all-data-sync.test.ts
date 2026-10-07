@@ -1,12 +1,15 @@
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
-import { wipeAllUserDataInCloud, syncUserDataFromCloud } from '../sync';
+import { wipeAllUserDataInCloud, syncUserDataFromCloud, backupPlansForUser, loadPlansBackup } from '../sync';
 import { usePulse } from '../../store/useStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { WorkoutPlan } from '../../types';
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
 const mockDelete = jest.fn().mockReturnThis();
 const mockUpdate = jest.fn().mockReturnThis();
+/** when true, every cloud delete/update fails (offline wipe simulation) */
+let mockFailCloudWipe = false;
 
 jest.mock('../supabase', () => ({
   isSupabaseConfigured: true,
@@ -19,13 +22,13 @@ jest.mock('../supabase', () => ({
       delete: () => ({
         eq: (col: string, val: string) => {
           mockDelete(table, col, val);
-          return Promise.resolve({ data: null, error: null });
+          return Promise.resolve({ data: null, error: mockFailCloudWipe ? { message: 'offline' } : null });
         },
       }),
       update: (fields: any) => ({
         eq: (col: string, val: string) => {
           mockUpdate(table, fields, col, val);
-          return Promise.resolve({ data: null, error: null });
+          return Promise.resolve({ data: null, error: mockFailCloudWipe ? { message: 'offline' } : null });
         },
       }),
       select: (fields?: string) => ({
@@ -52,6 +55,7 @@ describe('Clear All Data & Cloud Wipe Verification', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockFailCloudWipe = false;
     await AsyncStorage.clear();
     usePulse.getState().clearSessionCache();
   });
@@ -156,5 +160,55 @@ describe('Clear All Data & Cloud Wipe Verification', () => {
     expect(state.manualPRs).toHaveLength(0);
     expect(state.plans).toEqual([]);
     expect(state.onboarded).toBe(false);
+  });
+
+  it('clearAllData drops the local plan backup so the wiped routine cannot be resurrected', async () => {
+    const plan: WorkoutPlan = {
+      id: 'plan-1',
+      title: 'Push Day',
+      emoji: '💪',
+      muscles: ['Chest'],
+      exercises: [{ exerciseId: 'bench-press', sets: 3, targetReps: '8-12', targetWeightKg: null }],
+    };
+
+    // A synced user has the safety backup on disk (written on every sync)...
+    usePulse.setState({ plans: [plan] });
+    await backupPlansForUser(TEST_USER_ID, [plan]);
+    expect(await loadPlansBackup(TEST_USER_ID)).toHaveLength(1);
+
+    // ...then explicitly chooses "Clear All Data".
+    await usePulse.getState().clearAllData();
+
+    // The backup must be gone: otherwise the next sync sees empty cloud +
+    // empty local, restores the backup and re-pushes the deleted routine.
+    expect(await loadPlansBackup(TEST_USER_ID)).toEqual([]);
+
+    await syncUserDataFromCloud(TEST_USER_ID);
+    expect(usePulse.getState().plans).toEqual([]);
+  });
+
+  it('clearAllData still drops the plan backup when the cloud wipe fails (offline)', async () => {
+    const plan: WorkoutPlan = {
+      id: 'plan-offline',
+      title: 'Push Day',
+      emoji: '💪',
+      muscles: ['Chest'],
+      exercises: [{ exerciseId: 'bench-press', sets: 3, targetReps: '8-12', targetWeightKg: null }],
+    };
+    usePulse.setState({ plans: [plan] });
+    await backupPlansForUser(TEST_USER_ID, [plan]);
+
+    mockFailCloudWipe = true;
+    try {
+      await usePulse.getState().clearAllData();
+    } finally {
+      mockFailCloudWipe = false;
+    }
+
+    // The wipe could not reach the cloud, but the local state is gone and the
+    // backup must be gone too — otherwise the next sync would restore it.
+    expect(await loadPlansBackup(TEST_USER_ID)).toEqual([]);
+    expect(usePulse.getState().plans).toEqual([]);
+    expect(usePulse.getState().workouts).toEqual([]);
   });
 });

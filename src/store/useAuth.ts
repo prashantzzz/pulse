@@ -5,7 +5,7 @@ import { fetchProfile, signOut as authSignOut, syncGoogleProfile, type ProfileRo
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { usePulse } from './useStore';
 import type { UserProfile } from '../types';
-import { syncUserDataFromCloud, flushOfflineSyncQueue } from '../lib/sync';
+import { syncUserDataFromCloud, flushOfflineSyncQueue, backupPlansForUser } from '../lib/sync';
 import { dismissActiveWorkoutNotification } from '../lib/notifications';
 
 interface AuthState {
@@ -153,6 +153,16 @@ export const useAuth = create<AuthState>((set, get) => ({
           return;
         }
 
+        // Account switch without a SIGNED_OUT event (e.g. picking another
+        // Google account while still signed in): never let the previous user's
+        // local data leak into — or overwrite — the next account's cloud data.
+        const previousUser = get().user;
+        if (previousUser && previousUser.id !== user.id) {
+          backupPlansForUser(previousUser.id, usePulse.getState().plans).catch(() => {});
+          usePulse.getState().clearSessionCache();
+          AsyncStorage.removeItem('@nextrep_offline_sync_queue').catch(() => {});
+        }
+
         set({
           session,
           user,
@@ -175,6 +185,13 @@ export const useAuth = create<AuthState>((set, get) => ({
           set({ isVerifyingUser: false, isInitialized: true });
         }
       } else if (event === 'SIGNED_OUT') {
+        // Preserve the signing-out user's routine in the local per-user backup
+        // before the cache is wiped, so it can be restored if the cloud copy is
+        // ever unreachable.
+        const signedOutUserId = get().user?.id;
+        if (signedOutUserId) {
+          backupPlansForUser(signedOutUserId, usePulse.getState().plans).catch(() => {});
+        }
         dismissActiveWorkoutNotification().catch(() => {});
         usePulse.getState().clearSessionCache();
         // Clear offline sync queue and any pending deep-link invites so a
@@ -206,9 +223,16 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     set({ isLoading: true });
+    // Capture the routine before the SIGNED_OUT handler clears the cache, and
+    // store it in the per-user local backup.
+    const signedOutUserId = get().user?.id;
+    const plansAtSignOut = usePulse.getState().plans;
     try {
       await authSignOut();
     } finally {
+      if (signedOutUserId) {
+        backupPlansForUser(signedOutUserId, plansAtSignOut).catch(() => {});
+      }
       // 1. Clear any active workout notification
       dismissActiveWorkoutNotification().catch(() => {});
       // 2. Clear all local user session state and profile cache so the next user starts completely fresh

@@ -180,6 +180,24 @@ export function hasDuplicatePlanTitle(
 }
 
 /**
+ * True when a PostgREST/Supabase error means a column does not exist on the
+ * server (schema cache miss or Postgres undefined_column). Used to fall back
+ * gracefully when a release ships ahead of its migration.
+ */
+function isMissingColumnError(error: unknown, column: string): boolean {
+  if (!error) return false;
+  const e = error as { code?: string; message?: string };
+  const message = String(e.message ?? '').toLowerCase();
+  if (!message.includes(column.toLowerCase())) return false;
+  return (
+    e.code === '42703' ||
+    e.code === 'PGRST204' ||
+    message.includes('does not exist') ||
+    message.includes('schema cache')
+  );
+}
+
+/**
  * Full sync: Pulls user's workouts, measurements, plans, and profile from Supabase into Zustand store.
  */
 export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
@@ -251,8 +269,11 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
     const { data: workoutsData } = await workoutsQuery;
 
     // 6. Fetch User Workout Plans
-    const { data: plansData, error: plansErr } = await (supabase.from('workout_plans') as any)
-      .select(`
+    // `sort_order` ships with migration 20261001000001. When a release depends
+    // on a column the server does not have yet, the whole plans read fails and
+    // every plan disappears from My Plans. Fall back to the legacy projection
+    // so a delayed migration can never blank the user's routine.
+    const PLAN_SELECT = `
         id,
         name,
         emoji,
@@ -267,8 +288,39 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
           target_reps,
           target_weight
         )
-      `)
+      `;
+    const PLAN_SELECT_LEGACY = `
+        id,
+        name,
+        emoji,
+        muscles,
+        created_at,
+        workout_plan_exercises (
+          id,
+          exercise_id,
+          order_index,
+          target_sets,
+          target_reps,
+          target_weight
+        )
+      `;
+
+    const plansResult = await (supabase.from('workout_plans') as any)
+      .select(PLAN_SELECT)
       .eq('user_id', userId);
+    let plansData = plansResult.data;
+    let plansErr = plansResult.error;
+
+    if (plansErr && isMissingColumnError(plansErr, 'sort_order')) {
+      console.warn(
+        'workout_plans.sort_order is missing on the server; retrying the plans read without it.',
+      );
+      const legacyResult = await (supabase.from('workout_plans') as any)
+        .select(PLAN_SELECT_LEGACY)
+        .eq('user_id', userId);
+      plansData = legacyResult.data;
+      plansErr = legacyResult.error;
+    }
 
     if (plansErr) {
       console.warn('Error fetching workout plans from cloud:', plansErr);
@@ -339,6 +391,19 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       pushAllPlansToCloud(userId, cleanLocal).catch(() => {});
     }
 
+    // Both cloud and local are empty: this is what a user sees after their
+    // local cache was cleared (sign-out/account switch) while the cloud write
+    // path was broken. Restore the per-user backup instead of showing an empty
+    // routine, then push it back to the account.
+    let restoredFromBackup: WorkoutPlan[] = [];
+    if (!plansErr && cloudPlans.length === 0 && localState.plans.length === 0) {
+      const backup = await loadPlansBackup(userId);
+      restoredFromBackup = deduplicatePlans(backup);
+      if (restoredFromBackup.length > 0) {
+        pushAllPlansToCloud(userId, restoredFromBackup).catch(() => {});
+      }
+    }
+
     const effectiveMeasurements = cloudMeasurements.length > 0 ? cloudMeasurements : localState.measurements;
     const effectiveFavorites = cloudFavorites.length > 0 ? cloudFavorites : localState.favorites;
     const effectivePRs = cloudPRs.length > 0 ? cloudPRs : localState.manualPRs;
@@ -387,9 +452,10 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       // Cloud plans are merged first, but see deduplicatePlans(): a cloud copy
       // that lost its exercise rows never replaces a richer local plan.
       const plansFetchFailed = Boolean(plansErr);
+      const localPlans = state.plans.length > 0 ? state.plans : restoredFromBackup;
       const rawPlans = !plansFetchFailed && cloudPlans.length > 0
-        ? [...cloudPlans, ...state.plans]
-        : state.plans;
+        ? [...cloudPlans, ...localPlans]
+        : localPlans;
       const consolidatedPlans = deduplicatePlans(rawPlans);
 
       // Repair the cloud when it is missing something local state still has:
@@ -453,6 +519,14 @@ export async function syncUserDataFromCloud(userId: string): Promise<boolean> {
       };
     });
 
+    // Refresh the per-user local backup on every sync that knows about plans,
+    // so a later sign-out can always restore the routine if the cloud copy is
+    // unreachable.
+    const syncedPlans = usePulse.getState().plans;
+    if (syncedPlans.length > 0) {
+      backupPlansForUser(userId, syncedPlans).catch(() => {});
+    }
+
     return true;
   } catch (err) {
     console.warn('Exception syncing user data from cloud:', err);
@@ -499,6 +573,13 @@ async function saveOfflineQueue(queue: OfflineMutation[]): Promise<void> {
 let queueWriteChain: Promise<void> = Promise.resolve();
 
 export async function enqueueOfflineMutation(mutation: OfflineMutation): Promise<void> {
+  // Never queue an empty whole-account plan replacement: replaying it used to
+  // delete every cloud plan. Empty snapshots can be produced when a push fails
+  // in the middle of a sign-out (the local plans were already cleared).
+  if (mutation.type === 'push_all_plans' && mutation.plans.length === 0) {
+    console.warn('[sync] Ignored an empty push_all_plans mutation (would wipe cloud plans).');
+    return;
+  }
   const write = queueWriteChain.then(async () => {
     const queue = await getOfflineQueue();
     let nextQueue: OfflineMutation[];
@@ -781,6 +862,47 @@ function withPlanLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Per-user local backup of the active routine.
+ *
+ * Sign-out clears the local store (privacy), so if anything prevented the last
+ * plan changes from reaching the cloud, they were gone forever. The backup is
+ * written on every successful sync and right before the local cache is
+ * cleared, and is restored when a user signs back in to an empty cloud — a
+ * last line of defence against production data loss.
+ */
+const PLAN_BACKUP_PREFIX = '@nextrep_plans_backup_';
+
+export async function backupPlansForUser(userId: string, plans: WorkoutPlan[]): Promise<void> {
+  if (!userId || !plans || plans.length === 0) return;
+  try {
+    await AsyncStorage.setItem(`${PLAN_BACKUP_PREFIX}${userId}`, JSON.stringify(plans));
+  } catch {
+    // Storage full/blocked: the cloud copy is still the source of truth.
+  }
+}
+
+export async function loadPlansBackup(userId: string): Promise<WorkoutPlan[]> {
+  if (!userId) return [];
+  try {
+    const raw = await AsyncStorage.getItem(`${PLAN_BACKUP_PREFIX}${userId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as WorkoutPlan[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function clearPlansBackup(userId: string): Promise<void> {
+  if (!userId) return;
+  try {
+    await AsyncStorage.removeItem(`${PLAN_BACKUP_PREFIX}${userId}`);
+  } catch {
+    // Best effort.
+  }
+}
+
+/**
  * Pushes a single plan and returns its cloud id on success, or null on any
  * failure. Exercise rows are upserted BEFORE stale rows are removed, so a
  * failed write (missing exercise in the server catalog, transient error,
@@ -808,10 +930,24 @@ async function pushPlanToCloudUnlocked(
     if (typeof sortOrder === 'number' && sortOrder >= 0) {
       planRow.sort_order = sortOrder;
     }
-    const { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
+    let { data: pRow, error: pErr } = await (supabase.from('workout_plans') as any)
       .upsert(planRow)
       .select('id')
       .single();
+
+    // Server schema may not have sort_order yet (delayed migration): retry the
+    // write without the ordering column instead of failing every plan save.
+    if (pErr && Object.prototype.hasOwnProperty.call(planRow, 'sort_order') && isMissingColumnError(pErr, 'sort_order')) {
+      console.warn('workout_plans.sort_order is missing on the server; saving the plan without it.');
+      const legacyRow: Record<string, unknown> = { ...planRow };
+      delete legacyRow.sort_order;
+      const legacyResult = await (supabase.from('workout_plans') as any)
+        .upsert(legacyRow)
+        .select('id')
+        .single();
+      pRow = legacyResult.data;
+      pErr = legacyResult.error;
+    }
 
     if (pErr || !pRow) return null;
     const planId: string = pRow.id;
@@ -900,6 +1036,14 @@ function directRemovePlanFromCloud(
  */
 async function replaceAllPlansUnlocked(userId: string, plans: WorkoutPlan[]): Promise<boolean> {
   if (!isSupabaseConfigured || !userId) return false;
+  // A full replacement with an EMPTY list would delete every cloud plan.
+  // That is never a legitimate user action (plans are removed one by one via
+  // `removePlanFromCloud`). Treat it as a no-op so a raced/empty offline
+  // snapshot can never wipe an account.
+  if (plans.length === 0) {
+    console.warn('[sync] Skipped an empty plan replacement; cloud plans were left untouched.');
+    return true;
+  }
   try {
     const keptCloudIds = new Set<string>();
     let allPushed = true;
@@ -957,6 +1101,10 @@ export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promis
   if (!userId) return false;
   // Keep the plan in its current routine slot (e.g. edits must not reorder it).
   const localIndex = usePulse.getState().plans.findIndex((p) => p.id === plan.id);
+  // Snapshot for the retry queue: always include the plan that failed, so even
+  // if local state was cleared in the meantime (sign-out race) the queued
+  // replacement is never empty and can only restore data, never wipe it.
+  const failureSnapshot = () => deduplicatePlans([...usePulse.getState().plans, plan]);
   try {
     const cloudId = await directPushPlanToCloud(
       userId,
@@ -964,11 +1112,11 @@ export async function pushPlanToCloud(userId: string, plan: WorkoutPlan): Promis
       localIndex >= 0 ? localIndex : undefined,
     );
     if (!cloudId) {
-      await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
+      await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: failureSnapshot(), timestamp: Date.now() });
     }
     return true;
   } catch {
-    await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: usePulse.getState().plans, timestamp: Date.now() });
+    await enqueueOfflineMutation({ type: 'push_all_plans', userId, plans: failureSnapshot(), timestamp: Date.now() });
     return true;
   }
 }

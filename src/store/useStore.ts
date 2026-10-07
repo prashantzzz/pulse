@@ -16,6 +16,7 @@ import {
   removeManualPRFromCloud,
   deduplicatePlans,
   hasDuplicatePlanTitle,
+  clearPlansBackup,
 } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { applyPlanOrder } from '../lib/plan-order';
@@ -848,7 +849,14 @@ export const usePulse = create<PulseState>()(
           plans: s.plans.filter((p) => p.id !== id),
         }));
         supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) removePlanFromCloud(user.id, id, removed?.title).catch(() => {});
+          if (user) {
+            removePlanFromCloud(user.id, id, removed?.title).catch(() => {});
+            // Deleting the last plan is an explicit choice: drop the local
+            // safety backup so it is not restored on the next sign-in.
+            if (get().plans.length === 0) {
+              clearPlansBackup(user.id).catch(() => {});
+            }
+          }
         }).catch(() => {});
       },
 
@@ -944,14 +952,20 @@ export const usePulse = create<PulseState>()(
         }),
 
       clearAllData: async () => {
+        let userId: string | undefined;
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id) {
-            await wipeAllUserDataInCloud(user.id);
+          userId = user?.id;
+          if (userId) {
+            await wipeAllUserDataInCloud(userId);
           }
         } catch (e) {
           console.warn('Failed to wipe cloud data during clearAllData:', e);
         } finally {
+          // "Clear all data" is an explicit wipe: drop the per-user plan backup
+          // too. Otherwise the next sync (empty cloud + empty local) restores
+          // the backup and re-pushes the routine the user just deleted.
+          if (userId) await clearPlansBackup(userId).catch(() => {});
           import('../lib/notifications').then(({ dismissActiveWorkoutNotification, syncWorkoutReminder }) => {
             dismissActiveWorkoutNotification();
             syncWorkoutReminder({ workouts: [], activeWorkout: null });
