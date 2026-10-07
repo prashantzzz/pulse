@@ -107,8 +107,9 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
 
       <Row align="space-between" style={{ marginTop: spacing.xs }}>
         {/* minHeight keeps the header block the same height it had with the old
-            subtitle line, so removing the copy does not shift the list up. */}
-        <View style={{ flex: 1, paddingRight: spacing.sm, minHeight: 40 }}>
+            subtitle line, so removing the copy does not shift the list up.
+            Centering the title inside it aligns it with the sort pill. */}
+        <View style={{ flex: 1, paddingRight: spacing.sm, minHeight: 40, justifyContent: 'center' }}>
           <T variant="h3">All Time Records</T>
         </View>
         <Pressable
