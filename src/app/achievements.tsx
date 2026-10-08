@@ -5,6 +5,7 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { T } from '../components/Text';
 import { AchievementBadge } from '../components/misc';
 import { Card, Screen, ScreenHeader } from '../components/ui';
+import { PromoReveal } from '../promo/reveal';
 import { computeAchievements } from '../lib/achievements';
 import { usePulse } from '../store/useStore';
 import { spacing, useAccent } from '../theme';
@@ -50,17 +51,21 @@ export default function AchievementsScreen() {
           </T>
         </Card>
 
-        {cats.map((cat) => (
-          <View key={cat} style={{ marginTop: spacing.xl }}>
+        {cats.map((cat, catIdx) => (
+          <PromoReveal key={cat} delay={60 + catIdx * 140} observe={false}>
+          <View style={{ marginTop: spacing.xl }}>
             <T variant="label" accent style={{ marginBottom: spacing.md }}>
               {cat}
             </T>
             <View style={styles.grid}>
-              {all.filter((a) => a.cat === cat).map((a) => (
-                <AchievementBadge key={a.title} icon={a.icon} title={a.title} desc={a.desc} earned={a.earned} progress={a.progress} />
+              {all.filter((a) => a.cat === cat).map((a, badgeIdx) => (
+                <PromoReveal key={a.title} variant="pop" delay={140 + catIdx * 140 + Math.min(badgeIdx, 6) * 60} observe={false}>
+                  <AchievementBadge icon={a.icon} title={a.title} desc={a.desc} earned={a.earned} progress={a.progress} />
+                </PromoReveal>
               ))}
             </View>
           </View>
+          </PromoReveal>
         ))}
       </View>
     </Screen>

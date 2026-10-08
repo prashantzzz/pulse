@@ -6,6 +6,7 @@ import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from 
 import { T } from '../components/Text';
 import { BottomSheet, EmptyState, Stepper, toast } from '../components/misc';
 import { Button, Card, Icon, Row, Screen, ScreenHeader } from '../components/ui';
+import { PromoReveal } from '../promo/reveal';
 import { EXERCISES, EXERCISE_MAP } from '../data/exercises';
 import { bestForExercise, e1rm } from '../lib/stats';
 import { toUserWeight, fromUserWeight, formatWeightWithUnit, formatUserWeightWithUnit, getBarWeight, getWeightStep } from '../lib/units';
@@ -104,10 +105,11 @@ export default function RecordsScreen() {
           </Card>
         ) : (
           <View style={{ gap: spacing.sm }}>
-            {manualPRs.map((pr) => {
+            {manualPRs.map((pr, i) => {
               const ex = EXERCISE_MAP[pr.exerciseId];
               return (
-                <Card key={pr.id} style={{ padding: spacing.md }}>
+                <PromoReveal key={pr.id} variant="row" delay={60 + Math.min(i, 6) * 55} observe={false}>
+                <Card style={{ padding: spacing.md }}>
                   <Row align="space-between">
                     <Row gap={12} style={{ flex: 1 }}>
                       <View style={styles.trophyIcon}>
@@ -133,6 +135,7 @@ export default function RecordsScreen() {
                     </Pressable>
                   </Row>
                 </Card>
+                </PromoReveal>
               );
             })}
           </View>
@@ -151,10 +154,11 @@ export default function RecordsScreen() {
           </Card>
         ) : (
           <View style={{ gap: spacing.sm }}>
-            {historyBests.map((r) => {
+            {historyBests.map((r, i) => {
               const ex = EXERCISE_MAP[r.id];
               return (
-                <Card key={r.id} style={{ padding: spacing.md }}>
+                <PromoReveal key={r.id} variant="row" delay={90 + Math.min(i, 8) * 45} observe={false}>
+                <Card style={{ padding: spacing.md }}>
                   <Row align="space-between">
                     <Row gap={12}>
                       <View style={[styles.barbellIcon, { backgroundColor: colors.accentSoft }]}>
@@ -176,6 +180,7 @@ export default function RecordsScreen() {
                     </T>
                   </Row>
                 </Card>
+                </PromoReveal>
               );
             })}
           </View>
