@@ -10,6 +10,7 @@ import { T } from '../../components/Text';
 import { Avatar } from '../../components/misc';
 import { Card, horizontalSwipeLockProps, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
+import { PromoReveal } from '../../promo/reveal';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { formatGreetingName, greetingFor } from '../../lib/greeting';
 import { requestProgressTab, toProgressView } from '../../lib/nav-intent';
@@ -88,35 +89,40 @@ export default function HomeScreen() {
       onSwipeLeft={() => router.navigate('/(tabs)/workouts' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
-      <Row align="space-between" style={{ marginBottom: spacing.lg }}>
-        <View>
-          <T variant="h2">
-            {greeting.heading}, {firstName}
-          </T>
-          <T variant="small" dim style={{ marginTop: 2 }}>
-            {greeting.sub}
-          </T>
-        </View>
-        <Pressable onPress={() => router.push('/profile' as never)}>
-          <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
-        </Pressable>
-      </Row>
+      <PromoReveal observe={false}>
+        <Row align="space-between" style={{ marginBottom: spacing.lg }}>
+          <View>
+            <T variant="h2">
+              {greeting.heading}, {firstName}
+            </T>
+            <T variant="small" dim style={{ marginTop: 2 }}>
+              {greeting.sub}
+            </T>
+          </View>
+          <Pressable onPress={() => router.push('/profile' as never)}>
+            <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
+          </Pressable>
+        </Row>
+      </PromoReveal>
 
       {/* streak banner */}
-      <View style={styles.streakBanner}>
-        <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
-        <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
-          <Ionicons name="flame" size={22} color={colors.accent} />
+      <PromoReveal variant="pop" delay={70} observe={false}>
+        <View style={styles.streakBanner}>
+          <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
+          <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="flame" size={22} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <T variant="bodySemi">{streak}-day streak</T>
+            <T variant="small" dim style={{ fontSize: 12 }}>
+              {streak >= 3 ? 'You are on fire — keep it rolling' : 'One workout today keeps it alive'}
+            </T>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <T variant="bodySemi">{streak}-day streak</T>
-          <T variant="small" dim style={{ fontSize: 12 }}>
-            {streak >= 3 ? 'You are on fire — keep it rolling' : 'One workout today keeps it alive'}
-          </T>
-        </View>
-      </View>
+      </PromoReveal>
 
       {/* today's workout hero */}
+      <PromoReveal variant="hero" delay={130} observe={false}>
       {smartPlanResult.state === 'NO_PLANS' ? (
         <View style={{ marginTop: spacing.lg }}>
           <Card key={`starter-${accentKey}`} gradient="charcoal" style={{ padding: spacing.lg, borderRadius: radius.xxl, borderWidth: 1, borderColor: `${colors.accent}33` }}>
@@ -169,6 +175,7 @@ export default function HomeScreen() {
           />
         </View>
       )}
+      </PromoReveal>
 
       {/* quick summary */}
       <Section title="Quick Summary">
@@ -307,6 +314,7 @@ export default function HomeScreen() {
       {/* your next move — contextual recommendations carousel */}
       {moves.length > 0 ? (
         <Section title="Your Next Move">
+          <PromoReveal delay={90}>
           <NextMovesCarousel
             moves={moves}
             onStartPlan={(planId) => {
@@ -323,6 +331,7 @@ export default function HomeScreen() {
             }}
             onBrowsePlans={() => router.navigate('/(tabs)/workouts' as never)}
           />
+          </PromoReveal>
         </Section>
       ) : null}
 
@@ -330,8 +339,10 @@ export default function HomeScreen() {
       {/* muscle focus strip */}
       <Section title="Muscle Focus" style={{ marginBottom: 20 }}>
         <Row gap={8} wrap>
-          {MUSCLE_GROUPS.slice(0, 8).map((m) => (
-            <MuscleChip key={m} label={m} />
+          {MUSCLE_GROUPS.slice(0, 8).map((m, i) => (
+            <PromoReveal key={m} variant="pop" delay={90 + i * 45} observe={false}>
+              <MuscleChip label={m} />
+            </PromoReveal>
           ))}
         </Row>
       </Section>

@@ -21,6 +21,7 @@ import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
 import { BottomSheet, toast } from '../../../components/misc';
 import { Button, Row, Screen } from '../../../components/ui';
+import { PromoReveal } from '../../../promo/reveal';
 import { AnimatedChevron, CollapsibleContent } from '../../../components/collapsible';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
@@ -695,6 +696,7 @@ export default function ActiveWorkoutScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* header */}
+      <PromoReveal observe={false}>
       <View style={styles.header}>
         <Pressable
           onPress={() => setMenuOpen(true)}
@@ -746,8 +748,10 @@ export default function ActiveWorkoutScreen() {
           </Pressable>
         </Row>
       </View>
+      </PromoReveal>
 
       {/* progress */}
+      <PromoReveal delay={90} observe={false}>
       <View style={styles.progressRow}>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.accent }]} />
@@ -756,6 +760,7 @@ export default function ActiveWorkoutScreen() {
           {pct}%
         </T>
       </View>
+      </PromoReveal>
 
       <ScrollView
         style={{ flex: 1 }}
@@ -764,7 +769,7 @@ export default function ActiveWorkoutScreen() {
           paddingBottom: storeRestTimer && secondsLeft > 0 ? 180 : 120,
           paddingTop: layout.screenTopPad,
         }}>
-        {workout.exercises.map((we) => {
+        {workout.exercises.map((we, i) => {
           const ex = EXERCISE_MAP[we.exerciseId];
           if (!ex) return null;
           const done = we.sets.filter((s) => s.completed).length;
@@ -773,8 +778,8 @@ export default function ActiveWorkoutScreen() {
           const nextIncompleteSet = we.sets.find((x) => !x.completed);
 
           return (
+            <PromoReveal key={we.id} delay={130 + Math.min(i, 8) * 70} observe={false}>
             <ExerciseAccordionCard
-              key={we.id}
               we={we}
               workout={workout}
               ex={ex}
@@ -795,6 +800,7 @@ export default function ActiveWorkoutScreen() {
               }
               onQuickComplete={quickComplete}
             />
+            </PromoReveal>
           );
         })}
       </ScrollView>

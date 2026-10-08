@@ -5,6 +5,7 @@ import { BackHandler, ScrollView, StyleSheet } from 'react-native';
 import { EmptyState } from '../components/misc';
 import { Chip, Screen, ScreenHeader } from '../components/ui';
 import { HistoryCard } from '../components/workout-card';
+import { PromoReveal } from '../promo/reveal';
 import { classifyWorkout, detectPRs, whatChanged } from '../lib/stats';
 import { usePulse } from '../store/useStore';
 import { spacing, useAccent } from '../theme';
@@ -63,12 +64,14 @@ export default function HistoryScreen() {
             onCta={() => router.navigate('/(tabs)/log' as never)}
           />
         ) : (
-          filtered.map((w) => {
+          filtered.map((w, i) => {
             const prev = sorted.find((x) => x.title === w.title && x.id !== w.id && new Date(x.startTime).getTime() < new Date(w.startTime).getTime());
             const volUp = prev ? whatChanged(w, prev).volumePct > 0 : false;
             const hasPR = detectPRs(w, workouts).length > 0;
             return (
-              <HistoryCard key={w.id} workout={w} isPR={hasPR} isVolumeUp={volUp} onPress={() => router.push(`/replay/${w.id}` as never)} />
+              <PromoReveal key={w.id} variant="row" delay={60 + Math.min(i, 7) * 55} observe={false}>
+                <HistoryCard workout={w} isPR={hasPR} isVolumeUp={volUp} onPress={() => router.push(`/replay/${w.id}` as never)} />
+              </PromoReveal>
             );
           })
         )}

@@ -1,3 +1,5 @@
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Platform, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -9,6 +11,8 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
+import { PROMO } from '../promo/config';
+import { usePromoPlay } from '../promo/reveal';
 import { colors } from '../theme';
 
 // ---------------------------------------------------------------------------
@@ -38,6 +42,48 @@ function niceMax(v: number): number {
   const n = v / pow;
   const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
   return nice * pow;
+}
+
+// ---------------------------------------------------------------------------
+// Promo draw-in wipe (promo/kinetic branch only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reveals the SVG inside with a left→right (`x`) or bottom→top (`y`) wipe when
+ * the promo build is active. Skipped entirely (no wrapper) on the shipped app.
+ */
+function PromoWipe({ axis, delay = 220, children }: { axis: 'x' | 'y'; delay?: number; children: ReactNode }) {
+  const host = useRef<unknown>(null);
+  const { token } = usePromoPlay();
+
+  useEffect(() => {
+    if (!PROMO.enabled || Platform.OS !== 'web') return;
+    const node = host.current as HTMLElement | null;
+    if (!node || typeof node.querySelector !== 'function') return;
+    const svg = node.querySelector('svg') as (SVGElement & { style: CSSStyleDeclaration }) | null;
+    if (!svg) return;
+
+    let raf = 0;
+    const startAt = performance.now() + (token === 0 ? delay : 120);
+    const duration = 820;
+    const tick = (now: number) => {
+      const t = Math.max(0, Math.min(1, (now - startAt) / duration));
+      const eased = 1 - (1 - t) ** 3;
+      const inset = (1 - eased) * 100;
+      svg.style.clipPath = axis === 'x' ? `inset(0 ${inset}% 0 0)` : `inset(${inset}% 0 0 0)`;
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else svg.style.clipPath = '';
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      svg.style.clipPath = '';
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axis, token]);
+
+  if (!PROMO.enabled) return <>{children}</>;
+  return <View ref={host as never}>{children}</View>;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +156,7 @@ export function LineChart({
   const gridLines = [0.25, 0.5, 0.75].map((f) => padTop + f * (height - padTop - padBottom));
 
   return (
+    <PromoWipe axis="x">
     <Svg width={width} height={height}>
       <Defs>
         <SvgLinearGradient id="linefill" x1="0" y1="0" x2="0" y2="1">
@@ -154,6 +201,7 @@ export function LineChart({
           )
         : null}
     </Svg>
+    </PromoWipe>
   );
 }
 
@@ -191,6 +239,7 @@ export function BarChart({
   const labelInterval = n <= 8 ? 1 : n <= 16 ? 2 : n <= 30 ? 4 : Math.ceil(n / 6);
 
   return (
+    <PromoWipe axis="y" delay={180}>
     <Svg width={width} height={height}>
       <Defs>
         <SvgLinearGradient id="barfill" x1="0" y1="0" x2="0" y2="1">
@@ -246,6 +295,7 @@ export function BarChart({
         );
       })}
     </Svg>
+    </PromoWipe>
   );
 }
 
@@ -285,6 +335,7 @@ export function DonutChart({
   );
 
   return (
+    <PromoWipe axis="x" delay={200}>
     <Svg width={size} height={size}>
       {/* rotate around the center baked into the transform — react-native-svg's
           origin prop emits a `transform-origin` DOM prop that React 19 rejects on web */}
@@ -334,6 +385,7 @@ export function DonutChart({
         </>
       ) : null}
     </Svg>
+    </PromoWipe>
   );
 }
 
@@ -360,9 +412,11 @@ export function Sparkline({
     y: height - 4 - ((v - min) / range) * (height - 8),
   }));
   return (
+    <PromoWipe axis="x" delay={320}>
     <Svg width={width} height={height}>
       <Path d={smoothPath(pts)} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
     </Svg>
+    </PromoWipe>
   );
 }
 

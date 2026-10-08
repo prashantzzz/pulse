@@ -10,6 +10,7 @@ import { BottomSheet, EmptyState, toast } from '../../components/misc';
 import { ExerciseThumb, planIcon } from '../../components/muscle-icon';
 import { Button, Card, Chip, Row, Screen, Segmented, Tag } from '../../components/ui';
 import { DraggablePlanList } from '../../components/draggable-plan-list';
+import { PromoReveal } from '../../promo/reveal';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../components/collapsible';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
@@ -224,6 +225,7 @@ export default function WorkoutsScreen() {
                 </Row>
               ) : null}
 
+              <PromoReveal delay={60}>
               <DraggablePlanList
                 plans={plans}
                 onReorder={reorderPlans}
@@ -234,6 +236,7 @@ export default function WorkoutsScreen() {
                 scrollOffsetRef={scrollOffsetRef}
                 scrollLimitRef={scrollLimitRef}
               />
+              </PromoReveal>
 
               <View style={{ marginTop: spacing.md }}>
                 <Button
@@ -261,10 +264,12 @@ export default function WorkoutsScreen() {
               </T>
             </Row>
 
+            <PromoReveal variant="hero" delay={80} observe={false}>
             <RecommendedHeroCard
               recommendation={recommendation}
               onUse={() => handleApplyTemplate(recommendation.modifiedTemplate)}
             />
+            </PromoReveal>
           </View>
 
           {/* Bottom Section: All Templates Browser */}
@@ -312,12 +317,13 @@ export default function WorkoutsScreen() {
 
             {/* Template Cards List */}
             <View style={{ marginTop: spacing.xs, gap: spacing.lg }}>
-              {filteredTemplates.map((template) => (
+              {filteredTemplates.map((template, i) => (
+                <PromoReveal key={template.id} delay={Math.min(i, 6) * 70}>
                 <TemplateCard
-                  key={template.id}
                   template={template}
                   onUse={() => handleApplyTemplate(template)}
                 />
+                </PromoReveal>
               ))}
 
               {filteredTemplates.length === 0 ? (

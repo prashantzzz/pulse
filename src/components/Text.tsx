@@ -1,5 +1,6 @@
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
+import { usePromoCountUp } from '../promo/count-up';
 import { colors, type } from '../theme';
 
 export type TextVariant = keyof typeof type;
@@ -34,6 +35,10 @@ export function T({
   children,
   ...rest
 }: TextProps) {
+  // Promo build: numeric metric labels count up on appear (no-op otherwise).
+  const isNumericVariant = variant === 'num' || variant === 'numLg' || variant === 'numSm';
+  const shownChildren = usePromoCountUp(children, isNumericVariant);
+
   return (
     <RNText
       style={[
@@ -51,7 +56,7 @@ export function T({
         style,
       ]}
       {...rest}>
-      {children}
+      {shownChildren}
     </RNText>
   );
 }

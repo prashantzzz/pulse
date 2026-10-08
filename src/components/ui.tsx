@@ -31,6 +31,8 @@ import {
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
+import { PROMO } from '../promo/config';
+import { PromoReveal } from '../promo/reveal';
 import { accentTint, colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
 import { T } from './Text';
 
@@ -290,7 +292,7 @@ export function Card({
   padded?: boolean;
   onPress?: () => void;
 }) {
-  const inner = (
+  const content = (
     <View style={[styles.card, padded && { padding: spacing.md }, gradient && styles.cardGradient, style]}>
       {gradient ? (
         <LinearGradient colors={[...gradients[gradient]]} style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]} />
@@ -298,6 +300,7 @@ export function Card({
       {children}
     </View>
   );
+  const inner = PROMO.enabled ? <PromoReveal>{content}</PromoReveal> : content;
   if (onPress) {
     return (
       <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
@@ -618,7 +621,7 @@ export function ScreenHeader({
 }) {
   const router = useRouter();
   const handleBackPress = onBack ?? (() => router.back());
-  return (
+  const content = (
     <View style={styles.header}>
       <View style={styles.headerSide}>
         {back ? (
@@ -648,6 +651,7 @@ export function ScreenHeader({
       </View>
     </View>
   );
+  return PROMO.enabled ? <PromoReveal>{content}</PromoReveal> : content;
 }
 
 // ---------------------------------------------------------------------------
@@ -667,7 +671,7 @@ export function Section({
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  return (
+  const content = (
     <View style={[styles.section, style]}>
       <View style={styles.sectionRow}>
         <T variant="h3">{title}</T>
@@ -682,6 +686,7 @@ export function Section({
       {children}
     </View>
   );
+  return PROMO.enabled ? <PromoReveal>{content}</PromoReveal> : content;
 }
 
 // ---------------------------------------------------------------------------

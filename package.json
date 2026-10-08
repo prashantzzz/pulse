@@ -73,6 +73,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
+    "promo:seed": "node scripts/gen-promo-seed.mjs",
+    "promo:serve": "node scripts/promo/serve-dist.mjs",
     "build": "expo export -p web && node scripts/post-build-web.js",
     "build:web": "expo export -p web && node scripts/post-build-web.js",
     "build:apk": "eas build --platform android --profile preview"

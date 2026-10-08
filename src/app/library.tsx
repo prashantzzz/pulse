@@ -7,6 +7,7 @@ import { T } from '../components/Text';
 import { BottomSheet, EmptyState } from '../components/misc';
 import { ExerciseThumb } from '../components/muscle-icon';
 import { Chip, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
+import { PromoReveal } from '../promo/reveal';
 import {
   ANATOMY_LABEL_MAP,
   ANATOMY_SLUGS,
@@ -93,6 +94,7 @@ export default function LibraryScreen() {
       </View>
 
       {/* Anatomical muscle slug filter chips (same as body-map clickable muscles) */}
+      <PromoReveal variant="fade" delay={60} observe={false}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -109,6 +111,7 @@ export default function LibraryScreen() {
           />
         ))}
       </ScrollView>
+      </PromoReveal>
 
       {/* Exercise list */}
       <ScrollView
@@ -123,14 +126,15 @@ export default function LibraryScreen() {
             onCta={clearAll}
           />
         ) : (
-          results.map((e) => (
+          results.map((e, i) => (
+            <PromoReveal key={e.id} variant="row" delay={70 + Math.min(i, 9) * 42} observe={false}>
             <ExerciseRow
-              key={e.id}
               exercise={e}
               fav={favorites.includes(e.id)}
               onFav={() => toggleFavorite(e.id)}
               onPress={() => router.push(`/exercise/${e.id}` as never)}
             />
+            </PromoReveal>
           ))
         )}
       </ScrollView>

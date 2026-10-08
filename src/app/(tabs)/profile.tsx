@@ -8,6 +8,7 @@ import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
 import { AchievementBadge, Avatar, toast } from '../../components/misc';
 import { Button, Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
+import { PromoReveal } from '../../promo/reveal';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
 import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutsInLastDays, workoutStats } from '../../lib/stats';
@@ -116,6 +117,7 @@ export default function ProfileScreen() {
       onSwipeRight={() => router.push('/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* header */}
+      <PromoReveal variant="hero" observe={false}>
       <View style={styles.headerCard}>
         <LinearGradient colors={[accentTint(colors.accent, 0.15), '#0D0F12']} style={StyleSheet.absoluteFill} />
         <View style={[styles.headerGlow, { backgroundColor: `${colors.accent}14` }]} />
@@ -156,6 +158,7 @@ export default function ProfileScreen() {
           <HeaderStat label="PRs" value={`${prCount}`} accent />
         </Row>
       </View>
+      </PromoReveal>
 
       {/* body metrics & bmi */}
       <Section title="Body & Health Metrics" action={profile?.heightCm ? 'Update' : 'Set Up'} onAction={() => router.push('/measure' as never)}>

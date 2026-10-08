@@ -9,6 +9,7 @@ import { BottomSheet } from '../../../components/misc';
 import { MuscleTargetMap } from '../../../components/muscle-map';
 import { T } from '../../../components/Text';
 import { Button, Card, Icon, Row, Screen, ScreenHeader, Section, Tag } from '../../../components/ui';
+import { PromoReveal } from '../../../promo/reveal';
 import { WebScreenTransition, useScreenTransition } from '../../../components/web-screen-transition';
 import { getExerciseAnimation } from '../../../data/exercise-animations';
 import { EXERCISE_MAP, swapOptions } from '../../../data/exercises';
@@ -108,6 +109,7 @@ export default function ExerciseDetailScreen() {
         />
 
         <View>
+          <PromoReveal variant="hero" observe={false}>
           {getExerciseAnimation(exercise.id) ? (
             <MediaCarousel
               labels={['Animation', 'Muscles']}
@@ -138,6 +140,7 @@ export default function ExerciseDetailScreen() {
             ))}
             <Tag label={exercise.movement} color={colors.teal} bg={colors.tealSoft} />
           </Row>
+        </PromoReveal>
 
           {/* lightweight plateau signal from the user's own history */}
           {plateauForExercise(workouts, exercise.id) ? (
@@ -287,9 +290,11 @@ export default function ExerciseDetailScreen() {
 
       {/* fixed bottom CTA (hidden when opened from within an active running workout) */}
       {!isFromRunningWorkout && (
+        <PromoReveal delay={180} observe={false}>
         <View style={styles.ctaBar}>
           <Button label="Add to Workout" icon="add" full size="lg" onPress={() => setAddSheet(true)} />
         </View>
+        </PromoReveal>
       )}
 
       {!isFromRunningWorkout && (

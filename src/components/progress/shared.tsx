@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { T } from '../Text';
+import { PromoReveal } from '../../promo/reveal';
 import { Chip, Row } from '../ui';
 import { colors, radius, spacing } from '../../theme';
 
@@ -88,6 +89,7 @@ export function SummaryCard({
   flex1?: boolean;
 }) {
   return (
+    <PromoReveal variant="pop" style={flex1 ? { flex: 1 } : undefined} observe={false}>
     <View style={[progressStyles.summaryCard, flex1 && { flex: 1 }]}>
       <Ionicons name={icon} size={16} color={accent ? colors.accent : colors.textDim} />
       <T variant="h3" style={{ color: accent ? colors.accent : colors.text, marginTop: 6 }}>
@@ -97,6 +99,7 @@ export function SummaryCard({
         {label}
       </T>
     </View>
+    </PromoReveal>
   );
 }
 

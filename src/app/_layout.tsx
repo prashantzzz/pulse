@@ -32,6 +32,8 @@ import {
 } from '../lib/notifications';
 import * as QuickActions from 'expo-quick-actions';
 import { getRouteForQuickAction, setupQuickActions } from '../lib/quick-actions';
+import { PromoRoot } from '../promo/director';
+import '../promo/install';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -361,6 +363,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <PromoRoot>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -383,6 +386,7 @@ export default function RootLayout() {
         <Stack.Screen name="terms" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <ToastHost />
+      </PromoRoot>
     </GestureHandlerRootView>
   );
 }
