@@ -67,7 +67,9 @@ export default function LibraryScreen() {
     <Screen>
       <ScreenHeader
         title="Exercise Library"
-        subtitle={`${results.length} exercises`}
+        // Never reveal the library's total size at rest; the count is only a
+        // search/filter result summary.
+        subtitle={query.trim() || activeFilters > 0 ? `${results.length} exercises` : undefined}
         back
         onBack={handleBack}
         right="options-outline"

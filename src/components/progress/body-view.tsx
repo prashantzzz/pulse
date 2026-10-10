@@ -146,9 +146,7 @@ export function BodyView({
     : null;
 
   const journeyBadgeText =
-    workouts.length > 0
-      ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} logged`
-      : 'No workouts yet';
+    workouts.length > 0 ? `${workouts.length} logged` : 'No workouts yet';
 
   return (
     <>

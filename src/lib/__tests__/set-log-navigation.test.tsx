@@ -16,7 +16,6 @@ jest.mock('react-native-safe-area-context', () => {
 });
 jest.mock('../../lib/haptics', () => ({
   hapticsLight: jest.fn(),
-  hapticsSuccess: jest.fn(),
 }));
 jest.mock('../../lib/notifications', () => ({
   dismissActiveWorkoutNotification: jest.fn(),
@@ -58,7 +57,11 @@ function makeSet(id: string, setIndex: number) {
   };
 }
 
-describe('Set logger — Complete Set navigation', () => {
+function findButton(root: renderer.ReactTestRenderer, label: string) {
+  return root.root.findAllByType(Button).find((b) => b.props.label === label);
+}
+
+describe('Set logger — Save navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCanGoBack.mockReturnValue(true);
@@ -98,29 +101,38 @@ describe('Set logger — Complete Set navigation', () => {
     jest.restoreAllMocks();
   });
 
-  function pressCompleteSet(root: renderer.ReactTestRenderer) {
-    const button = root.root
-      .findAllByType(Button)
-      .find((b) => b.props.label === 'Complete Set');
-    expect(button).toBeDefined();
-    act(() => {
-      button!.props.onPress();
-    });
-  }
-
-  it('pops back to the running workout without replacing its route (no options popup)', () => {
+  it('no longer renders a Complete Set action — only Save remains', () => {
     let root!: renderer.ReactTestRenderer;
     act(() => {
       root = renderer.create(React.createElement(LogSetScreen));
     });
 
-    pressCompleteSet(root);
+    expect(findButton(root, 'Complete Set')).toBeUndefined();
+    expect(findButton(root, 'Save')).toBeDefined();
 
-    // The set is completed and the log screen pops back to the existing workout
-    // screen. It must NOT replace the workout route: doing so removed its route
-    // key and tripped the workout's beforeRemove guard (the options popup).
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('Save pops back to the running workout without replacing its route', () => {
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(React.createElement(LogSetScreen));
+    });
+
+    const save = findButton(root, 'Save');
+    expect(save).toBeDefined();
+    act(() => {
+      save!.props.onPress();
+    });
+
+    // Values are saved but the set is NOT completed here — completion happens
+    // from the running workout screen. The log screen pops back to the existing
+    // workout route and must not replace it (that tripped the options popup).
     const set = usePulse.getState().activeWorkout?.exercises[0].sets[0];
-    expect(set?.completed).toBe(true);
+    expect(set?.completed).toBe(false);
+    expect(set?.weightKg).toBe(45);
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
 
@@ -129,7 +141,7 @@ describe('Set logger — Complete Set navigation', () => {
     });
   });
 
-  it('falls back to replacing the workout route when there is no back stack (deep link)', () => {
+  it('Save falls back to replacing the workout route when there is no back stack (deep link)', () => {
     mockCanGoBack.mockReturnValue(false);
 
     let root!: renderer.ReactTestRenderer;
@@ -137,7 +149,10 @@ describe('Set logger — Complete Set navigation', () => {
       root = renderer.create(React.createElement(LogSetScreen));
     });
 
-    pressCompleteSet(root);
+    const save = findButton(root, 'Save');
+    act(() => {
+      save!.props.onPress();
+    });
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/workout/w-running-1');

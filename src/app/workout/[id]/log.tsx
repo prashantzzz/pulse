@@ -12,8 +12,7 @@ import { previousSet, warmupSets, exerciseInvolvesWeights } from '../../../lib/s
 import { toUserWeight, fromUserWeight, formatWeightWithUnit, getBarWeight, getWeightStep, WeightUnit } from '../../../lib/units';
 import { usePulse } from '../../../store/useStore';
 import { colors, layout, radius, spacing, useAccent } from '../../../theme';
-import { hapticsLight, hapticsSuccess } from '../../../lib/haptics';
-import { dismissActiveWorkoutNotification } from '../../../lib/notifications';
+import { hapticsLight } from '../../../lib/haptics';
 
 const RPE_OPTIONS = [6, 7, 8, 9, 10];
 
@@ -24,8 +23,6 @@ export default function LogSetScreen() {
   const activeWorkout = usePulse((s) => s.activeWorkout);
   const workouts = usePulse((s) => s.workouts);
   const patchSet = usePulse((s) => s.patchSet);
-  const completeSet = usePulse((s) => s.completeSet);
-  const finishWorkout = usePulse((s) => s.finishWorkout);
   const exerciseDefaults = usePulse((s) => s.exerciseDefaults);
   const weightUnit = usePulse((s) => s.weightUnit);
 
@@ -120,9 +117,6 @@ export default function LogSetScreen() {
   const suggestedRepLow = suggestionReps ? Number(suggestionReps[1]) : 8;
   const suggestedRepHigh = suggestionReps ? Number(suggestionReps[2]) : 12;
 
-  const currentIndex = we.sets.findIndex((s) => s.id === current.id);
-  const prevIncomplete = we.sets.slice(0, currentIndex).find((s) => !s.completed);
-
   // Return to the running workout screen. Popping preserves the existing
   // workout route (and its unsaved-workout guard); the replace fallback only
   // matters when the log was opened without a back stack (deep link).
@@ -134,50 +128,6 @@ export default function LogSetScreen() {
     }
   };
 
-  const save = (complete: boolean, goNext: boolean) => {
-    const savedWeightKg = fromUserWeight(weight, weightUnit);
-    patchSet(ex.id, current.id, { weightKg: savedWeightKg, reps, rpe, notes: notes.trim() || null });
-    if (complete) {
-      if (prevIncomplete) {
-        hapticsLight();
-        toast(`Please complete Set ${prevIncomplete.setIndex} first`);
-        return;
-      }
-      completeSet(ex.id, current.id);
-
-      const otherIncomplete = workout.exercises
-        .flatMap((x) => x.sets)
-        .filter((s) => !s.completed && s.id !== current.id);
-
-      if (otherIncomplete.length === 0) {
-        dismissActiveWorkoutNotification();
-        const finished = finishWorkout();
-        if (finished) {
-          hapticsSuccess();
-          router.replace(`/workout/${finished.id}/summary`);
-          return;
-        }
-      }
-    }
-    if (goNext) {
-      const remaining = we.sets.filter((s) => !s.completed && s.id !== current.id);
-      const nextSet = remaining[0];
-      if (nextSet) {
-        router.replace(`/workout/${workout.id}/log?exercise=${ex.id}&set=${nextSet.id}`);
-      } else {
-        const nextEx = workout.exercises.find((x) => x.order > we.order && x.sets.some((s) => !s.completed));
-        const nextExSet = nextEx?.sets.find((s) => !s.completed);
-        if (nextEx && nextExSet) {
-          router.replace(`/workout/${workout.id}/log?exercise=${nextEx.exerciseId}&set=${nextExSet.id}`);
-        } else {
-          exitToWorkout();
-        }
-      }
-    } else {
-      exitToWorkout();
-    }
-  };
-
   // Save kg/reps/rpe/notes without marking the set as completed — useful for
   // pre-setting weight before starting the set or adjusting values mid-session.
   const saveOnly = () => {
@@ -186,28 +136,6 @@ export default function LogSetScreen() {
     hapticsLight();
     toast('Values saved to workout');
     exitToWorkout();
-  };
-
-  const finish = () => {
-    if (prevIncomplete) {
-      hapticsLight();
-      toast(`Please complete Set ${prevIncomplete.setIndex} first`);
-      return;
-    }
-    const otherIncomplete = workout.exercises
-      .flatMap((x) => x.sets)
-      .filter((s) => !s.completed && s.id !== current.id);
-
-    // `save(true, false)` already navigates: it replaces to the summary when
-    // this was the last set, otherwise it exits to the running workout screen.
-    // Navigating again here would replace the workout route and trigger its
-    // unsaved-workout guard — which opened the "Workout options" popup every
-    // time a set was completed.
-    save(true, false);
-
-    if (otherIncomplete.length > 0) {
-      toast('Set complete');
-    }
   };
 
   return (
@@ -380,7 +308,6 @@ export default function LogSetScreen() {
       </BottomSheet>
 
       <View style={styles.bottomBar}>
-        <Button label="Complete Set" icon="checkmark" full size="lg" onPress={finish} />
         <Button
           label="Save"
           variant="dark"

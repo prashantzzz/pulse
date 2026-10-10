@@ -227,11 +227,7 @@ export default function RecordsScreen() {
                 </T>
               ) : null}
             </View>
-          ) : (
-            <T variant="micro" muted style={{ marginTop: 4 }}>
-              {EXERCISES.length} exercises in the library
-            </T>
-          )}
+          ) : null}
 
           {exerciseId ? (
             <>
