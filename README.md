@@ -19,6 +19,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Friend Challenges & Social** *(coming soon — currently gated behind a feature flag)* — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
 - **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Full verification guard ensuring smooth post-auth transitions without onboarding flashes, bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
 - **CSV Import / Export** — Export and import workout logs in standard 14-column tracker format (`nextrep-workouts.csv`).
+- **Play Store In-App Updates** — Release builds installed from Google Play check for a newer version shortly after launch (at most once per day) and show the official immediate update prompt; skipped while a workout is active.
 - **Dynamic Theming & Ambient Background** — 8 live accent color palettes (default: Mint) with real-time UI propagation across home cards, muscle graphics, and gradients.
 
 ---
@@ -315,7 +316,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
-npm test           # jest - 47 consolidated test suites (502 tests)
+npm test           # jest - 48 consolidated test suites (506 tests)
 ```
 
 ### Database Migrations

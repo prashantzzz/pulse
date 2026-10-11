@@ -32,6 +32,7 @@ import {
 } from '../lib/notifications';
 import * as QuickActions from 'expo-quick-actions';
 import { getRouteForQuickAction, setupQuickActions } from '../lib/quick-actions';
+import { schedulePlayStoreUpdateCheck } from '../lib/in-app-update';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
 // collapsable` for every RN Animated component. It is harmless and never
@@ -168,6 +169,19 @@ export default function RootLayout() {
       sub.remove();
     };
   }, [hydrated, router]);
+
+  // Play Store in-app update prompt (release Android builds only): deferred,
+  // fire-and-forget, at most once per day, and skipped during an active workout.
+  useEffect(() => {
+    if (!hydrated || Platform.OS === 'web') return;
+    const check = () =>
+      schedulePlayStoreUpdateCheck(() => Boolean(usePulse.getState().activeWorkout));
+    check();
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') check();
+    });
+    return () => sub?.remove?.();
+  }, [hydrated]);
 
   // Handle interaction with notification action buttons ('Start Workout', 'Next Rep', 'Pause', 'Resume', 'Skip Rest', 'Finish') and notification taps
   useEffect(() => {
