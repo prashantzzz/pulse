@@ -25,7 +25,7 @@ import {
 } from '../../lib/stats';
 import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
+import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function HomeScreen() {
   // subscribe so this screen re-renders (and recreates its children) live on accent change
@@ -97,24 +97,18 @@ export default function HomeScreen() {
             {greeting.sub}
           </T>
         </View>
-        <Pressable onPress={() => router.push('/profile' as never)}>
-          <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
-        </Pressable>
+        <Row gap={10}>
+          <View style={[styles.streakChip, { backgroundColor: colors.accentSoft, borderColor: `${colors.accent}33` }]}>
+            <Ionicons name="flame" size={15} color={colors.accent} />
+            <T variant="bodySemi" style={{ fontSize: 14, color: colors.accent }}>
+              {streak}
+            </T>
+          </View>
+          <Pressable onPress={() => router.push('/profile' as never)}>
+            <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
+          </Pressable>
+        </Row>
       </Row>
-
-      {/* streak banner */}
-      <View style={styles.streakBanner}>
-        <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
-        <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
-          <Ionicons name="flame" size={22} color={colors.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <T variant="bodySemi">{streak}-day streak</T>
-          <T variant="small" dim style={{ fontSize: 12 }}>
-            {streak >= 3 ? 'You are on fire — keep it rolling' : 'One workout today keeps it alive'}
-          </T>
-        </View>
-      </View>
 
       {/* today's workout hero */}
       {smartPlanResult.state === 'NO_PLANS' ? (
@@ -522,22 +516,14 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
 const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   notifDot: { position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: 4 },
-  streakBanner: {
+  streakChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: radius.lg,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    overflow: 'hidden',
-  },
-  streakFlame: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   dividerV: { width: 1, height: 40, backgroundColor: colors.border },
   trophy: {
