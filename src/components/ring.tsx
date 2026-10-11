@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
 
 import { useAnimatedValue } from '../lib/useAnimatedValue';
+import { PROMO } from '../promo/config';
+import { EASE, useReducedMotion } from '../promo/motion';
+import { usePromoPlay } from '../promo/reveal';
 import Svg, { Circle } from 'react-native-svg';
 
 import { colors } from '../theme';
@@ -16,7 +19,7 @@ function formatCountdown(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 }
 
-/** Circular progress ring (static value driven) */
+/** Circular progress ring — sweeps to its value, morphs on data changes. */
 export function ProgressRing({
   size = 120,
   strokeWidth = 10,
@@ -38,13 +41,46 @@ export function ProgressRing({
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, progress));
-  const offset = c - (clamped / 100) * c;
+  const target = clamped / 100;
+
+  const anim = useRef(new Animated.Value(target)).current;
+  const lastTarget = useRef(target);
+  const prevPlayKey = useRef('');
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      anim.setValue(target);
+      lastTarget.current = target;
+      prevPlayKey.current = playKey;
+      return;
+    }
+    const replay = prevPlayKey.current !== playKey;
+    prevPlayKey.current = playKey;
+    const from = replay ? 0 : lastTarget.current;
+    lastTarget.current = target;
+    anim.stopAnimation();
+    anim.setValue(from);
+    Animated.timing(anim, {
+      toValue: target,
+      // Fresh mounts wait for the enclosing card to land; data morphs stay
+      // immediate so filter changes feel responsive.
+      duration: replay ? PROMO.duration.chart : PROMO.duration.content,
+      delay: replay ? 250 : 0,
+      easing: EASE.entrance,
+      useNativeDriver: false,
+    }).start();
+  }, [playKey, target, reduced, anim]);
+
+  const offset = anim.interpolate({ inputRange: [0, 1], outputRange: [c, 0] });
 
   return (
     <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
-        <Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={r}

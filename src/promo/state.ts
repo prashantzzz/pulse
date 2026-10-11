@@ -1,3 +1,9 @@
+/* eslint-disable react-hooks/refs --
+ * Promo motion code keeps Animated values, cascade slots and play keys in refs:
+ * they are imperative animation state that must not trigger re-renders. Slot
+ * assignment intentionally happens during render (parents before children) so
+ * cascades order top-down. Same convention as draggable-plan-list.tsx.
+ */
 /**
  * Promo mock state — a "real athlete" snapshot built from the tracker CSV.
  *

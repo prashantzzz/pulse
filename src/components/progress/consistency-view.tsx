@@ -5,6 +5,7 @@ import { CalendarHeatmap, type HeatDay } from '../heatmap';
 import { ProgressRing } from '../ring';
 import { T } from '../Text';
 import { Card, Icon, ProgressBar, Row } from '../ui';
+import { PROMO } from '../../promo/config';
 import { consistencyPct, currentStreak, dayKey, longestStreak, sessionsPerWeek, workoutDayKeys } from '../../lib/stats';
 import { toUserVolume } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
@@ -93,7 +94,8 @@ export function ConsistencyView({
   return (
     <>
       <Row gap={spacing.sm}>
-        <SummaryCard label="Current streak" value={`${currentStreak(workouts)}d`} accent icon="flame" flex1 />
+        {/* Promo footage override (see PROMO.demoStreakDays): real value intact underneath. */}
+        <SummaryCard label="Current streak" value={`${PROMO.demoStreakDays ?? currentStreak(workouts)}d`} accent icon="flame" flex1 />
         <SummaryCard label="Longest" value={`${longestStreak(workouts)}d`} icon="trophy" flex1 />
         <SummaryCard label="Sessions/wk" value={`${sessionsPerWeek(workouts)}`} icon="calendar" flex1 />
       </Row>

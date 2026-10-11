@@ -1,5 +1,4 @@
 /**
- * PromoRoot — the promo director.
  *
  * Wraps the app with the reveal engine and provides:
  *  - a replay token so pressing R re-runs every entrance animation,
@@ -13,14 +12,18 @@
  * When PROMO.enabled is false the component renders its children untouched.
  */
 import { usePathname, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { T } from '../components/Text';
 import { colors, radius } from '../theme';
 import { PROMO } from './config';
 import { burstConfetti } from './confetti';
 import { resetPromoData } from './install';
+import { useReducedMotion } from './motion';
 import { PromoPlayProvider, resetPromoSequence } from './reveal';
+import { requestProgressTab, type ProgressView } from '../lib/nav-intent';
+import { usePulse } from '../store/useStore';
+import { useAuth } from '../store/useAuth';
 
 const SCENES: { key: string; label: string; route: string }[] = [
   { key: '1', label: 'Home', route: '/(tabs)/home' },
@@ -40,9 +43,19 @@ export function PromoRoot({ children }: { children: React.ReactNode }) {
   return <PromoSession>{children}</PromoSession>;
 }
 
+/** Progress analytics tabs, in display order — one HUD button each. */
+const PROGRESS_SCENES: { view: ProgressView; label: string }[] = [
+  { view: 'Body', label: 'Body' },
+  { view: 'Records', label: 'Rec' },
+  { view: 'Strength', label: 'Str' },
+  { view: 'Volume', label: 'Vol' },
+  { view: 'Regularity', label: 'Reg' },
+];
+
 function PromoSession({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const reducedMotion = useReducedMotion();
   const [token, setToken] = useState(0);
   const [slowMo, setSlowMo] = useState(false);
   const [hud, setHud] = useState(true);
@@ -51,6 +64,16 @@ function PromoSession({ children }: { children: React.ReactNode }) {
     resetPromoSequence();
     setToken((t) => t + 1);
   }, []);
+
+  // Every navigation restarts the shared cascade pool, so freshly mounted
+  // screens (stack pushes) always begin their cascade at slot 0.
+  const lastRoute = useRef(pathname);
+  useEffect(() => {
+    if (lastRoute.current !== pathname) {
+      lastRoute.current = pathname;
+      resetPromoSequence();
+    }
+  }, [pathname]);
 
   const resetAll = useCallback(() => {
     resetPromoData();
@@ -121,11 +144,23 @@ function PromoSession({ children }: { children: React.ReactNode }) {
       reset: resetAll,
       slowMo: (v: boolean) => setSlowMo(v),
       go: (route: string) => router.navigate(route as never),
+      goProgress: (view: ProgressView) => {
+        requestProgressTab(view);
+        replay();
+        router.navigate(`/(tabs)/progress?tab=${view}` as never);
+      },
       scenes: SCENES,
+      progressScenes: PROGRESS_SCENES,
+      // Automation surface for scripted takes / verification.
+      pulse: usePulse,
+      auth: useAuth,
     };
   }, [replay, resetAll, router]);
 
-  const playValue = useMemo(() => ({ token, slowMo }), [token, slowMo]);
+  const playValue = useMemo(
+    () => ({ token, slowMo, route: pathname, replay }),
+    [token, slowMo, pathname, replay],
+  );
 
   return (
     <PromoPlayProvider value={playValue}>
@@ -134,11 +169,24 @@ function PromoSession({ children }: { children: React.ReactNode }) {
         <PromoHud
           token={token}
           slowMo={slowMo}
+          reducedMotion={reducedMotion}
           onReplay={replay}
           onReset={resetAll}
           onToggleSlow={() => setSlowMo((v) => !v)}
           onHide={() => setHud(false)}
-          onGo={(route) => router.navigate(route as never)}
+          onGo={(route) => {
+            // Same-route clicks replay instead of no-op'ing, so every HUD
+            // jump performs the choreography regardless of where you are.
+            if (pathname === route) replay();
+            else router.navigate(route as never);
+          }}
+          onGoProgress={(view) => {
+            requestProgressTab(view);
+            // Always replay: same-view re-clicks re-run the charts, and
+            // cross-view jumps replay on arrival.
+            replay();
+            router.navigate(`/(tabs)/progress?tab=${view}` as never);
+          }}
         />
       ) : null}
     </PromoPlayProvider>
@@ -148,19 +196,23 @@ function PromoSession({ children }: { children: React.ReactNode }) {
 function PromoHud({
   token,
   slowMo,
+  reducedMotion,
   onReplay,
   onReset,
   onToggleSlow,
   onHide,
   onGo,
+  onGoProgress,
 }: {
   token: number;
   slowMo: boolean;
+  reducedMotion: boolean;
   onReplay: () => void;
   onReset: () => void;
   onToggleSlow: () => void;
   onHide: () => void;
   onGo: (route: string) => void;
+  onGoProgress: (view: ProgressView) => void;
 }) {
   return (
     <View style={styles.hudRoot} pointerEvents="box-none">
@@ -176,10 +228,23 @@ function PromoHud({
           <T variant="micro" muted>
             #{token}
           </T>
+          <T
+            variant="micro"
+            style={{ color: reducedMotion ? colors.gold : colors.accent, fontWeight: '700' }}>
+            {reducedMotion ? 'REDUCED' : 'FULL'}
+          </T>
         </View>
         <View style={[styles.row, styles.sceneRow]}>
           {SCENES.map((s) => (
             <HudBtn key={s.key} label={`${s.key} ${s.label}`} onPress={() => onGo(s.route)} />
+          ))}
+        </View>
+        <View style={[styles.row, styles.sceneRow]}>
+          <T variant="micro" style={styles.brand}>
+            PRG
+          </T>
+          {PROGRESS_SCENES.map((s) => (
+            <HudBtn key={s.view} label={s.label} onPress={() => onGoProgress(s.view)} />
           ))}
         </View>
       </View>

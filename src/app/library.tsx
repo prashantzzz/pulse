@@ -68,7 +68,9 @@ export default function LibraryScreen() {
     <Screen>
       <ScreenHeader
         title="Exercise Library"
-        subtitle={`${results.length} exercises`}
+        // Never reveal the library's total size at rest; the count is only a
+        // search/filter result summary.
+        subtitle={query.trim() || activeFilters > 0 ? `${results.length} exercises` : undefined}
         back
         onBack={handleBack}
         right="options-outline"
@@ -77,6 +79,7 @@ export default function LibraryScreen() {
       />
 
       {/* Search bar */}
+      <PromoReveal variant="fade" delay={40} observe={false}>
       <View style={styles.searchWrap}>
         <Icon name="search" size={18} color={colors.textMuted} />
         <TextInput
@@ -92,6 +95,7 @@ export default function LibraryScreen() {
           </Pressable>
         ) : null}
       </View>
+      </PromoReveal>
 
       {/* Anatomical muscle slug filter chips (same as body-map clickable muscles) */}
       <PromoReveal variant="fade" delay={60} observe={false}>

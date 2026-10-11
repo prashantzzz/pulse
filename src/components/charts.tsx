@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import Svg, {
   Circle,
@@ -12,6 +12,9 @@ import Svg, {
 } from 'react-native-svg';
 
 import { PROMO } from '../promo/config';
+import { EASE, driveNumber, useReducedMotion } from '../promo/motion';
+import { staggerDrive } from '../promo/dataviz';
+import { usePromoCountUp } from '../promo/metric';
 import { usePromoPlay } from '../promo/reveal';
 import { colors } from '../theme';
 
@@ -45,45 +48,284 @@ function niceMax(v: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Promo draw-in wipe (promo/kinetic branch only)
+// Promo chart reveals (promo/kinetic branch only)
+//
+// Web-only DOM drivers that animate the real SVG elements — bars grow from
+// their baseline, lines draw left→right with synced dots, donut segments
+// sweep, sparklines draw. Native keeps the static (already beautiful) charts;
+// the card-level reveal still animates around them. Data changes morph from
+// the previous state instead of replaying entrances.
 // ---------------------------------------------------------------------------
 
-/**
- * Reveals the SVG inside with a left→right (`x`) or bottom→top (`y`) wipe when
- * the promo build is active. Skipped entirely (no wrapper) on the shipped app.
- */
-function PromoWipe({ axis, delay = 220, children }: { axis: 'x' | 'y'; delay?: number; children: ReactNode }) {
+/** Play/replay key + slow-mo + accessibility flags shared by the chart drivers. */
+function useChartPlay() {
+  const { token, route, slowMo } = usePromoPlay();
+  const reduced = useReducedMotion();
+  return { playKey: `${route}#${token}`, slowMo, reduced };
+}
+
+type SvgHost = { querySelector: (selector: string) => Element | null };
+
+function svgHost(ref: { current: unknown }): SvgHost | null {
+  if (!PROMO.enabled || Platform.OS !== 'web') return null;
+  const node = ref.current as SvgHost | null;
+  if (!node || typeof node.querySelector !== 'function') return null;
+  return node;
+}
+
+/** Bars rise from the baseline one after another, left→right.
+ * Timing adapts to the bar count so sparse charts read as a clear sequence
+ * (~110ms apart) while dense year-views still resolve in ~1.2s. */
+function useBarReveal(dataKey: string) {
   const host = useRef<unknown>(null);
-  const { token } = usePromoPlay();
+  const { playKey, slowMo, reduced } = useChartPlay();
+  const prevKey = useRef('');
+  const prevHeights = useRef<number[]>([]);
 
   useEffect(() => {
-    if (!PROMO.enabled || Platform.OS !== 'web') return;
-    const node = host.current as HTMLElement | null;
-    if (!node || typeof node.querySelector !== 'function') return;
-    const svg = node.querySelector('svg') as (SVGElement & { style: CSSStyleDeclaration }) | null;
+    if (reduced) return;
+    const node = svgHost(host);
+    if (!node) return;
+    const svg = node.querySelector('svg');
     if (!svg) return;
+    const rects = Array.from(svg.querySelectorAll('rect')) as SVGRectElement[];
+    if (!rects.length) return;
 
-    let raf = 0;
-    const startAt = performance.now() + (token === 0 ? delay : 120);
-    const duration = 820;
-    const tick = (now: number) => {
-      const t = Math.max(0, Math.min(1, (now - startAt) / duration));
-      const eased = 1 - (1 - t) ** 3;
-      const inset = (1 - eased) * 100;
-      svg.style.clipPath = axis === 'x' ? `inset(0 ${inset}% 0 0)` : `inset(${inset}% 0 0 0)`;
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else svg.style.clipPath = '';
+    const finals = rects.map((r) => ({
+      y: Number(r.getAttribute('y') ?? 0),
+      h: Number(r.getAttribute('height') ?? 0),
+    }));
+    const isUpdate = prevKey.current === playKey;
+    const froms =
+      isUpdate && prevHeights.current.length === finals.length ? prevHeights.current : finals.map(() => 0);
+    prevKey.current = playKey;
+    prevHeights.current = finals.map((f) => f.h);
+
+    const slow = slowMo ? PROMO.slowMoFactor : 1;
+    const n = rects.length;
+    const step = (isUpdate ? 16 : Math.min(110, Math.max(22, 760 / Math.max(1, n)))) * slow;
+    const duration = (isUpdate ? 380 : Math.min(520, step * 3.2)) * slow;
+    const cancel = staggerDrive({
+      count: n,
+      duration,
+      step,
+      // Fresh mounts wait for the enclosing card to land first — otherwise
+      // the wave finishes behind the card fade and the chart looks static.
+      delay: (isUpdate ? 120 : 350) * slow,
+      onItem: (i, t) => {
+        const f = finals[i];
+        if (!f) return;
+        const from = froms[i] ?? 0;
+        const h = from + (f.h - from) * t;
+        rects[i].setAttribute('height', String(Math.max(0, h)));
+        rects[i].setAttribute('y', String(f.y + (f.h - h)));
+      },
+    });
+    return cancel;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, dataKey, reduced]);
+
+  return host;
+}
+
+/** Line draws left→right; area fades in after it; dots pop in sync. */
+function useLineReveal(dataKey: string) {
+  const host = useRef<unknown>(null);
+  const { playKey, slowMo, reduced } = useChartPlay();
+  const prevKey = useRef('');
+
+  useEffect(() => {
+    if (reduced) return;
+    const node = svgHost(host);
+    if (!node) return;
+    const svg = node.querySelector('svg');
+    if (!svg) return;
+    const paths = Array.from(svg.querySelectorAll('path')) as SVGPathElement[];
+    if (!paths.length) return;
+    const area = paths.find((p) => (p.getAttribute('fill') ?? '').startsWith('url(')) ?? null;
+    const line = paths.filter((p) => p.getAttribute('fill') === 'none').pop() ?? null;
+    if (!line) return;
+    const dots = Array.from(svg.querySelectorAll('circle')) as SVGCircleElement[];
+
+    let length = 0;
+    try {
+      length = (line as unknown as { getTotalLength?: () => number }).getTotalLength?.() ?? 0;
+    } catch {
+      length = 0;
+    }
+
+    const isUpdate = prevKey.current === playKey;
+    prevKey.current = playKey;
+    const slow = slowMo ? PROMO.slowMoFactor : 1;
+
+    if (length > 0) {
+      line.style.strokeDasharray = `${length}`;
+      line.style.strokeDashoffset = `${length}`;
+    }
+    if (area) area.style.opacity = '0';
+    dots.forEach((d) => {
+      d.style.opacity = '0';
+      // Scale-pop around each dot's own center (transform-box keeps the
+      // circle anchored while it grows from 0 with the line's arrival).
+      d.style.transformBox = 'fill-box';
+      d.style.transformOrigin = 'center';
+      d.style.transform = 'scale(0.2)';
+    });
+
+    const xs = dots.map((d) => Number(d.getAttribute('cx') ?? 0));
+    const minX = xs.length ? Math.min(...xs) : 0;
+    const spanX = xs.length ? Math.max(1, Math.max(...xs) - minX) : 1;
+
+    const settleDots = () => {
+      dots.forEach((d) => {
+        d.style.opacity = '';
+        d.style.transform = '';
+        d.style.transformBox = '';
+        d.style.transformOrigin = '';
+      });
     };
-    raf = requestAnimationFrame(tick);
+
+    const cancel = driveNumber({
+      duration: (isUpdate ? 520 : PROMO.duration.chart + 100) * slow,
+      // Let the enclosing card finish landing before the draw starts —
+      // otherwise the front-loaded easing finishes the line while the card
+      // is still fading in and the chart looks static on page load.
+      delay: (isUpdate ? 120 : 380) * slow,
+      easing: EASE.sweep,
+      onUpdate: (t) => {
+        if (length > 0) line.style.strokeDashoffset = `${length * (1 - t)}`;
+        if (area) area.style.opacity = String(Math.max(0, Math.min(1, (t - 0.45) / 0.5)));
+        dots.forEach((d, i) => {
+          const frac = (xs[i] - minX) / spanX;
+          const local = Math.max(0, Math.min(1, (t - frac * 0.85) / 0.15));
+          d.style.opacity = String(local);
+          d.style.transform = `scale(${(0.2 + 0.8 * local).toFixed(3)})`;
+        });
+      },
+      onDone: () => {
+        if (length > 0) {
+          line.style.strokeDasharray = '';
+          line.style.strokeDashoffset = '';
+        }
+        if (area) area.style.opacity = '';
+        settleDots();
+      },
+    });
+
     return () => {
-      cancelAnimationFrame(raf);
-      svg.style.clipPath = '';
+      cancel();
+      if (length > 0) {
+        line.style.strokeDasharray = '';
+        line.style.strokeDashoffset = '';
+      }
+      if (area) area.style.opacity = '';
+      settleDots();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [axis, token]);
+  }, [playKey, dataKey, reduced]);
 
-  if (!PROMO.enabled) return <>{children}</>;
-  return <View ref={host as never}>{children}</View>;
+  return host;
+}
+
+/** Donut segments fill from zero one color after another, then the legend follows. */
+function useDonutReveal(dataKey: string) {
+  const host = useRef<unknown>(null);
+  const { playKey, slowMo, reduced } = useChartPlay();
+  const prevKey = useRef('');
+
+  useEffect(() => {
+    if (reduced) return;
+    const node = svgHost(host);
+    if (!node) return;
+    const svg = node.querySelector('svg');
+    if (!svg) return;
+    const circles = Array.from(svg.querySelectorAll('circle')) as SVGCircleElement[];
+    if (!circles.length) return;
+
+    const finals = circles.map((c) => {
+      const offset = Number(c.getAttribute('stroke-dashoffset') ?? 0);
+      const dash = String(c.getAttribute('stroke-dasharray') ?? '0 0');
+      const len = Number(dash.split(' ')[0] ?? '0') || 0;
+      return { offset, len };
+    });
+
+    const isUpdate = prevKey.current === playKey;
+    prevKey.current = playKey;
+    const slow = slowMo ? PROMO.slowMoFactor : 1;
+    const restore = () => finals.forEach((f, i) => circles[i].setAttribute('stroke-dashoffset', String(f.offset)));
+
+    const cancel = staggerDrive({
+      count: circles.length,
+      duration: (isUpdate ? 360 : 420) * slow,
+      step: (isUpdate ? 80 : 150) * slow,
+      // Let the enclosing card land first on fresh mounts.
+      delay: (isUpdate ? 120 : 400) * slow,
+      onItem: (i, t) => {
+        const f = finals[i];
+        if (!f) return;
+        circles[i].setAttribute('stroke-dashoffset', String(f.offset + f.len * (1 - t)));
+      },
+      onDone: restore,
+    });
+
+    return () => {
+      cancel();
+      restore();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, dataKey, reduced]);
+
+  return host;
+}
+
+/** Single-path sparkline draws left→right. */
+function useSparkReveal(dataKey: string) {
+  const host = useRef<unknown>(null);
+  const { playKey, slowMo, reduced } = useChartPlay();
+
+  useEffect(() => {
+    if (reduced) return;
+    const node = svgHost(host);
+    if (!node) return;
+    const svg = node.querySelector('svg');
+    if (!svg) return;
+    const path = svg.querySelector('path') as SVGPathElement | null;
+    if (!path) return;
+
+    let length = 0;
+    try {
+      length = (path as unknown as { getTotalLength?: () => number }).getTotalLength?.() ?? 0;
+    } catch {
+      length = 0;
+    }
+    if (length <= 0) return;
+
+    const slow = slowMo ? PROMO.slowMoFactor : 1;
+    path.style.strokeDasharray = `${length}`;
+    path.style.strokeDashoffset = `${length}`;
+
+    const cancel = driveNumber({
+      duration: 560 * slow,
+      delay: 250 * slow,
+      easing: EASE.sweep,
+      onUpdate: (t) => {
+        path.style.strokeDashoffset = `${length * (1 - t)}`;
+      },
+      onDone: () => {
+        path.style.strokeDasharray = '';
+        path.style.strokeDashoffset = '';
+      },
+    });
+
+    return () => {
+      cancel();
+      path.style.strokeDasharray = '';
+      path.style.strokeDashoffset = '';
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, dataKey, reduced]);
+
+  return host;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,8 +397,10 @@ export function LineChart({
 
   const gridLines = [0.25, 0.5, 0.75].map((f) => padTop + f * (height - padTop - padBottom));
 
+  const revealHost = useLineReveal(data.join(','));
+
   return (
-    <PromoWipe axis="x">
+    <View ref={revealHost as never}>
     <Svg width={width} height={height}>
       <Defs>
         <SvgLinearGradient id="linefill" x1="0" y1="0" x2="0" y2="1">
@@ -201,7 +445,7 @@ export function LineChart({
           )
         : null}
     </Svg>
-    </PromoWipe>
+    </View>
   );
 }
 
@@ -238,8 +482,10 @@ export function BarChart({
   // Smart label thinning: show max 6-8 labels evenly across the axis
   const labelInterval = n <= 8 ? 1 : n <= 16 ? 2 : n <= 30 ? 4 : Math.ceil(n / 6);
 
+  const revealHost = useBarReveal(data.map((d) => d.value).join(','));
+
   return (
-    <PromoWipe axis="y" delay={180}>
+    <View ref={revealHost as never}>
     <Svg width={width} height={height}>
       <Defs>
         <SvgLinearGradient id="barfill" x1="0" y1="0" x2="0" y2="1">
@@ -295,7 +541,7 @@ export function BarChart({
         );
       })}
     </Svg>
-    </PromoWipe>
+    </View>
   );
 }
 
@@ -334,8 +580,11 @@ export function DonutChart({
     { acc: 0, offsets: [] as number[] },
   );
 
+  const revealHost = useDonutReveal(segments.map((s) => s.value).join(','));
+  const shownCenter = usePromoCountUp(centerValue ?? '', PROMO.enabled);
+
   return (
-    <PromoWipe axis="x" delay={200}>
+    <View ref={revealHost as never}>
     <Svg width={size} height={size}>
       {/* rotate around the center baked into the transform — react-native-svg's
           origin prop emits a `transform-origin` DOM prop that React 19 rejects on web */}
@@ -369,7 +618,7 @@ export function DonutChart({
             fill={colors.text}
             textAnchor="middle"
             fontFamily="SpaceGrotesk_700Bold">
-            {centerValue}
+            {shownCenter}
           </SvgText>
           {centerLabel ? (
             <SvgText
@@ -385,7 +634,7 @@ export function DonutChart({
         </>
       ) : null}
     </Svg>
-    </PromoWipe>
+    </View>
   );
 }
 
@@ -411,12 +660,13 @@ export function Sparkline({
     x: (i / Math.max(1, data.length - 1)) * width,
     y: height - 4 - ((v - min) / range) * (height - 8),
   }));
+  const revealHost = useSparkReveal(data.join(','));
   return (
-    <PromoWipe axis="x" delay={320}>
+    <View ref={revealHost as never}>
     <Svg width={width} height={height}>
       <Path d={smoothPath(pts)} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
     </Svg>
-    </PromoWipe>
+    </View>
   );
 }
 

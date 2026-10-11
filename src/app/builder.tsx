@@ -14,6 +14,7 @@ import { T } from '../components/Text';
 import { BottomSheet, Stepper, toast } from '../components/misc';
 import { ExerciseThumb } from '../components/muscle-icon';
 import { Button, Card, Chip, Icon, Row, Screen, ScreenHeader, Tag } from '../components/ui';
+import { PromoReveal } from '../promo/reveal';
 import {
   EQUIPMENT_OPTIONS,
   EXERCISE_MAP,
@@ -277,6 +278,7 @@ export default function BuilderScreen() {
         />
 
         {/* Workout Details Card */}
+        <PromoReveal delay={60} observe={false}>
         <View style={styles.topSection}>
           <View style={styles.nameHeader}>
             <Row align="space-between">
@@ -380,11 +382,13 @@ export default function BuilderScreen() {
             )}
           </View>
         </View>
+        </PromoReveal>
 
         {/* Divider */}
         <View style={styles.sectionDivider} />
 
         {/* Exercise Library Browser Section */}
+        <PromoReveal delay={120} observe={false}>
         <View style={{ marginTop: spacing.md }}>
           <Row align="space-between" style={{ marginBottom: spacing.xs }}>
             <View>
@@ -443,10 +447,11 @@ export default function BuilderScreen() {
 
           {/* Exercise Items List */}
           <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
-            {libraryResults.map((ex) => {
+            {libraryResults.map((ex, li) => {
               const isAdded = drafts.some((d) => d.exerciseId === ex.id);
               return (
-                <View key={ex.id} style={styles.libraryRow}>
+                <PromoReveal key={ex.id} variant="row" delay={Math.min(li, 8) * 40} observe={false}>
+                <View style={styles.libraryRow}>
                   {/* Tapping the info section opens /exercise/${id} */}
                   <Pressable
                     onPress={() => router.push(`/exercise/${ex.id}` as never)}
@@ -488,6 +493,7 @@ export default function BuilderScreen() {
                     </T>
                   </Pressable>
                 </View>
+                </PromoReveal>
               );
             })}
 
@@ -508,6 +514,7 @@ export default function BuilderScreen() {
             ) : null}
           </View>
         </View>
+        </PromoReveal>
       </Screen>
 
       {/* Filter BottomSheet */}

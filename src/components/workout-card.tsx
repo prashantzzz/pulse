@@ -16,6 +16,7 @@ import { formatVolumeWithUnit } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from './collapsible';
 import { hapticsLight } from '../lib/haptics';
+import { PromoReveal } from '../promo/reveal';
 
 // ---------------------------------------------------------------------------
 // Plan card (Workouts tab)
@@ -137,11 +138,12 @@ export function PlanCard({
       <CollapsibleContent isOpen={open}>
         <View style={styles.expandWrap}>
           <View style={styles.exDivider} />
-          {plan.exercises.map((spec) => {
+          {plan.exercises.map((spec, i) => {
             const ex = EXERCISE_MAP[spec.exerciseId];
             if (!ex) return null;
             return (
-              <View key={spec.exerciseId} style={styles.exRow}>
+              <PromoReveal key={spec.exerciseId} variant="row" delay={i * 40} observe={false}>
+              <View style={styles.exRow}>
                 <ExerciseThumb exerciseId={spec.exerciseId} muscle={ex.muscleGroup} size={30} />
                 <View style={{ flex: 1 }}>
                   <T variant="smallSemi" numberOfLines={1}>
@@ -155,6 +157,7 @@ export function PlanCard({
                   {spec.sets} × {spec.targetReps}
                 </T>
               </View>
+              </PromoReveal>
             );
           })}
         </View>
@@ -265,17 +268,24 @@ export function TodayWorkoutCard({
         <LinearGradient key={`active-${accentKey}`} colors={[accentTint(colors.accent, 0.22), colors.bg]} style={StyleSheet.absoluteFill} />
         <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}2E` }]} />
         <View style={{ padding: spacing.lg, gap: 10 }}>
+          <PromoReveal observe={false} delay={240}>
           <Row align="space-between">
             <Tag label="🔥 WORKOUT IN PROGRESS" color={colors.accent} bg={colors.accentSoft} />
             <T variant="micro" accent style={{ fontWeight: '700' }}>
               LIVE
             </T>
           </Row>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={280}>
           <T variant="h1">{activeWorkout.title}</T>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={320}>
           <Row gap={14} wrap>
             <StatPill icon="barbell-outline" text={`${activeWorkout.exercises.length} exercises`} />
             <StatPill icon="layers-outline" text={`${completedSets}/${totalSets} sets done`} />
           </Row>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={360}>
           <Pressable onPress={onResume} style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.9 }]}>
             <LinearGradient key={`cta-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
             <T variant="bodySemi" style={{ color: colors.bg, fontSize: 16 }}>
@@ -283,6 +293,7 @@ export function TodayWorkoutCard({
             </T>
             <Ionicons name="arrow-forward" size={18} color={colors.bg} />
           </Pressable>
+          </PromoReveal>
         </View>
       </View>
     );
@@ -303,11 +314,14 @@ export function TodayWorkoutCard({
             { borderColor: `${colors.accent}4D` },
             pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] },
           ]}
-          accessibilityRole="button"
           accessibilityLabel={`View ${completedWorkout.title} summary`}>
+          {/* note: no accessibilityRole above — the Preview button below is
+              nested inside this pressable, and two HTML <button> roles would
+              be invalid (same rule as PlanCard). */}
           <LinearGradient key={`completed-${accentKey}`} colors={[accentTint(colors.accent, 0.18), colors.bg]} style={StyleSheet.absoluteFill} />
           <View style={[styles.heroGlow, { backgroundColor: `${colors.accent}1A` }]} />
           <View style={{ padding: spacing.lg, gap: 12 }}>
+            <PromoReveal observe={false} delay={240}>
             <Row align="space-between">
               <Tag label="COMPLETED TODAY 🎉" color={colors.accent} bg={colors.accentSoft} />
               <Row gap={4} align="center">
@@ -317,14 +331,20 @@ export function TodayWorkoutCard({
                 <Ionicons name="chevron-forward" size={12} color={colors.accent} />
               </Row>
             </Row>
+            </PromoReveal>
+            <PromoReveal observe={false} delay={280}>
             <T variant="h1">{completedWorkout.title}</T>
+            </PromoReveal>
+            <PromoReveal observe={false} delay={320}>
             <Row gap={14} wrap>
               <StatPill icon="barbell-outline" text={`${formatVolumeWithUnit(st.volumeKg, weightUnit)} lifted`} />
               <StatPill icon="layers-outline" text={`${st.sets} sets completed`} />
               <StatPill icon="time-outline" text={`${st.durationMin} min`} />
             </Row>
+            </PromoReveal>
 
             {plan ? (
+              <PromoReveal observe={false} delay={370}>
               <Pressable
                 onPress={(e) => {
                   e.stopPropagation?.();
@@ -359,6 +379,7 @@ export function TodayWorkoutCard({
                   </Row>
                 </Row>
               </Pressable>
+              </PromoReveal>
             ) : null}
           </View>
         </Pressable>
@@ -460,6 +481,7 @@ export function TodayWorkoutCard({
           </View>
         ) : null}
         <View style={{ padding: spacing.lg, gap: 10 }}>
+          <PromoReveal observe={false} delay={240}>
           <Row align="space-between">
             <Tag label={isLongLayoff ? 'Fresh Start · Day 1' : "Today's Workout"} color={colors.accent} bg={colors.accentSoft} />
             <Row gap={8} align="center">
@@ -482,17 +504,25 @@ export function TodayWorkoutCard({
               </T>
             </Row>
           </Row>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={280}>
           <T variant="h1">{plan.title}</T>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={320}>
           <Row gap={14} wrap>
             <StatPill icon="barbell-outline" text={`${plan.exercises.length} exercises`} />
             <StatPill icon="layers-outline" text={`${totalSets} sets`} />
             <StatPill icon="time-outline" text={`~${duration} min`} />
           </Row>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={350}>
           <Row gap={6} wrap>
             {plan.muscles.map((m) => (
               <Tag key={m} label={m} color={colors.accent} bg={colors.accentSoft} />
             ))}
           </Row>
+          </PromoReveal>
+          <PromoReveal observe={false} delay={390}>
           {prevWorkout ? (
             <View style={styles.prevRow}>
               <Ionicons name="time-outline" size={14} color={colors.textDim} />
@@ -502,6 +532,8 @@ export function TodayWorkoutCard({
               </T>
             </View>
           ) : null}
+          </PromoReveal>
+          <PromoReveal observe={false} delay={430}>
           <Pressable onPress={() => onStart(plan)} style={({ pressed }) => [styles.heroCta, pressed && { opacity: 0.9 }]}>
             <LinearGradient key={`start-${accentKey}`} colors={[gradients.accent[0], gradients.accent[1]]} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
             <T variant="bodySemi" style={{ color: colors.bg, fontSize: 16 }}>
@@ -509,6 +541,7 @@ export function TodayWorkoutCard({
             </T>
             <Ionicons name="arrow-forward" size={18} color={colors.bg} />
           </Pressable>
+          </PromoReveal>
         </View>
       </View>
 

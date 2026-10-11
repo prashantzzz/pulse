@@ -30,6 +30,7 @@ import {
 import { colors, radius, shadows, spacing } from '../theme';
 import type { WorkoutPlan } from '../types';
 import { setInnerHorizontalActive } from './ui';
+import { PromoReveal } from '../promo/reveal';
 import { PlanCard } from './workout-card';
 
 /**
@@ -539,8 +540,8 @@ export function DraggablePlanList({
   return (
     <View style={styles.list}>
       {plans.map((plan, index) => (
+        <PromoReveal key={plan.id} delay={60 + Math.min(index, 5) * 55} observe={false}>
         <DraggablePlanRow
-          key={plan.id}
           plan={plan}
           dragEnabled={plans.length > 1}
           dragging={draggingId === plan.id}
@@ -559,6 +560,7 @@ export function DraggablePlanList({
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         />
+        </PromoReveal>
       ))}
     </View>
   );
@@ -674,7 +676,7 @@ function DraggablePlanRow({
         dragging && styles.rowDragging,
         {
           zIndex: dragging ? 20 : 0,
-          transform: [{ translateY }, ...(dragging ? [{ scale: 1.02 }] : [])],
+          transform: [{ translateY }, ...(dragging ? [{ scale: 1.03 }] : [])],
         },
       ]}
       {...responder.panHandlers}>
@@ -702,6 +704,8 @@ const styles = StyleSheet.create({
     zIndex: 20,
     borderRadius: radius.lg,
     backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: `${colors.accent}55`,
     // Prevent text selection / native drag ghosts while dragging on web.
     userSelect: 'none' as const,
     ...shadows.float,

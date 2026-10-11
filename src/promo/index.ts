@@ -1,8 +1,26 @@
 /**
- * Promo layer public API (promo/kinetic branch only).
  */
 export { PROMO, PROMO_ENABLED } from './config';
+export type { PromoMotionMode } from './config';
+
 export { PromoRoot } from './director';
-export { PromoReveal, PromoPlayProvider, resetPromoSequence, usePromoPlay } from './reveal';
-export { usePromoCountUp } from './count-up';
+
+export {
+  PromoReveal,
+  PromoScreen,
+  PromoStagger,
+  PromoPlayProvider,
+  PromoCompactProvider,
+  resetPromoSequence,
+  usePromoPlay,
+  usePromoCompact,
+} from './reveal';
+export type { RevealVariant, PromoPlayState } from './reveal';
+
+export { PromoMetric, usePromoCountUp, parseMetric, formatMetric } from './metric';
+export type { ParsedNumber } from './metric';
+
+export { EASE, useReducedMotion, prefersReducedMotionSync, driveNumber } from './motion';
+export { staggerDrive, setCssTransition, clearCssTransition } from './dataviz';
+
 export { applyPromoData, forcePromoAuth, resetPromoData } from './install';

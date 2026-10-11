@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, BackHandler, Dimensions, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { T } from '../../components/Text';
@@ -9,6 +9,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, gradients, useAccent } from '../../theme';
 import { hapticsLight } from '../../lib/haptics';
+import { PROMO } from '../../promo/config';
+import { EASE, useReducedMotion } from '../../promo/motion';
+import { usePromoPlay } from '../../promo/reveal';
 
 // Tab switches pan left/right: each scene translates by its progress relative
 // to the active tab (-1 left … +1 right), so the incoming screen slides in from
@@ -36,6 +39,54 @@ const TAB_META: { name: RouteName; label: string; icon: React.ComponentProps<typ
   { name: 'profile', label: 'Profile', icon: 'person-outline', iconActive: 'person' },
 ];
 
+/** Tab icon pill — selection crossfades + pops (promo build). */
+function TabIconPill({
+  focused,
+  name,
+  nameActive,
+}: {
+  focused: boolean;
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  nameActive: React.ComponentProps<typeof Ionicons>['name'];
+}) {
+  const sel = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const pop = useRef(new Animated.Value(1)).current;
+  const prevFocused = useRef(focused);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      sel.setValue(focused ? 1 : 0);
+      return;
+    }
+    Animated.timing(sel, {
+      toValue: focused ? 1 : 0,
+      duration: PROMO.duration.selection,
+      easing: EASE.standard,
+      useNativeDriver: false,
+    }).start();
+  }, [focused, sel]);
+
+  useEffect(() => {
+    if (PROMO.enabled && !reduced && focused && !prevFocused.current) {
+      pop.setValue(0.85);
+      Animated.spring(pop, { toValue: 1, damping: 12, stiffness: 240, mass: 0.7, useNativeDriver: true }).start();
+    }
+    prevFocused.current = focused;
+  }, [focused, pop]);
+
+  const backgroundColor = sel.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(0, 0, 0, 0)', colors.accent],
+  });
+
+  return (
+    <Animated.View style={[styles.iconWrap, { backgroundColor, transform: [{ scale: pop }] }]}>
+      <Ionicons name={focused ? nameActive : name} size={22} color={focused ? colors.bg : colors.textDim} />
+    </Animated.View>
+  );
+}
+
 function PulseTabBar({
   state,
   navigation,
@@ -45,6 +96,7 @@ function PulseTabBar({
 }) {
   // keep the tab bar (FAB gradient, focused icon pill) in sync with the accent live
   useAccent();
+  const { replay } = usePromoPlay();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
@@ -89,7 +141,9 @@ function PulseTabBar({
               <Pressable
                 onPress={() => {
                   hapticsLight();
-                  router.navigate('/(tabs)/log' as never);
+                  // Re-tapping the active Log tab replays the choreography.
+                  if (focused && PROMO.enabled) replay();
+                  else router.navigate('/(tabs)/log' as never);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Log"
@@ -113,15 +167,19 @@ function PulseTabBar({
             accessibilityState={focused ? { selected: true } : undefined}
             onPress={() => {
               hapticsLight();
+              // Re-tapping the active tab replays the screen choreography —
+              // every tap performs, never no-ops.
+              if (focused && PROMO.enabled) {
+                replay();
+                return;
+              }
               const target = state.routeNames[i];
               const evt = navigation.emit({ type: 'tabPress', target });
               if (!evt.defaultPrevented) {
                 router.navigate(`/(tabs)/${tab.name}` as never);
               }
             }}>
-            <View style={[styles.iconWrap, focused && { backgroundColor: colors.accent }]}>
-              <Ionicons name={focused ? tab.iconActive : tab.icon} size={22} color={focused ? colors.bg : colors.textDim} />
-            </View>
+            <TabIconPill focused={focused} name={tab.icon} nameActive={tab.iconActive} />
             <T variant="micro" style={[styles.tabLabel, focused && styles.tabLabelActive]}>
               {tab.label}
             </T>

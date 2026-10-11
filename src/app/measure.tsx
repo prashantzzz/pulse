@@ -5,6 +5,7 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { T } from '../components/Text';
 import { Stepper, toast } from '../components/misc';
 import { Button, Card, Row, Screen, ScreenHeader } from '../components/ui';
+import { PromoReveal } from '../promo/reveal';
 import { toUserWeight, fromUserWeight } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { colors, radius, spacing, useAccent } from '../theme';
@@ -111,7 +112,9 @@ export default function MeasureScreen() {
           <Field label="Waist (cm)" value={waist} onChange={setWaist} step={1} />
           <Field label="Biceps (cm)" value={biceps} onChange={setBiceps} step={0.5} decimals={1} />
         </Card>
+        <PromoReveal delay={120} observe={false}>
         <Button label="Save Measurement" icon="checkmark" full size="lg" style={{ marginTop: spacing.lg }} onPress={save} />
+        </PromoReveal>
       </View>
     </Screen>
   );

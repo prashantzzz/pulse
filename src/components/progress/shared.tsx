@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { T } from '../Text';
+import { PromoMetric } from '../../promo/metric';
 import { PromoReveal } from '../../promo/reveal';
 import { Chip, Row } from '../ui';
 import { colors, radius, spacing } from '../../theme';
@@ -33,11 +34,13 @@ export function TimeframeChips({
   options?: readonly ProgressTimeframe[];
 }) {
   return (
+    <PromoReveal variant="fade" observe={false}>
     <Row gap={8} {...({ 'data-horizontal-scroll': 'true' } as any)}>
       {options.map((t) => (
         <Chip key={t} label={t} selected={tf === t} onPress={() => onChange(t)} />
       ))}
     </Row>
+    </PromoReveal>
   );
 }
 
@@ -92,9 +95,11 @@ export function SummaryCard({
     <PromoReveal variant="pop" style={flex1 ? { flex: 1 } : undefined} observe={false}>
     <View style={[progressStyles.summaryCard, flex1 && { flex: 1 }]}>
       <Ionicons name={icon} size={16} color={accent ? colors.accent : colors.textDim} />
-      <T variant="h3" style={{ color: accent ? colors.accent : colors.text, marginTop: 6 }}>
-        {value}
-      </T>
+      <PromoMetric
+        value={value}
+        variant="h3"
+        style={{ color: accent ? colors.accent : colors.text, marginTop: 6 }}
+      />
       <T variant="micro" muted style={{ marginTop: 2 }}>
         {label}
       </T>

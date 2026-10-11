@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { Sparkline } from '../charts';
 import { BottomSheet, EmptyState } from '../misc';
 import { ExerciseThumb } from '../muscle-icon';
 import { T } from '../Text';
-import { Row, Tag } from '../ui';
+import { Row } from '../ui';
+import { PROMO } from '../../promo/config';
+import { EASE, useReducedMotion } from '../../promo/motion';
+import { PromoReveal, usePromoPlay } from '../../promo/reveal';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
   buildRecords,
@@ -130,38 +133,34 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
           const ex = EXERCISE_MAP[r.exerciseId];
           const rankTint = RANK_TINTS[index] ?? null;
           return (
+            <PromoReveal key={r.id} variant="row" delay={Math.min(index, 9) * 40} observe={false}>
             <Pressable
-              key={r.id}
               onPress={() => router.push(`/exercise/${r.exerciseId}` as never)}
               accessibilityRole="button"
               accessibilityLabel={`Open ${ex?.name ?? r.exerciseId} record`}
               style={({ pressed }) => [styles.recordRow, pressed && { opacity: 0.85 }]}>
-              <View
-                style={[
-                  styles.rankBadge,
-                  rankTint
-                    ? { backgroundColor: `${rankTint}22`, borderColor: `${rankTint}55` }
-                    : null,
-                ]}>
-                <T variant="micro" style={{ fontWeight: '700', color: rankTint ?? colors.textDim }}>
-                  {index + 1}
-                </T>
+              <View style={{ position: 'relative' }}>
+                <ExerciseThumb
+                  exerciseId={r.exerciseId}
+                  muscle={ex?.muscleGroup ?? 'Core'}
+                  size={50}
+                  rounded={14}
+                />
+                {index < 3 && rankTint ? (
+                  <View
+                    style={[styles.rankOverlay, { backgroundColor: rankTint, borderColor: colors.bg }]}
+                    accessibilityLabel={`Rank ${index + 1}`}>
+                    <T variant="micro" style={{ fontSize: 10, fontWeight: '700', color: colors.bg }}>
+                      {index + 1}
+                    </T>
+                  </View>
+                ) : null}
               </View>
 
-              <ExerciseThumb
-                exerciseId={r.exerciseId}
-                muscle={ex?.muscleGroup ?? 'Core'}
-                size={50}
-                rounded={14}
-              />
-
               <View style={{ flex: 1, gap: 3 }}>
-                <Row gap={6}>
-                  <T variant="bodySemi" numberOfLines={1} style={{ flexShrink: 1, fontSize: 14 }}>
-                    {ex?.name ?? r.exerciseId}
-                  </T>
-                  {index === 0 ? <Tag label="Highest" color={colors.gold} bg={colors.goldSoft} /> : null}
-                </Row>
+                <T variant="bodySemi" numberOfLines={1} style={{ fontSize: 14 }}>
+                  {ex?.name ?? r.exerciseId}
+                </T>
                 <T variant="micro" dim numberOfLines={1}>
                   {formatUserWeightWithUnit(r.weightKg, weightUnit)} × {r.reps}
                   {r.date
@@ -183,6 +182,7 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
               </View>
               <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
             </Pressable>
+            </PromoReveal>
           );
         })}
       </View>
@@ -308,22 +308,58 @@ function MiniBars({ data, color, width = 52 }: { data: number[]; color: string; 
   const max = Math.max(...data, 1);
   const gap = 3;
   const barWidth = Math.max(3, Math.floor((width - gap * (data.length - 1)) / data.length));
+
+  // Promo: bars grow from the baseline, left→right.
+  const anims = useRef(data.map(() => new Animated.Value(PROMO.enabled ? 0 : 1))).current;
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      anims.forEach((a) => a.setValue(1));
+      return;
+    }
+    anims.forEach((a, i) => {
+      a.stopAnimation();
+      a.setValue(0);
+      Animated.timing(a, {
+        toValue: 1,
+        duration: 420,
+        delay: i * 55,
+        easing: EASE.entrance,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [playKey, reduced, anims]);
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap, width, height: 26 }}>
-      {data.map((v, i) => (
-        <View key={i} style={{ width: barWidth, height: 26, justifyContent: 'flex-end' }}>
-          <LinearGradient
-            colors={[color, `${color}55`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{
-              width: barWidth,
-              height: Math.max(4, Math.round((v / max) * 26)),
-              borderRadius: barWidth / 2,
-            }}
-          />
-        </View>
-      ))}
+      {data.map((v, i) => {
+        const barH = Math.max(4, Math.round((v / max) * 26));
+        return (
+          <View key={i} style={{ width: barWidth, height: 26, justifyContent: 'flex-end' }}>
+            <Animated.View
+              style={{
+                transform: [
+                  { translateY: anims[i].interpolate({ inputRange: [0, 1], outputRange: [barH / 2, 0] }) },
+                  { scaleY: anims[i] },
+                ],
+              }}>
+              <LinearGradient
+                colors={[color, `${color}55`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={{
+                  width: barWidth,
+                  height: barH,
+                  borderRadius: barWidth / 2,
+                }}
+              />
+            </Animated.View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -344,6 +380,17 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 10,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankOverlay: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -376,16 +423,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingVertical: 10,
     paddingHorizontal: 12,
-  },
-  rankBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface3,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   footerCard: {
     flexDirection: 'row',

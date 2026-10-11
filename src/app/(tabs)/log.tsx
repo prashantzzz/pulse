@@ -8,6 +8,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { T } from '../../components/Text';
 import { BottomSheet } from '../../components/misc';
 import { Button, Icon, Screen } from '../../components/ui';
+import { PromoReveal } from '../../promo/reveal';
+import { PromoScreen } from '../../promo/reveal';
 import { planIcon } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
 import { requestWorkoutsTab } from '../../lib/nav-intent';
@@ -49,7 +51,9 @@ export default function LogScreen() {
   };
 
   return (
+    <PromoScreen>
     <Screen scroll contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+      <PromoReveal observe={false}>
       <View>
         <T variant="label" accent>
           Quick Log
@@ -61,11 +65,12 @@ export default function LogScreen() {
           Logging a set should take a few seconds — that&apos;s the whole point.
         </T>
       </View>
+      </PromoReveal>
 
       <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-        {ACTIONS.map((a) => (
+        {ACTIONS.map((a, i) => (
+          <PromoReveal key={a.title} delay={70 + Math.min(i, 5) * 55} observe={false}>
           <Pressable
-            key={a.title}
             onPress={() => (a.route === 'start' ? setPlanSheet(true) : router.push(a.route as never))}
             style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] }]}>
             <LinearGradient colors={[...gradients[a.grad]]} style={styles.actionIcon} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
@@ -79,6 +84,7 @@ export default function LogScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
+          </PromoReveal>
         ))}
       </View>
 
@@ -141,6 +147,7 @@ export default function LogScreen() {
         </ScrollView>
       </BottomSheet>
     </Screen>
+    </PromoScreen>
   );
 }
 

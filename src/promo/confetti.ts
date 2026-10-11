@@ -1,5 +1,4 @@
 /**
- * Web-only confetti burst for the promo build (workout summary celebration).
  * Pure DOM canvas — removed from the DOM when it finishes.
  */
 const COLORS = ['#34D399', '#6EE7B7', '#FFC53D', '#38BDF8', '#F472B6', '#F4F7FB'];

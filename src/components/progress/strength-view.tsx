@@ -11,6 +11,8 @@ import { usePulse } from '../../store/useStore';
 import { colors, spacing } from '../../theme';
 import type { Workout } from '../../types';
 import { progressStyles, SummaryCard, TimeframeChips, type ProgressTimeframe } from './shared';
+import { PromoMetric } from '../../promo/metric';
+import { PromoReveal } from '../../promo/reveal';
 
 export type { ProgressTimeframe } from './shared';
 
@@ -123,9 +125,10 @@ export function StrengthView({
           flex1
         />
         <SummaryCard label="Volume" value={exVolFormatted} accent={exVolKg > 0} icon="layers" flex1 />
-        <SummaryCard label="Consistency" value={consistencyScore != null ? `${consistencyScore}%` : '—'} icon="checkmark-done" flex1 />
+        <SummaryCard label="Regularity" value={consistencyScore != null ? `${consistencyScore}%` : '—'} icon="checkmark-done" flex1 />
       </Row>
 
+      <PromoReveal variant="fade" delay={60} observe={false}>
       <Pressable onPress={onOpenPicker} style={progressStyles.exercisePicker}>
         <View style={[progressStyles.pickerIcon, { backgroundColor: colors.accentSoft }]}>
           <Icon name="barbell-outline" size={18} color={colors.accent} />
@@ -135,6 +138,7 @@ export function StrengthView({
         </T>
         <Ionicons name="chevron-down" size={18} color={colors.textDim} />
       </Pressable>
+      </PromoReveal>
 
       <TimeframeChips tf={tf} onChange={onTimeframeChange} />
 
@@ -144,28 +148,21 @@ export function StrengthView({
             <T variant="label" dim>
               {repsMode ? 'Best reps' : 'Estimated 1RM'}
             </T>
-            <Row gap={10} style={{ marginTop: 4 }}>
-              <T variant="numLg" accent>
-                {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? formatUserWeightWithUnit(best.maxE1rm.e1rm, weightUnit) : '—'}
-              </T>
-              {deltaPct != null && deltaPct !== 0 ? (
-                <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
-                  <T variant="micro" style={{ color: deltaPct > 0 ? colors.accent : colors.red }}>
-                    {deltaPct > 0 ? '+' : ''}
-                    {deltaPct}%
-                  </T>
-                </View>
-              ) : null}
-            </Row>
+            <PromoMetric
+              value={repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? formatUserWeightWithUnit(best.maxE1rm.e1rm, weightUnit) : '—'}
+              variant="numLg"
+              style={{ color: colors.accent, marginTop: 4 }}
+            />
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <T variant="micro" muted>
-              Best set
-            </T>
-            <T variant="bodySemi" style={{ marginTop: 2 }}>
-              {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${formatUserWeightWithUnit(best.maxWeight.weightKg, weightUnit)} × ${best.maxWeight.reps}` : '—'}
-            </T>
-          </View>
+          {deltaPct != null && deltaPct !== 0 ? (
+            <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
+              <PromoMetric
+                value={`${deltaPct > 0 ? '+' : ''}${deltaPct}%`}
+                variant="micro"
+                style={{ color: deltaPct > 0 ? colors.accent : colors.red }}
+              />
+            </View>
+          ) : null}
         </Row>
         <View style={{ marginTop: spacing.md }}>
           <LineChart data={prog.map((p) => p.value)} labels={prog.map((p) => p.label)} width={chartW} height={140} />
@@ -187,7 +184,8 @@ export function StrengthView({
             topSets.map((s, i) => {
               const ex = EXERCISE_MAP[s.exerciseId];
               return (
-                <Row key={s.exerciseId} align="space-between">
+                <PromoReveal key={s.exerciseId} variant="row" delay={Math.min(i, 8) * 45} observe={false}>
+                <Row align="space-between">
                   <Row gap={10} style={{ flex: 1 }}>
                     <View style={[progressStyles.rankBadge, { backgroundColor: colors.accentSoft }]}>
                       <T variant="micro" accent>
@@ -207,6 +205,7 @@ export function StrengthView({
                     {new Date(s.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
                   </T>
                 </Row>
+                </PromoReveal>
               );
             })
           )}

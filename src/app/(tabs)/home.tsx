@@ -10,7 +10,9 @@ import { T } from '../../components/Text';
 import { Avatar } from '../../components/misc';
 import { Card, horizontalSwipeLockProps, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
 import { TodayWorkoutCard } from '../../components/workout-card';
-import { PromoReveal } from '../../promo/reveal';
+import { PromoReveal, PromoScreen } from '../../promo/reveal';
+import { PROMO } from '../../promo/config';
+import { PromoMetric } from '../../promo/metric';
 import { EXERCISE_MAP, MUSCLE_GROUPS } from '../../data/exercises';
 import { formatGreetingName, greetingFor } from '../../lib/greeting';
 import { requestProgressTab, toProgressView } from '../../lib/nav-intent';
@@ -26,7 +28,7 @@ import {
 } from '../../lib/stats';
 import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { usePulse } from '../../store/useStore';
-import { accentTint, colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
+import { colors, gradients, layout, radius, spacing, useAccent } from '../../theme';
 
 export default function HomeScreen() {
   // subscribe so this screen re-renders (and recreates its children) live on accent change
@@ -58,6 +60,9 @@ export default function HomeScreen() {
     ? Math.round(((weekStats.volume - prevWeekVolume) / prevWeekVolume) * 100)
     : null;
   const streak = currentStreak(workouts);
+  // Promo footage override (see PROMO.demoStreakDays): the avatar ring and
+  // all logic use the real streak; only the displayed number is replaced.
+  const displayStreak = PROMO.demoStreakDays ?? streak;
   const last = workouts.reduce<typeof workouts[number] | null>((best, w) => (!best || new Date(w.startTime) > new Date(best.startTime) ? w : best), null) ?? workouts[workouts.length - 1];
   const lastPrevSession = last
     ? [...workouts]
@@ -84,6 +89,7 @@ export default function HomeScreen() {
   const firstName = formatGreetingName(profile?.name);
 
   return (
+    <PromoScreen>
     <Screen
       scroll
       onSwipeLeft={() => router.navigate('/(tabs)/workouts' as never)}
@@ -99,26 +105,18 @@ export default function HomeScreen() {
               {greeting.sub}
             </T>
           </View>
-          <Pressable onPress={() => router.push('/profile' as never)}>
-            <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
-          </Pressable>
+          <Row gap={10}>
+            <PromoReveal variant="pop" delay={70} observe={false}>
+              <View style={[styles.streakChip, { backgroundColor: colors.accentSoft, borderColor: `${colors.accent}33` }]}>
+                <Ionicons name="flame" size={16} color={colors.accent} />
+                <PromoMetric value={`${displayStreak}`} variant="bodySemi" style={{ fontSize: 15, color: colors.accent }} />
+              </View>
+            </PromoReveal>
+            <Pressable onPress={() => router.push('/profile' as never)}>
+              <Avatar name={profile?.name ?? 'Athlete'} uri={profile?.avatarUrl} size={40} hue={90} showRing={streak > 0} />
+            </Pressable>
+          </Row>
         </Row>
-      </PromoReveal>
-
-      {/* streak banner */}
-      <PromoReveal variant="pop" delay={70} observe={false}>
-        <View style={styles.streakBanner}>
-          <LinearGradient colors={[accentTint(colors.accent, 0.17), colors.surface]} style={StyleSheet.absoluteFill} />
-          <View style={[styles.streakFlame, { backgroundColor: colors.accentSoft }]}>
-            <Ionicons name="flame" size={22} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <T variant="bodySemi">{streak}-day streak</T>
-            <T variant="small" dim style={{ fontSize: 12 }}>
-              {streak >= 3 ? 'You are on fire — keep it rolling' : 'One workout today keeps it alive'}
-            </T>
-          </View>
-        </View>
       </PromoReveal>
 
       {/* today's workout hero */}
@@ -255,9 +253,11 @@ export default function HomeScreen() {
                   <T variant="h3" style={{ marginTop: 2 }}>
                     {pr.exerciseName}
                   </T>
-                  <T variant="h2" accent style={{ marginTop: 2 }}>
-                    {pr.weightKg > 0 ? `${formatUserWeightWithUnit(pr.weightKg, weightUnit)} × ${pr.reps}` : `${pr.reps} reps`}
-                  </T>
+                  <PromoMetric
+                    value={pr.weightKg > 0 ? `${formatUserWeightWithUnit(pr.weightKg, weightUnit)} × ${pr.reps}` : `${pr.reps} reps`}
+                    variant="h2"
+                    style={{ color: colors.accent, marginTop: 2 }}
+                  />
                   <T variant="small" dim style={{ marginTop: 2, fontSize: 12 }}>
                     {pr.prevWeightKg != null && pr.prevWeightKg > 0
                       ? `Previous best ${formatUserWeightWithUnit(pr.prevWeightKg, weightUnit)} × ${pr.prevReps ?? '—'} · ${pr.deltaPct > 0 ? '+' : ''}${pr.deltaPct}%`
@@ -340,13 +340,14 @@ export default function HomeScreen() {
       <Section title="Muscle Focus" style={{ marginBottom: 20 }}>
         <Row gap={8} wrap>
           {MUSCLE_GROUPS.slice(0, 8).map((m, i) => (
-            <PromoReveal key={m} variant="pop" delay={90 + i * 45} observe={false}>
+            <PromoReveal key={m} variant="pop" delay={80 + i * 22} observe={false}>
               <MuscleChip label={m} />
             </PromoReveal>
           ))}
         </Row>
       </Section>
     </Screen>
+    </PromoScreen>
   );
 }
 
@@ -495,9 +496,7 @@ function NextMoveCard({
                 <T variant="micro" muted>
                   vs all-time best
                 </T>
-                <T variant="micro" accent>
-                  {move.pct}%
-                </T>
+                <PromoMetric value={`${move.pct}%`} variant="micro" style={{ color: colors.accent }} />
               </Row>
               <ProgressBar value={move.pct} color={move.pct > 92 ? colors.accent : colors.orange} height={7} />
             </View>
@@ -533,22 +532,16 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
 const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   notifDot: { position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: 4 },
-  streakBanner: {
+  streakChip: {
+    height: 40,
+    minWidth: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    overflow: 'hidden',
-  },
-  streakFlame: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   dividerV: { width: 1, height: 40, backgroundColor: colors.border },
   trophy: {

@@ -7,6 +7,7 @@ import { CountdownRing } from '../../../components/ring';
 import { T } from '../../../components/Text';
 import { BottomSheet, Stepper, toast } from '../../../components/misc';
 import { Button, Screen } from '../../../components/ui';
+import { PromoReveal } from '../../../promo/reveal';
 import { colors, layout, spacing, useAccent } from '../../../theme';
 
 const PRESETS = [30, 60, 90, 120];
@@ -69,6 +70,7 @@ export default function RestTimerScreen() {
     <View style={styles.root}>
       <Screen scroll contentStyle={{ paddingTop: layout.screenTopPad, alignItems: 'center' }}>
         {/* header */}
+        <PromoReveal variant="fade" observe={false}>
         <View style={styles.header}>
           <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={colors.textDim} />
@@ -83,7 +85,9 @@ export default function RestTimerScreen() {
           </View>
           <View style={{ width: 38 }} />
         </View>
+        </PromoReveal>
 
+        <PromoReveal variant="hero" delay={80} observe={false}>
         <View style={{ marginTop: 40 }}>
           <CountdownRing
             totalSec={total}
@@ -98,6 +102,7 @@ export default function RestTimerScreen() {
             )}
           </CountdownRing>
         </View>
+        </PromoReveal>
 
         {done ? (
           <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
@@ -108,6 +113,7 @@ export default function RestTimerScreen() {
           </View>
         ) : (
           <>
+            <PromoReveal delay={140} observe={false}>
             <View style={styles.presets}>
               {PRESETS.map((p) => (
                 <Pressable
@@ -123,6 +129,7 @@ export default function RestTimerScreen() {
                 </Pressable>
               ))}
             </View>
+            </PromoReveal>
             <Button label="+ Custom" variant="ghost" onPress={() => setCustomOpen(true)} style={{ marginTop: spacing.sm }} />
             <Pressable onPress={() => router.replace(`/workout/${id}` as never)} style={{ marginTop: spacing.lg }}>
               <T variant="smallMedium" dim>

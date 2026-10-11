@@ -1,6 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
+import { PROMO } from '../promo/config';
+import { EASE, useReducedMotion } from '../promo/motion';
 import { colors, radius } from '../theme';
 import type { SetType } from '../types';
 import { T } from './Text';
@@ -60,6 +63,25 @@ export function SetRow({
   const storeUnit = usePulse((s) => s.weightUnit);
   const userUnit = weightUnitProp ?? storeUnit;
 
+  // Promo: completing a set pops the check indicator and flashes the row.
+  const pop = useRef(new Animated.Value(1)).current;
+  const flash = useRef(new Animated.Value(0)).current;
+  const wasCompleted = useRef(completed);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      wasCompleted.current = completed;
+      return;
+    }
+    if (completed && !wasCompleted.current) {
+      pop.setValue(0.5);
+      flash.setValue(1);
+      Animated.spring(pop, { toValue: 1, damping: 10, stiffness: 220, mass: 0.65, useNativeDriver: true }).start();
+      Animated.timing(flash, { toValue: 0, duration: 460, easing: EASE.entrance, useNativeDriver: false }).start();
+    }
+    wasCompleted.current = completed;
+  }, [completed, pop, flash, reduced]);
+
   const handleRowPress = () => {
     if (!completed && onToggle) {
       onToggle();
@@ -84,6 +106,17 @@ export function SetRow({
         isNext && !completed && { borderColor: colors.accent, borderWidth: 1.2 },
         pressed && { opacity: 0.85 },
       ]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            borderRadius: radius.md,
+            backgroundColor: colors.accent,
+            opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.16] }),
+          },
+        ]}
+      />
       <View style={{ width: 46, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <T variant="smallMedium" muted style={{ fontSize: 12.5 }} numberOfLines={1}>
           {completed ? (
@@ -148,9 +181,11 @@ export function SetRow({
 
       <Pressable onPress={onToggle ?? onTap} hitSlop={10} style={styles.toggle}>
         {completed ? (
-          <View style={[styles.doneCircle, { backgroundColor: colors.accent }]}>
-            <Ionicons name="checkmark" size={16} color={colors.bg} />
-          </View>
+          <Animated.View style={{ transform: [{ scale: pop }] }}>
+            <View style={[styles.doneCircle, { backgroundColor: colors.accent }]}>
+              <Ionicons name="checkmark" size={16} color={colors.bg} />
+            </View>
+          </Animated.View>
         ) : (
           <View style={styles.openCircle}>
             {/* hollow tick — signals an incomplete set waiting to be logged */}

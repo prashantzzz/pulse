@@ -40,6 +40,21 @@ Use a **dedicated browser profile** (new Chrome/Edge profile) at **412×915**
 purges any leftover Supabase session, but a clean profile keeps localStorage
 predictable.
 
+## Motion modes
+
+The promo build plays **full motion by default**, even on machines with the OS
+"reduce motion" preference enabled (headless browsers report reduced motion by
+default too). The HUD shows the active mode (`FULL` / `REDUCED`).
+
+```
+http://localhost:8082/                  # full motion (default — record with this)
+http://localhost:8082/?motion=reduced   # force reduced motion (accessibility test)
+http://localhost:8082/?motion=auto      # follow the OS preference
+```
+
+Reduced motion keeps every state change but drops staggers, sweeps and long
+durations — good for sanity-checking accessibility without a second machine.
+
 ## Keyboard shortcuts (any screen)
 
 | Key | Action |

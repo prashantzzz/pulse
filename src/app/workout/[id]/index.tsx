@@ -21,7 +21,9 @@ import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
 import { BottomSheet, toast } from '../../../components/misc';
 import { Button, Row, Screen } from '../../../components/ui';
-import { PromoReveal } from '../../../promo/reveal';
+import { PromoReveal, usePromoPlay } from '../../../promo/reveal';
+import { PROMO } from '../../../promo/config';
+import { EASE, useReducedMotion } from '../../../promo/motion';
 import { AnimatedChevron, CollapsibleContent } from '../../../components/collapsible';
 import { EXERCISE_MAP } from '../../../data/exercises';
 import { formatDuration } from '../../../lib/format';
@@ -181,9 +183,9 @@ function ExerciseAccordionCard({
                   {isBodyweight ? 'REPS' : `${weightUnit.toUpperCase()} × REPS`}
                 </T>
               </Row>
-              {we.sets.map((s) => (
+              {we.sets.map((s, si) => (
+                <PromoReveal key={s.id} variant="row" delay={Math.min(si, 7) * 35} observe={false}>
                 <SetRow
-                  key={s.id}
                   index={s.setIndex}
                   setType={s.setType}
                   weight={s.weightKg}
@@ -196,6 +198,7 @@ function ExerciseAccordionCard({
                   onTap={() => router.push(`/workout/${workout.id}/log?exercise=${we.exerciseId}&set=${s.id}` as never)}
                   onToggle={() => onQuickComplete(we.exerciseId, s.id)}
                 />
+                </PromoReveal>
               ))}
             </>
           );
@@ -754,7 +757,7 @@ export default function ActiveWorkoutScreen() {
       <PromoReveal delay={90} observe={false}>
       <View style={styles.progressRow}>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: colors.accent }]} />
+          <PromoFill pct={pct} />
         </View>
         <T variant="micro" muted style={{ fontSize: 10 }}>
           {pct}%
@@ -829,6 +832,7 @@ export default function ActiveWorkoutScreen() {
       />
 
       {/* bottom bar */}
+      <PromoReveal delay={200} observe={false}>
       <View style={styles.bottomBar}>
         <ProgressRing size={44} strokeWidth={5} progress={pct} color={pct === 100 ? colors.success : colors.accent}>
           <T variant="micro" style={{ fontSize: 9, color: pct === 100 ? colors.success : colors.text }}>
@@ -858,6 +862,7 @@ export default function ActiveWorkoutScreen() {
           }}
         />
       </View>
+      </PromoReveal>
 
       {/* back / menu sheet — pausing, saving, or discarding is always explicit */}
       <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={workout.paused ? 'Workout paused' : 'Workout options'}>
@@ -906,6 +911,37 @@ export default function ActiveWorkoutScreen() {
       </BottomSheet>
     </SafeAreaView>
   );
+}
+
+/** Promo: sweeps the workout completion fill, including set-completion updates. */
+function PromoFill({ pct }: { pct: number }) {
+  const anim = useRef(new Animated.Value(PROMO.enabled ? 0 : pct)).current;
+  const prevPlayKey = useRef('');
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      anim.setValue(pct);
+      prevPlayKey.current = playKey;
+      return;
+    }
+    const replay = prevPlayKey.current !== playKey;
+    prevPlayKey.current = playKey;
+    anim.stopAnimation();
+    if (replay) anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: pct,
+      duration: replay ? 720 : 420,
+      delay: replay ? 120 : 0,
+      easing: EASE.entrance,
+      useNativeDriver: false,
+    }).start();
+  }, [pct, playKey, reduced, anim]);
+
+  const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+  return <Animated.View style={[styles.progressFill, { width, backgroundColor: colors.accent }]} />;
 }
 
 const styles = StyleSheet.create({

@@ -8,10 +8,10 @@ import { ProgressRing } from '../../components/ring';
 import { T } from '../../components/Text';
 import { AchievementBadge, Avatar, toast } from '../../components/misc';
 import { Button, Card, Icon, ProgressBar, Row, Screen, Section, Tag } from '../../components/ui';
-import { PromoReveal } from '../../promo/reveal';
+import { PromoReveal, PromoScreen } from '../../promo/reveal';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { computeAchievements } from '../../lib/achievements';
-import { currentStreak, detectPRs, totalVolume, volumeByMuscle, workoutsInLastDays, workoutStats } from '../../lib/stats';
+import { currentStreak, detectPRs, longestStreak, totalVolume, volumeByMuscle, workoutsInLastDays, workoutStats } from '../../lib/stats';
 import { toUserVolume, formatUserWeightWithUnit } from '../../lib/units';
 import { useAuth } from '../../store/useAuth';
 import { usePulse } from '../../store/useStore';
@@ -84,6 +84,7 @@ export default function ProfileScreen() {
   };
 
   const streak = currentStreak(workouts);
+  const bestStreak = longestStreak(workouts);
   const volume = totalVolume(workouts);
   const userVolume = toUserVolume(volume, weightUnit);
   const sets = workouts.reduce((s, w) => s + workoutStats(w).sets, 0);
@@ -112,6 +113,7 @@ export default function ProfileScreen() {
     : null;
 
   return (
+    <PromoScreen>
     <Screen
       scroll
       onSwipeRight={() => router.push('/progress' as never)}
@@ -152,7 +154,7 @@ export default function ProfileScreen() {
           {profile?.experience ?? 'Beginner'} · {profile?.trainingAgeMonths ?? 3} months training · Goal: {profile?.goal.join(', ') ?? 'Get Stronger'}
         </T>
         <Row gap={spacing.lg} style={{ marginTop: spacing.lg }}>
-          <HeaderStat label="Streak" value={`${streak}d`} accent />
+          <HeaderStat label="Longest" value={`${bestStreak}d`} accent />
           <HeaderStat label="Workouts" value={`${workouts.length}`} />
           <HeaderStat label="Total volume" value={`${(userVolume / 1000).toFixed(1)}k`} />
           <HeaderStat label="PRs" value={`${prCount}`} accent />
@@ -471,6 +473,7 @@ export default function ProfileScreen() {
         onClose={() => setCropImageUri(null)}
       />
     </Screen>
+    </PromoScreen>
   );
 }
 

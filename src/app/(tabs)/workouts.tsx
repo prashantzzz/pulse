@@ -10,7 +10,7 @@ import { BottomSheet, EmptyState, toast } from '../../components/misc';
 import { ExerciseThumb, planIcon } from '../../components/muscle-icon';
 import { Button, Card, Chip, Row, Screen, Segmented, Tag } from '../../components/ui';
 import { DraggablePlanList } from '../../components/draggable-plan-list';
-import { PromoReveal } from '../../promo/reveal';
+import { PromoReveal, PromoScreen } from '../../promo/reveal';
 import { AnimatedChevron, CollapsibleContent, animateLayout } from '../../components/collapsible';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
@@ -133,6 +133,7 @@ export default function WorkoutsScreen() {
   });
 
   return (
+    <PromoScreen>
     <Screen
       scroll
       scrollRef={scrollRef}
@@ -159,6 +160,7 @@ export default function WorkoutsScreen() {
       onSwipeLeft={() => router.navigate('/(tabs)/progress' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
       {/* Header */}
+      <PromoReveal observe={false}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View style={{ flex: 1 }}>
           <T variant="h2">My Workouts</T>
@@ -188,6 +190,7 @@ export default function WorkoutsScreen() {
           </Pressable>
         </Row>
       </Row>
+      </PromoReveal>
 
       {/* Main Tabs: My Plans | Templates */}
       <Segmented options={['My Plans', 'Templates']} value={tab} onChange={setTab} />
@@ -225,7 +228,6 @@ export default function WorkoutsScreen() {
                 </Row>
               ) : null}
 
-              <PromoReveal delay={60}>
               <DraggablePlanList
                 plans={plans}
                 onReorder={reorderPlans}
@@ -236,7 +238,6 @@ export default function WorkoutsScreen() {
                 scrollOffsetRef={scrollOffsetRef}
                 scrollLimitRef={scrollLimitRef}
               />
-              </PromoReveal>
 
               <View style={{ marginTop: spacing.md }}>
                 <Button
@@ -318,7 +319,7 @@ export default function WorkoutsScreen() {
             {/* Template Cards List */}
             <View style={{ marginTop: spacing.xs, gap: spacing.lg }}>
               {filteredTemplates.map((template, i) => (
-                <PromoReveal key={template.id} delay={Math.min(i, 6) * 70}>
+                <PromoReveal key={`${expFilter}|${daysFilter}|${template.id}`} delay={Math.min(i, 6) * 70}>
                 <TemplateCard
                   template={template}
                   onUse={() => handleApplyTemplate(template)}
@@ -448,6 +449,7 @@ export default function WorkoutsScreen() {
         </View>
       </BottomSheet>
     </Screen>
+    </PromoScreen>
   );
 }
 
@@ -476,36 +478,46 @@ function RecommendedHeroCard({
       {/* Header Banner */}
       <View style={styles.templateHeader}>
         <Row align="space-between">
+          <PromoReveal observe={false} delay={200} style={{ flex: 1 }}>
           <Row gap={6} wrap style={{ flex: 1 }}>
             <Tag label="Recommended Pick" color={colors.gold} bg={colors.goldSoft} />
             <Tag label={template.experience} color={colors.accent} bg={colors.accentSoft} />
             <Tag label={`${template.daysPerWeek} Days`} color={colors.textDim} bg={colors.surface3} />
             <Tag label={recommendation.emphasisBadge} color={colors.cyan} bg={`${colors.cyan}1E`} />
           </Row>
+          </PromoReveal>
           <T variant="micro" muted>
             {template.durationLabel}
           </T>
         </Row>
 
+        <PromoReveal observe={false} delay={240}>
         <T variant="h2" style={{ marginTop: 12 }}>
           {template.title}
         </T>
+        </PromoReveal>
 
+        <PromoReveal observe={false} delay={280}>
         <T variant="small" dim style={{ marginTop: 4, lineHeight: 19 }}>
           {recommendation.emphasisDescription}
         </T>
+        </PromoReveal>
 
+        <PromoReveal observe={false} delay={310}>
         <Row gap={4} wrap style={{ marginTop: 10 }}>
           {allMuscles.map((m) => (
             <Tag key={m} label={m} color={colors.textDim} bg={colors.surface3} />
           ))}
         </Row>
+        </PromoReveal>
 
+        <PromoReveal observe={false} delay={340}>
         <Row align="space-between" style={{ marginTop: 10 }}>
           <T variant="micro" muted>
             {template.days.length} workouts · {totalExercises} exercises · {totalSets} weekly sets
           </T>
         </Row>
+        </PromoReveal>
       </View>
 
       {/* Plan Coaching Tips Accordion */}
@@ -555,11 +567,14 @@ function RecommendedHeroCard({
           WORKOUT DAYS ({template.days.length})
         </T>
         {template.days.map((day, idx) => (
-          <CollapsibleTemplateDay key={day.id} day={day} index={idx} />
+          <PromoReveal key={day.id} delay={360 + Math.min(idx, 6) * 50} observe={false}>
+            <CollapsibleTemplateDay day={day} index={idx} />
+          </PromoReveal>
         ))}
       </View>
 
       {/* Hero CTA Button */}
+      <PromoReveal observe={false} delay={380}>
       <View style={styles.templateFooter}>
         <Pressable
           onPress={onUse}
@@ -576,6 +591,7 @@ function RecommendedHeroCard({
           <Ionicons name="arrow-forward" size={16} color={colors.bg} />
         </Pressable>
       </View>
+      </PromoReveal>
     </View>
   );
 }
@@ -715,7 +731,9 @@ function TemplateCard({
           WORKOUT DAYS ({template.days.length})
         </T>
         {template.days.map((day, idx) => (
-          <CollapsibleTemplateDay key={day.id} day={day} index={idx} />
+          <PromoReveal key={day.id} delay={Math.min(idx, 6) * 45} observe={false}>
+            <CollapsibleTemplateDay day={day} index={idx} />
+          </PromoReveal>
         ))}
       </View>
 

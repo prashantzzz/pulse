@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { BottomSheet } from '../../components/misc';
@@ -12,6 +12,7 @@ import { RecordsView } from '../../components/progress/records-view';
 import { VolumeView } from '../../components/progress/volume-view';
 import { T } from '../../components/Text';
 import { Icon, Row, Screen, Segmented } from '../../components/ui';
+import { PromoCompactProvider, PromoReveal, PromoScreen } from '../../promo/reveal';
 import { EXERCISE_MAP } from '../../data/exercises';
 import { consumeProgressTab, PROGRESS_VIEWS, toProgressView, type ProgressView } from '../../lib/nav-intent';
 import { usePulse } from '../../store/useStore';
@@ -31,11 +32,37 @@ export default function ProgressScreen() {
   const measurements = usePulse((s) => s.measurements);
   const profile = usePulse((s) => s.profile);
   // `?tab=` covers external deep links; in-app navigation uses the more
-  // reliable nav-intent (see consumeProgressTab below).
+  // reliable nav-intent (see consumeProgressTab below). The param is watched
+  // reactively so the promo HUD can jump straight to any analytics tab —
+  // including when the Progress screen is already mounted.
   const [view, setView] = useState<ProgressView>(() => toProgressView(tab) ?? 'Body');
   const [tf, setTf] = useState<ProgressTimeframe>('3M');
   const [exerciseId, setExerciseId] = useState<string>('bench-press');
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Analytics tab switches use "compact" motion: quick fades/redraws instead
+  // of a full entrance cascade (the charts still draw).
+  const [switching, setSwitching] = useState(false);
+  const switchingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleViewChange = useCallback((v: ProgressView) => {
+    setSwitching(true);
+    setView(v);
+    if (switchingTimer.current) clearTimeout(switchingTimer.current);
+    switchingTimer.current = setTimeout(() => setSwitching(false), 750);
+  }, []);
+  useEffect(
+    () => () => {
+      if (switchingTimer.current) clearTimeout(switchingTimer.current);
+    },
+    [],
+  );
+
+  // React to `?tab=` changes (promo HUD jumps, deep links) even when this
+  // screen is already mounted — the mount initializer above only runs once.
+  useEffect(() => {
+    const v = toProgressView(tab);
+    if (v && v !== view) handleViewChange(v);
+  }, [tab, view, handleViewChange]);
 
   // Open the requested segment when arriving with a navigation intent
   // (e.g. Home's "Personal Record → See all" opens Records).
@@ -60,11 +87,13 @@ export default function ProgressScreen() {
   const effectiveExerciseId = planExercises.includes(exerciseId) ? exerciseId : planExercises[0];
 
   return (
+    <PromoScreen>
     <Screen
       scroll
       onSwipeRight={() => router.navigate('/(tabs)/workouts' as never)}
       onSwipeLeft={() => router.push('/profile' as never)}
       contentStyle={{ paddingBottom: layout.tabContentBottomPad, paddingTop: layout.screenTopPad }}>
+      <PromoReveal observe={false}>
       <Row align="space-between" style={{ marginBottom: spacing.md }}>
         <View>
           <T variant="h2">Progress</T>
@@ -80,9 +109,11 @@ export default function ProgressScreen() {
           </View>
         ) : null}
       </Row>
+      </PromoReveal>
 
-      <Segmented options={PROGRESS_VIEWS} value={view} onChange={setView} scrollable />
+      <Segmented options={PROGRESS_VIEWS} value={view} onChange={handleViewChange} scrollable />
 
+      <PromoCompactProvider value={switching}>
       <View style={{ marginTop: spacing.md, gap: spacing.md }}>
         {view === 'Strength' ? (
           <StrengthView
@@ -105,6 +136,7 @@ export default function ProgressScreen() {
         ) : null}
         {view === 'Records' ? <RecordsView workouts={workouts} /> : null}
       </View>
+      </PromoCompactProvider>
 
       {/* exercise picker */}
       <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} title="Choose exercise">
@@ -133,5 +165,6 @@ export default function ProgressScreen() {
         </ScrollView>
       </BottomSheet>
     </Screen>
+    </PromoScreen>
   );
 }

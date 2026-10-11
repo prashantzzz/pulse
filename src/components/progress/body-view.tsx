@@ -1,10 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import type { Slug } from 'react-native-body-highlighter';
 
 import { MuscleLegend, MuscleMap } from '../muscle-map';
+import { PromoMetric } from '../../promo/metric';
+import { PROMO } from '../../promo/config';
+import { EASE, useReducedMotion } from '../../promo/motion';
+import { usePromoPlay } from '../../promo/reveal';
 import { T } from '../Text';
 import { Button, Card, Row, Screen, Section } from '../ui';
 import { resolveExercise } from '../../data/exercises';
@@ -146,9 +150,7 @@ export function BodyView({
     : null;
 
   const journeyBadgeText =
-    workouts.length > 0
-      ? `${workouts.length} workout${workouts.length !== 1 ? 's' : ''} logged`
-      : 'No workouts yet';
+    workouts.length > 0 ? `${workouts.length} logged` : 'No workouts yet';
 
   return (
     <>
@@ -161,9 +163,7 @@ export function BodyView({
             </T>
           </View>
           <View style={[progressStyles.periodBadge, { backgroundColor: colors.accentSoft }]}>
-            <T variant="smallMedium" accent style={{ fontSize: 12 }}>
-              {journeyBadgeText}
-            </T>
+            <PromoMetric value={journeyBadgeText} variant="smallMedium" style={{ color: colors.accent, fontSize: 12 }} />
           </View>
         </Row>
         <View style={{ marginTop: spacing.md }}>
@@ -254,38 +254,89 @@ export function BodyView({
               <T variant="label" dim>
                 Weight
               </T>
-              <T variant="numLg" accent style={{ marginTop: 4 }}>
-                {last?.weightKg != null
-                  ? formatUserWeightWithUnit(last.weightKg, weightUnit)
-                  : profile?.weightKg != null
-                  ? formatUserWeightWithUnit(profile.weightKg, weightUnit)
-                  : '—'}
-              </T>
-              <T variant="small" dim style={{ fontSize: 12, marginTop: 2 }}>
-                {measurements.length > 1 && last
-                  ? `${(last.weightKg - measurements[0].weightKg) >= 0 ? '+' : ''}${formatUserWeightWithUnit(last.weightKg - measurements[0].weightKg, weightUnit)} since start`
-                  : 'Log your first measurement'}
-              </T>
+              <PromoMetric
+                value={
+                  last?.weightKg != null
+                    ? formatUserWeightWithUnit(last.weightKg, weightUnit)
+                    : profile?.weightKg != null
+                    ? formatUserWeightWithUnit(profile.weightKg, weightUnit)
+                    : '—'
+                }
+                variant="numLg"
+                style={{ color: colors.accent, marginTop: 4 }}
+              />
+              <PromoMetric
+                value={
+                  measurements.length > 1 && last
+                    ? `${(last.weightKg - measurements[0].weightKg) >= 0 ? '+' : ''}${formatUserWeightWithUnit(last.weightKg - measurements[0].weightKg, weightUnit)} since start`
+                    : 'Log your first measurement'
+                }
+                variant="small"
+                style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }}
+              />
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-              {measurements.slice(-10).map((m, i, arr) => {
-                const minW = Math.min(...arr.map((x) => x.weightKg));
-                return (
-                  <View
-                    key={m.id}
-                    style={{
-                      width: 14,
-                      height: Math.min(50, 16 + (m.weightKg - minW) * 4),
-                      borderRadius: 4,
-                      backgroundColor: i === arr.length - 1 ? colors.accent : colors.surface4,
-                    }}
-                  />
-                );
-              })}
+              <WeightBars
+                values={measurements.slice(-10).map((m) => m.weightKg)}
+                highlightLast
+              />
             </View>
           </Row>
         </Card>
       </Section>
+    </>
+  );
+}
+
+/**
+ * Weight-history mini bars: each bar rises from the baseline one after
+ * another, left→right. Transform-only (native-safe), instant when the promo
+ * layer is off or reduced motion is requested.
+ */
+function WeightBars({ values, highlightLast }: { values: number[]; highlightLast?: boolean }) {
+  const minW = values.length ? Math.min(...values) : 0;
+  const heights = values.map((w) => Math.min(50, 16 + (w - minW) * 4));
+  const anims = useRef(values.map(() => new Animated.Value(PROMO.enabled ? 0 : 1))).current;
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      anims.forEach((a) => a.setValue(1));
+      return;
+    }
+    anims.forEach((a, i) => {
+      a.stopAnimation();
+      a.setValue(0);
+      Animated.timing(a, {
+        toValue: 1,
+        duration: 340,
+        delay: 120 + Math.min(i, 9) * 70,
+        easing: EASE.entrance,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [playKey, reduced, anims]);
+
+  return (
+    <>
+      {heights.map((h, i) => (
+        <View key={i} style={{ width: 14, height: 50, justifyContent: 'flex-end' }}>
+          <Animated.View
+            style={{
+              width: 14,
+              height: Math.max(4, h),
+              borderRadius: 4,
+              backgroundColor: highlightLast && i === heights.length - 1 ? colors.accent : colors.surface4,
+              transform: [
+                { translateY: anims[i].interpolate({ inputRange: [0, 1], outputRange: [h / 2, 0] }) },
+                { scaleY: anims[i] },
+              ],
+            }}
+          />
+        </View>
+      ))}
     </>
   );
 }

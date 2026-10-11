@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ExerciseThumb } from '../../components/muscle-icon';
 import { T } from '../../components/Text';
 import { Row, Screen, ScreenHeader, Tag } from '../../components/ui';
+import { PromoReveal } from '../../promo/reveal';
 import { WebScreenTransition, useScreenTransition } from '../../components/web-screen-transition';
 import { exercisesForSlug } from '../../data/exercises';
 import { anatomyLabel } from '../../lib/anatomy';
@@ -71,11 +72,11 @@ export default function MuscleExercisesScreen() {
             </T>
           </View>
         ) : (
-          exercises.map((ex) => {
+          exercises.map((ex, i) => {
             const isPrimary = (ex.targetSlugs ?? []).includes(muscleSlug as any);
             return (
+              <PromoReveal key={ex.id} variant="row" delay={60 + Math.min(i, 9) * 40} observe={false}>
               <Pressable
-                key={ex.id}
                 onPress={() => router.push(`/exercise/${ex.id}` as never)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${ex.name}`}
@@ -103,6 +104,7 @@ export default function MuscleExercisesScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </Pressable>
+              </PromoReveal>
             );
           })
         )}

@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import Body, { type BodyPartStyles, type ExtendedBodyPart, type Slug } from 'react-native-body-highlighter';
 
+import { PROMO } from '../promo/config';
+import { useReducedMotion } from '../promo/motion';
+import { usePromoPlay } from '../promo/reveal';
+import { staggerDrive } from '../promo/dataviz';
 import { colors } from '../theme';
 import type { Exercise, MuscleGroup, MuscleSlug } from '../types';
 import { T } from './Text';
@@ -284,6 +288,69 @@ export function MuscleMap({
 
   const pulseFraction = usePulseAnimation(Boolean(selGroup || selSlug), 1800);
 
+  // ── promo: highlighted muscle regions cascade on ─────────────────────────
+  const rootRef = useRef<unknown>(null);
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useLayoutEffect(() => {
+    if (!PROMO.enabled || Platform.OS !== 'web' || reduced) return;
+    const host = rootRef.current as HTMLElement | null;
+    if (!host || typeof host.querySelectorAll !== 'function') return;
+    const isHighlighted = (p: SVGPathElement) => {
+      const fill = p.getAttribute('fill') ?? '';
+      return fill !== '' && fill !== 'none' && !fill.startsWith('url(') && fill.toUpperCase() !== BODY_FILL.toUpperCase();
+    };
+    // Front and back figures animate in parallel: each panel's highlighted
+    // regions cascade together instead of the back waiting for the front.
+    const panels = Array.from(host.children);
+    const groups: SVGPathElement[][] =
+      panels.length === 2
+        ? panels.map((panel) => Array.from(panel.querySelectorAll('path')).filter(isHighlighted) as SVGPathElement[])
+        : [Array.from(host.querySelectorAll('path')).filter(isHighlighted) as SVGPathElement[]];
+    const all = groups.flat();
+    if (!all.length) return;
+    // Fast bloom: highlighted regions fade + scale up together, front and
+    // back in parallel. Step adapts to region count so the whole map
+    // resolves in ~0.7s whether 10 or 60 regions are lit.
+    const maxGroup = Math.max(1, ...groups.map((g) => g.length));
+    const stepMs = Math.min(22, Math.max(8, 500 / maxGroup));
+    const baseDelay = 200;
+    // Fast bloom: highlighted regions fade + scale up together, front and
+    // back in parallel. Whole map resolves in ~0.5s.
+    all.forEach((p) => {
+      p.style.transformBox = 'fill-box';
+      p.style.transformOrigin = 'center';
+    });
+    const settle = (paths: SVGPathElement[]) => paths.forEach((p) => {
+      p.style.opacity = '';
+      p.style.transform = '';
+      p.style.transformBox = '';
+      p.style.transformOrigin = '';
+    });
+    const cancels = groups.map((paths) =>
+      paths.length
+        ? staggerDrive({
+            count: paths.length,
+            duration: 220,
+            step: stepMs,
+            delay: baseDelay,
+            onItem: (i, t) => {
+              paths[i].style.opacity = String(t);
+              paths[i].style.transform = `scale(${(0.85 + 0.15 * t).toFixed(3)})`;
+            },
+            onDone: () => settle(paths),
+          })
+        : () => {},
+    );
+    return () => {
+      cancels.forEach((c) => c());
+      settle(all);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, reduced]);
+
   const press = (part: ExtendedBodyPart) => {
     if (!part.slug) return;
     const group = SLUG_TO_GROUP[part.slug];
@@ -296,7 +363,7 @@ export function MuscleMap({
   };
 
   return (
-    <View style={{ flexDirection: 'row', height, gap: 8 }}>
+    <View ref={rootRef as never} style={{ flexDirection: 'row', height, gap: 8 }}>
       <FigurePanel side="front" label="Front" intensity={intensity} selected={selGroup} selectedSlug={selSlug} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
       <FigurePanel side="back" label="Back" intensity={intensity} selected={selGroup} selectedSlug={selSlug} onPress={press} height={height} gender={gender} pulseFraction={pulseFraction} />
     </View>

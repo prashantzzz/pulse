@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { usePromoCountUp } from '../promo/count-up';
@@ -36,11 +37,19 @@ export function T({
   ...rest
 }: TextProps) {
   // Promo build: numeric metric labels count up on appear (no-op otherwise).
+  const nodeRef = useRef<unknown>(null);
   const isNumericVariant = variant === 'num' || variant === 'numLg' || variant === 'numSm';
-  const shownChildren = usePromoCountUp(children, isNumericVariant);
+  const shownChildren = usePromoCountUp(children, isNumericVariant, nodeRef);
+  const a11yLabel =
+    rest.accessibilityLabel ??
+    (isNumericVariant && (typeof children === 'string' || typeof children === 'number')
+      ? String(children)
+      : undefined);
 
   return (
     <RNText
+      ref={nodeRef as never}
+      accessibilityLabel={a11yLabel}
       style={[
         type[variant],
         // PULSE is a dark theme — light text is the default so no text ever

@@ -1,6 +1,9 @@
-import { useRef } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { useLayoutEffect, useRef } from 'react';
+import { Platform, View, StyleSheet, ScrollView } from 'react-native';
 
+import { PROMO } from '../promo/config';
+import { useReducedMotion } from '../promo/motion';
+import { usePromoPlay } from '../promo/reveal';
 import { colors, radius, useAccent } from '../theme';
 import { T } from './Text';
 import type { ProgressTimeframe } from './progress/shared';
@@ -50,6 +53,52 @@ export function CalendarHeatmap({
   const scrollViewRef = useRef<ScrollView>(null);
   const numWeeks = weeks.length;
 
+  // ── promo: week-by-week ignition wave across the calendar ────────────────
+  // Columns light left→right (one training week after another); cells in a
+  // column pop with a tiny top-down offset. Step adapts to the range so a
+  // full year still resolves in about a second. Re-waves when the dataset
+  // changes (timeframe switch), not just on replay.
+  const rootRef = useRef<unknown>(null);
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+  const dataKey = weeks.map((w) => w.map((d) => `${d.date}:${d.intensity.toFixed(2)}`).join('|')).join(';');
+
+  useLayoutEffect(() => {
+    if (!PROMO.enabled || Platform.OS !== 'web' || reduced) return;
+    const host = rootRef.current as { querySelectorAll?: (s: string) => ArrayLike<HTMLElement> } | null;
+    if (!host || typeof host.querySelectorAll !== 'function') return;
+    const cells = Array.from(host.querySelectorAll('[data-heat]')) as HTMLElement[];
+    if (!cells.length) return;
+    const colStep = Math.min(30, Math.max(8, 640 / Math.max(1, numWeeks)));
+    const baseDelay = 250;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    cells.forEach((cell) => {
+      const col = Number(cell.getAttribute('data-col') ?? 0);
+      const row = Number(cell.getAttribute('data-row') ?? 0);
+      const delay = Math.min(baseDelay + col * colStep + row * 6, 900);
+      cell.style.opacity = '0';
+      cell.style.transform = 'scale(0.6)';
+      timers.push(
+        setTimeout(() => {
+          cell.style.transition =
+            'opacity 240ms cubic-bezier(0.16, 1, 0.3, 1), transform 240ms cubic-bezier(0.16, 1, 0.3, 1)';
+          cell.style.opacity = '1';
+          cell.style.transform = 'scale(1)';
+        }, delay),
+      );
+    });
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      cells.forEach((cell) => {
+        cell.style.transition = '';
+        cell.style.opacity = '';
+        cell.style.transform = '';
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, reduced, dataKey]);
+
   // Build clean, non-overlapping month header labels
   const monthLabels: { text: string; colIndex: number }[] = [];
   let lastLabeledCol = -4;
@@ -67,7 +116,7 @@ export function CalendarHeatmap({
   });
 
   return (
-    <View style={{ flexDirection: 'row', height: TOTAL_HEATMAP_HEIGHT }}>
+    <View ref={rootRef as never} style={{ flexDirection: 'row', height: TOTAL_HEATMAP_HEIGHT }}>
       {/* Pinned Left Weekday Labels */}
       <View
         style={{
@@ -125,6 +174,7 @@ export function CalendarHeatmap({
                   return (
                     <View
                       key={di}
+                      {...({ dataSet: { heat: '1', col: String(wi), row: String(di) } } as any)}
                       onTouchEnd={onDayPress ? () => onDayPress(day) : undefined}
                       style={{
                         width: BLOCK_SIZE,

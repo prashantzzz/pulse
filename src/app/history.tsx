@@ -45,6 +45,7 @@ export default function HistoryScreen() {
   return (
     <Screen>
       <ScreenHeader title="History" subtitle={`${workouts.length} workouts logged`} back onBack={handleBack} />
+      <PromoReveal variant="fade" delay={60} observe={false}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -54,6 +55,7 @@ export default function HistoryScreen() {
           <Chip key={f} label={f} selected={filter === f} onPress={() => setFilter(f)} />
         ))}
       </ScrollView>
+      </PromoReveal>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: 40, gap: spacing.sm }}>
         {filtered.length === 0 ? (
           <EmptyState

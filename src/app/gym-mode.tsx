@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { T } from '../components/Text';
 import { toast } from '../components/misc';
+import { PromoReveal } from '../promo/reveal';
 import { EXERCISE_MAP } from '../data/exercises';
 import { hapticsSuccess } from '../lib/haptics';
 import { dismissActiveWorkoutNotification } from '../lib/notifications';
@@ -127,6 +128,7 @@ export default function GymModeScreen() {
       <LinearGradient colors={[accentTint(colors.accent, 0.12), colors.bg]} style={StyleSheet.absoluteFill} />
 
       {/* minimal top bar */}
+      <PromoReveal variant="fade" observe={false}>
       <View style={[styles.top, { paddingTop: Math.max(insets.top + layout.screenTopPad, spacing.xl) }]}>
         <Pressable onPress={handleClose} hitSlop={10}>
           <Ionicons name="close" size={26} color={colors.textDim} />
@@ -136,8 +138,10 @@ export default function GymModeScreen() {
         </T>
         <View style={{ width: 26 }} />
       </View>
+      </PromoReveal>
 
       {/* current exercise */}
+      <PromoReveal variant="hero" delay={70} observe={false}>
       <View style={styles.exercise}>
         <T variant="label" accent style={{ fontSize: 12 }}>
           Current exercise
@@ -149,6 +153,7 @@ export default function GymModeScreen() {
           Set {currentSet.setIndex} of {currentEx.sets.length} · {currentEx.targetReps} reps · {ex.equipment}
         </T>
       </View>
+      </PromoReveal>
 
       {/* big numbers */}
       <View style={styles.numbers}>
@@ -202,6 +207,7 @@ export default function GymModeScreen() {
       ) : null}
 
       {/* giant complete button */}
+      <PromoReveal delay={140} observe={false}>
       <Pressable onPress={complete} style={({ pressed }) => [styles.complete, pressed && { opacity: 0.85 }]}>
         <LinearGradient colors={[...gradients.accent]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         <Ionicons name="checkmark" size={26} color={colors.bg} />
@@ -209,6 +215,7 @@ export default function GymModeScreen() {
           Complete Set
         </T>
       </Pressable>
+      </PromoReveal>
     </View>
   );
 }

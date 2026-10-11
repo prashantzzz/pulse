@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { BarChart, DonutChart, LineChart } from '../charts';
 import { T } from '../Text';
 import { Card, Row } from '../ui';
+import { PromoReveal } from '../../promo/reveal';
 import {
   dailyVolume,
   totalVolume,
@@ -96,7 +97,8 @@ export function VolumeView({
           />
           <View style={{ flex: 1, gap: 8 }}>
             {volByMuscle.slice(0, 6).map((v, i) => (
-              <Row key={v.muscle} align="space-between">
+              <PromoReveal key={v.muscle} variant="fade" delay={650 + i * 80} observe={false}>
+              <Row align="space-between">
                 <Row gap={8}>
                   <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: chartColor(i) }} />
                   <T variant="smallMedium" style={{ fontSize: 13 }}>
@@ -107,6 +109,7 @@ export function VolumeView({
                   {Math.round((v.volume / Math.max(1, topVol)) * 100)}%
                 </T>
               </Row>
+              </PromoReveal>
             ))}
           </View>
         </View>

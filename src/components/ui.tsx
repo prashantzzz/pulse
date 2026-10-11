@@ -32,7 +32,8 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { hapticsLight, hapticsWarning } from '../lib/haptics';
 import { useAnimatedValue } from '../lib/useAnimatedValue';
 import { PROMO } from '../promo/config';
-import { PromoReveal } from '../promo/reveal';
+import { EASE, useReducedMotion } from '../promo/motion';
+import { PromoReveal, usePromoPlay } from '../promo/reveal';
 import { accentTint, colors, gradients, layout, radius, shadows, spacing, useAccent } from '../theme';
 import { T } from './Text';
 
@@ -157,24 +158,39 @@ export function Chip({
   icon?: IonName;
   style?: StyleProp<ViewStyle>;
 }) {
+  // Promo: the selected/unselected visuals are exactly the shipped ones —
+  // only a small spring pop plays when an item becomes selected.
+  const pop = useRef(new Animated.Value(1)).current;
+  const wasSelected = useRef(selected);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (PROMO.enabled && !reduced && selected && !wasSelected.current) {
+      pop.setValue(0.94);
+      Animated.spring(pop, { toValue: 1, damping: 13, stiffness: 260, mass: 0.7, useNativeDriver: true }).start();
+    }
+    wasSelected.current = selected;
+  }, [selected, pop, reduced]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        selected && { backgroundColor: colors.accent, borderColor: colors.accent },
-        pressed && { opacity: 0.8 },
-        style,
-      ]}>
-      {icon ? (
-        <Icon name={icon} size={14} color={selected ? colors.bg : colors.textDim} />
-      ) : null}
-      <T
-        variant="smallMedium"
-        style={{ color: selected ? colors.bg : colors.textDim, fontSize: 13 }}>
-        {label}
-      </T>
-    </Pressable>
+    <Animated.View style={[{ transform: [{ scale: pop }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.chip,
+          selected && { backgroundColor: colors.accent, borderColor: colors.accent },
+          pressed && { opacity: 0.8 },
+        ]}>
+        {icon ? (
+          <Icon name={icon} size={14} color={selected ? colors.bg : colors.textDim} />
+        ) : null}
+        <T
+          variant="smallMedium"
+          style={{ color: selected ? colors.bg : colors.textDim, fontSize: 13 }}>
+          {label}
+        </T>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -208,6 +224,46 @@ export const horizontalSwipeLockProps = {
 // Segmented control
 // ---------------------------------------------------------------------------
 
+/** One segment of a Segmented control — shipped visuals + a small pop. */
+function SegmentItem({
+  label,
+  active,
+  onPress,
+  baseStyle,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  baseStyle: StyleProp<ViewStyle>;
+}) {
+  const pop = useRef(new Animated.Value(1)).current;
+  const wasActive = useRef(active);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (PROMO.enabled && !reduced && active && !wasActive.current) {
+      pop.setValue(0.97);
+      Animated.spring(pop, { toValue: 1, damping: 14, stiffness: 260, mass: 0.7, useNativeDriver: true }).start();
+    }
+    wasActive.current = active;
+  }, [active, pop, reduced]);
+
+  return (
+    <Animated.View style={[baseStyle, active && { backgroundColor: colors.accent }, { transform: [{ scale: pop }] }]}>
+      <Pressable
+        onPress={onPress}
+        style={styles.segmentFill}>
+        <T
+          variant="smallSemi"
+          numberOfLines={1}
+          style={{ color: active ? colors.bg : colors.textDim, fontSize: 13 }}>
+          {label}
+        </T>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function Segmented<T extends string>({
   options,
   value,
@@ -223,6 +279,7 @@ export function Segmented<T extends string>({
 }) {
   if (scrollable || options.length > 4) {
     return (
+      <PromoReveal variant="fade" observe={false}>
       <View
         style={{ marginHorizontal: -spacing.md, paddingHorizontal: spacing.md }}
         {...({ 'data-horizontal-scroll': 'true' } as any)}>
@@ -232,46 +289,35 @@ export function Segmented<T extends string>({
           showsHorizontalScrollIndicator={false}
           {...(horizontalSwipeLockProps as any)}
           contentContainerStyle={[styles.segmentedScroll, style]}>
-          {options.map((opt) => {
-            const active = opt === value;
-            return (
-              <Pressable
-                key={opt}
-                onPress={() => onChange(opt)}
-                style={[styles.segmentScrollItem, active && { backgroundColor: colors.accent }]}>
-                <T
-                  variant="smallSemi"
-                  numberOfLines={1}
-                  style={{ color: active ? colors.bg : colors.textDim, fontSize: 13 }}>
-                  {opt}
-                </T>
-              </Pressable>
-            );
-          })}
+          {options.map((opt) => (
+            <SegmentItem
+              key={opt}
+              label={String(opt)}
+              active={opt === value}
+              onPress={() => onChange(opt)}
+              baseStyle={styles.segmentScrollItem}
+            />
+          ))}
         </ScrollView>
       </View>
+      </PromoReveal>
     );
   }
 
   return (
+    <PromoReveal variant="fade" observe={false}>
     <View style={[styles.segmented, style]}>
-      {options.map((opt) => {
-        const active = opt === value;
-        return (
-          <Pressable
-            key={opt}
-            onPress={() => onChange(opt)}
-            style={[styles.segment, active && { backgroundColor: colors.accent }]}>
-            <T
-              variant="smallSemi"
-              numberOfLines={1}
-              style={{ color: active ? colors.bg : colors.textDim, fontSize: 13 }}>
-              {opt}
-            </T>
-          </Pressable>
-        );
-      })}
+      {options.map((opt) => (
+        <SegmentItem
+          key={opt}
+          label={String(opt)}
+          active={opt === value}
+          onPress={() => onChange(opt)}
+          baseStyle={styles.segment}
+        />
+      ))}
     </View>
+    </PromoReveal>
   );
 }
 
@@ -751,9 +797,37 @@ export function ProgressBar({
   height?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const anim = useRef(new Animated.Value(PROMO.enabled ? 0 : clamped)).current;
+  const prevPlayKey = useRef('');
+  const { token, route } = usePromoPlay();
+  const playKey = `${route}#${token}`;
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!PROMO.enabled || reduced) {
+      anim.setValue(clamped);
+      prevPlayKey.current = playKey;
+      return;
+    }
+    const replay = prevPlayKey.current !== playKey;
+    prevPlayKey.current = playKey;
+    anim.stopAnimation();
+    if (replay) anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: clamped,
+      duration: replay ? 640 : 320,
+      delay: replay ? 120 : 0,
+      easing: EASE.entrance,
+      useNativeDriver: false,
+    }).start();
+  }, [clamped, playKey, reduced, anim]);
+
+  const width = anim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+
   return (
     <View style={[styles.progressTrack, { height }, style]}>
-      <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: color }]} />
+      <Animated.View style={[styles.progressFill, { width, backgroundColor: color }]} />
     </View>
   );
 }
@@ -895,6 +969,7 @@ export function Toggle({
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+  segmentFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   full: { alignSelf: 'stretch' },
   button: {
     borderRadius: radius.pill,

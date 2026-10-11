@@ -89,9 +89,11 @@ export default function RecordsScreen() {
     <Screen scroll contentStyle={{ paddingBottom: layout.stackContentBottomPad, paddingTop: layout.screenTopPad }}>
       <ScreenHeader title="Personal Records" subtitle={`${manualPRs.length} manual · ${historyBests.length} from workouts`} back onBack={handleBack} />
 
+      <PromoReveal delay={60} observe={false}>
       <View style={{ marginBottom: spacing.md }}>
         <Button label="Log a New Record" icon="trophy-outline" full size="lg" onPress={openSheet} />
       </View>
+      </PromoReveal>
 
       <View>
         <T variant="label" dim style={{ marginBottom: 10 }}>
@@ -232,11 +234,7 @@ export default function RecordsScreen() {
                 </T>
               ) : null}
             </View>
-          ) : (
-            <T variant="micro" muted style={{ marginTop: 4 }}>
-              {EXERCISES.length} exercises in the library
-            </T>
-          )}
+          ) : null}
 
           {exerciseId ? (
             <>

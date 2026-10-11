@@ -990,7 +990,7 @@ export function nextMoves(workouts: Workout[], plans: WorkoutPlan[], todayPlanId
           kind: 'overload',
           headline: `Time to push ${exName} further.`,
           detail: `Last session: ${bestWeight} kg × ${bestReps} reps — target ${targetKg} kg or ${bestReps + 1} reps next time.`,
-          cta: `View ${exName}`,
+          cta: `${exName}`,
           action: { type: 'view-exercise', exerciseId: we.exerciseId, exerciseName: exName },
           overloadTarget: { weightKg: targetKg, reps: bestReps + 1, unit: 'kg' },
         });
@@ -1049,7 +1049,7 @@ export function nextMoves(workouts: Workout[], plans: WorkoutPlan[], todayPlanId
           kind: 'pr-close',
           headline: `You're close to a ${radar.exerciseName} PR.`,
           detail: `${radar.pct}% of your all-time best — one strong session could set a new record.`,
-          cta: `View ${radar.exerciseName}`,
+          cta: `${radar.exerciseName}`,
           action: { type: 'view-exercise', exerciseId: radar.exerciseId, exerciseName: radar.exerciseName },
           pct: radar.pct,
         });
@@ -1067,7 +1067,7 @@ export function nextMoves(workouts: Workout[], plans: WorkoutPlan[], todayPlanId
         kind: 'plateau',
         headline: `${plateau.exerciseName} may be plateauing.`,
         detail: `Same load across your last ${plateau.sessions} sessions. Try adding 1–2 reps before increasing weight.`,
-        cta: `View ${plateau.exerciseName}`,
+        cta: `${plateau.exerciseName}`,
         action: { type: 'view-exercise', exerciseId: plateau.exerciseId, exerciseName: plateau.exerciseName },
       });
     }
