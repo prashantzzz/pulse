@@ -25,6 +25,10 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'decline-push-ups': { source: require('../../assets/vital/decline-push-ups.mp4'), type: 'video', aspectRatio: 1.0 },
   'diamond-push-up': { source: require('../../assets/vital/diamond-push-up.mp4'), type: 'video', aspectRatio: 1.0 },
   'dumbbell-pullover': { source: require('../../assets/vital/Dumbbell-Pullover.mp4'), type: 'video', aspectRatio: 1.778 },
+  'barbell-bench-wide-grip-press': { source: require('../../assets/vital/Barbell-bench-wide-grip-press.mp4'), type: 'video', aspectRatio: 1.833 },
+  'dumbbell-close-chest-press': { source: require('../../assets/vital/Dumbbell-close-chest-press.mp4'), type: 'video', aspectRatio: 1.828 },
+  'incline-push-ups': { source: require('../../assets/vital/Incline-push-ups.mp4'), type: 'video', aspectRatio: 1.0 },
+  'wide-grip-push-up': { source: require('../../assets/vital/Wide-grip-push-up.mp4'), type: 'video', aspectRatio: 1.0 },
 
   // ── Back ──
   'lat-pulldown': { source: require('../../assets/vital/lat-pulldown.mp4'), type: 'video', aspectRatio: 1.778 },
@@ -43,6 +47,7 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'back-extension': { source: require('../../assets/vital/back-extension.mp4'), type: 'video', aspectRatio: 1.778 },
   'dumbbell-shrug': { source: require('../../assets/vital/dumbbell-shrug.mp4'), type: 'video', aspectRatio: 1.0 },
   'barbell-shrug': { source: require('../../assets/vital/Barbell-Shrug.mp4'), type: 'video', aspectRatio: 1.778 },
+  'negative-pull-up': { source: require('../../assets/vital/Negative-pull-up.mp4'), type: 'video', aspectRatio: 1.0 },
 
   // ── Shoulders ──
   'dumbbell-overhead-press': { source: require('../../assets/vital/dumbbell-overhead-press.mp4'), type: 'video', aspectRatio: 1.0 },
@@ -55,6 +60,10 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'dumbbell-front-raise': { source: require('../../assets/vital/dumbbell-front-raise.mp4'), type: 'video', aspectRatio: 1.0 },
   'plate-front-raise': { source: require('../../assets/vital/plate-front-raise.mp4'), type: 'video', aspectRatio: 1.0 },
   'upright-row': { source: require('../../assets/vital/upright-row.mp4'), type: 'video', aspectRatio: 1.778 },
+  'barbell-overhead-press-standing': { source: require('../../assets/vital/Barbell-overhead-press-standing.mp4'), type: 'video', aspectRatio: 1.0 },
+  'kettlebell-overhead-press': { source: require('../../assets/vital/Kettlebell-overhead-press.mp4'), type: 'video', aspectRatio: 1.0 },
+  'barbell-landmine-press': { source: require('../../assets/vital/Barbell-landmine-press.mp4'), type: 'video', aspectRatio: 1.0 },
+  'pike-push-ups': { source: require('../../assets/vital/Pike-push-ups.mp4'), type: 'video', aspectRatio: 1.0 },
 
   // ── Arms ──
   'dumbbell-curl': { source: require('../../assets/vital/dumbbell-curl.mp4'), type: 'video', aspectRatio: 1.0 },
@@ -70,6 +79,8 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'cable-overhead-triceps-extension': { source: require('../../assets/vital/Cable-Overhead-Triceps-Extension-rope.mp4'), type: 'video', aspectRatio: 1.778 },
   'close-grip-bench-press': { source: require('../../assets/vital/close-grip-bench-Press.mp4'), type: 'video', aspectRatio: 1.778 },
   'triceps-kickback': { source: require('../../assets/vital/triceps-kickback.mp4'), type: 'video', aspectRatio: 1.778 },
+  'barbell-curl': { source: require('../../assets/vital/Barbell-curl.mp4'), type: 'video', aspectRatio: 1.0 },
+  'dumbbell-spider-curl': { source: require('../../assets/vital/Dumbbell-spider-curl.mp4'), type: 'video', aspectRatio: 1.0 },
 
   // ── Legs / Lower Body ──
   'barbell-back-squat': { source: require('../../assets/vital/barbell-back-squat.mp4'), type: 'video', aspectRatio: 1.0 },
@@ -97,6 +108,12 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'dumbbell-standing-calf-raise': { source: require('../../assets/vital/Dumbbell-Standing-Calf-Raise.mp4'), type: 'video', aspectRatio: 1.778 },
   'pistol-squat': { source: require('../../assets/vital/pistol-squat.mp4'), type: 'video', aspectRatio: 1.0 },
   'kettlebell-swing': { source: require('../../assets/vital/kettlebell-swing.mp4'), type: 'video', aspectRatio: 1.0 },
+  'barbell-hexbar-deadlift': { source: require('../../assets/vital/Barbell-hexbar-deadlift.mp4'), type: 'video', aspectRatio: 1.797 },
+  'dumbbell-step-ups': { source: require('../../assets/vital/Dumbbell-step-ups.mp4'), type: 'video', aspectRatio: 1.0 },
+  'split-squat': { source: require('../../assets/vital/Split-squat.mp4'), type: 'video', aspectRatio: 1.0 },
+  'reverse-nordic-curl': { source: require('../../assets/vital/Reverse-Nordic-curl.mp4'), type: 'video', aspectRatio: 1.786 },
+  'dumbbell-single-leg-deadlift': { source: require('../../assets/vital/Dumbbell-single-leg-deadlift.mp4'), type: 'video', aspectRatio: 1.786 },
+  'kettlebell-sumo-deadlift': { source: require('../../assets/vital/Kettlebell-sumo-deadlift.mp4'), type: 'video', aspectRatio: 1.844 },
 
   // ── Core & Cardio ──
   'plank': { source: require('../../assets/vital/plank.mp4'), type: 'video', aspectRatio: 1.0 },
@@ -115,6 +132,10 @@ const ANIMATION_ASSETS: Record<string, AnimationAsset> = {
   'mountain-climber': { source: require('../../assets/vital/mountain-climber.mp4'), type: 'video', aspectRatio: 1.778 },
   'burpee': { source: require('../../assets/vital/burpee.mp4'), type: 'video', aspectRatio: 1.778 },
   'battle-ropes': { source: require('../../assets/vital/Battle-Ropes.mp4'), type: 'video', aspectRatio: 1.778 },
+  'bird-dog': { source: require('../../assets/vital/Bird-dog.mp4'), type: 'video', aspectRatio: 1.836 },
+  'hollow-body-hold': { source: require('../../assets/vital/Hollow-body-hold.mp4'), type: 'video', aspectRatio: 1.0 },
+  'l-sit-hold': { source: require('../../assets/vital/L-sit-hold.mp4'), type: 'video', aspectRatio: 1.0 },
+  'dragon-flags-muscles': { source: require('../../assets/vital/Dragon-flags-muscles.mp4'), type: 'video', aspectRatio: 1.0 },
 };
 
 /**
@@ -140,6 +161,10 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'decline-push-up': 'decline-push-ups',
   'diamond-push-up': 'diamond-push-up',
   'dumbbell-pullover': 'dumbbell-pullover',
+  'wide-grip-bench-press': 'barbell-bench-wide-grip-press',
+  'dumbbell-close-press': 'dumbbell-close-chest-press',
+  'incline-push-up': 'incline-push-ups',
+  'wide-push-up': 'wide-grip-push-up',
 
   // ── Back ──
   'lat-pulldown': 'lat-pulldown',
@@ -157,6 +182,7 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'hyperextension': 'back-extension',
   'dumbbell-shrug': 'dumbbell-shrug',
   'shrug': 'barbell-shrug',
+  'negative-pull-up': 'negative-pull-up',
 
   // ── Shoulders ──
   'shoulder-press': 'dumbbell-overhead-press',
@@ -169,6 +195,10 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'front-raise': 'dumbbell-front-raise',
   'plate-front-raise': 'plate-front-raise',
   'upright-row': 'upright-row',
+  'barbell-overhead-press': 'barbell-overhead-press-standing',
+  'kettlebell-overhead-press': 'kettlebell-overhead-press',
+  'landmine-press': 'barbell-landmine-press',
+  'pike-push-up': 'pike-push-ups',
 
   // ── Arms ──
   'bicep-curl': 'dumbbell-curl',
@@ -184,6 +214,8 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'cable-overhead-triceps-extension': 'cable-overhead-triceps-extension',
   'close-grip-bench-press': 'close-grip-bench-press',
   'triceps-kickback': 'triceps-kickback',
+  'barbell-curl': 'barbell-curl',
+  'spider-curl': 'dumbbell-spider-curl',
 
   // ── Legs / Lower Body ──
   'squat': 'barbell-back-squat',
@@ -212,6 +244,12 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'single-leg-calf-raise': 'dumbbell-standing-calf-raise',
   'pistol-squat': 'pistol-squat',
   'kettlebell-swing': 'kettlebell-swing',
+  'trap-bar-deadlift': 'barbell-hexbar-deadlift',
+  'dumbbell-step-up': 'dumbbell-step-ups',
+  'split-squat': 'split-squat',
+  'reverse-nordic-curl': 'reverse-nordic-curl',
+  'single-leg-deadlift': 'dumbbell-single-leg-deadlift',
+  'kettlebell-sumo-deadlift': 'kettlebell-sumo-deadlift',
 
   // ── Core & Cardio ──
   'plank': 'plank',
@@ -230,6 +268,10 @@ const EXERCISE_ANIMATIONS: Record<string, string> = {
   'mountain-climber': 'mountain-climber',
   'burpees': 'burpee',
   'battle-ropes': 'battle-ropes',
+  'bird-dog': 'bird-dog',
+  'hollow-hold': 'hollow-body-hold',
+  'l-sit-hold': 'l-sit-hold',
+  'dragon-flag': 'dragon-flags-muscles',
 };
 
 /**

@@ -16,8 +16,8 @@ describe('resolveExercise — canonical identity', () => {
     expect(resolveExercise('Flat Bench Press').id).toBe('bench-press');
     expect(resolveExercise('Barbell Bench Press').id).toBe('bench-press');
     expect(resolveExercise('BB Bench Press').id).toBe('bench-press');
-    expect(resolveExercise('Overhead Press').id).toBe('shoulder-press');
-    expect(resolveExercise('Military Press').id).toBe('shoulder-press');
+    expect(resolveExercise('Overhead Press').id).toBe('barbell-overhead-press');
+    expect(resolveExercise('Military Press').id).toBe('barbell-overhead-press');
     expect(resolveExercise('Bent-Over Row').id).toBe('barbell-row');
     expect(resolveExercise('Lat Pull Down').id).toBe('lat-pulldown');
     expect(resolveExercise('RDL').id).toBe('romanian-deadlift');
@@ -34,7 +34,8 @@ describe('resolveExercise — canonical identity', () => {
   it('falls back to the base exercise when no equipment-qualified variant exists', () => {
     // no dumbbell shoulder press in the knowledge base → keep the canonical one
     expect(resolveExercise('Shoulder Press (Dumbbell)').id).toBe('shoulder-press');
-    expect(resolveExercise('Romanian Deadlift (Dumbbell)').id).toBe('romanian-deadlift');
+    // a bilateral dumbbell RDL now exists, so the equipment suffix resolves to it
+    expect(resolveExercise('Romanian Deadlift (Dumbbell)').id).toBe('dumbbell-romanian-deadlift');
   });
 
   it('resolves ambiguous bench variants to their specific canonical ids', () => {

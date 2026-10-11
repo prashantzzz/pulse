@@ -180,9 +180,31 @@ describe('Exercise Swap Recommendations & Running Workout Context', () => {
       'barbell-incline-row',
       'seated-dumbbell-lateral-raise',
       'dumbbell-pullover',
+      // Onboarded 2026-10-11 with bundled vital videos + first-frame thumbs.
+      'barbell-overhead-press',
+      'barbell-curl',
+      'trap-bar-deadlift',
+      'pike-push-up',
+      'incline-push-up',
+      'negative-pull-up',
+      'dumbbell-step-up',
+      'kettlebell-overhead-press',
+      'landmine-press',
+      'spider-curl',
+      'bird-dog',
+      'split-squat',
+      'reverse-nordic-curl',
+      'hollow-hold',
+      'l-sit-hold',
+      'dragon-flag',
+      'wide-grip-bench-press',
+      'single-leg-deadlift',
+      'kettlebell-sumo-deadlift',
+      'dumbbell-close-press',
+      'wide-push-up',
     ];
 
-    it('all 17 vital animation exercises resolve to valid video animation assets', () => {
+    it('all vital animation exercises resolve to valid video animation assets', () => {
       for (const id of newExerciseIds) {
         const anim = getExerciseAnimation(id);
         expect(anim).toBeDefined();
@@ -200,6 +222,28 @@ describe('Exercise Swap Recommendations & Running Workout Context', () => {
         'cable-rope-hammer-curl',
         'cable-overhead-triceps-extension',
         'dumbbell-standing-calf-raise',
+        'barbell-overhead-press',
+        'barbell-curl',
+        'trap-bar-deadlift',
+        'pike-push-up',
+        'incline-push-up',
+        'negative-pull-up',
+        'dumbbell-step-up',
+        'kettlebell-overhead-press',
+        'landmine-press',
+        'spider-curl',
+        'bird-dog',
+        'split-squat',
+        'reverse-nordic-curl',
+        'hollow-hold',
+        'l-sit-hold',
+        'dragon-flag',
+        'wide-grip-bench-press',
+        'single-leg-deadlift',
+        'dumbbell-romanian-deadlift',
+        'kettlebell-sumo-deadlift',
+        'dumbbell-close-press',
+        'wide-push-up',
       ]) {
         const ex = EXERCISE_MAP[id];
         expect(ex).toBeDefined();
@@ -229,6 +273,16 @@ describe('Exercise Swap Recommendations & Running Workout Context', () => {
       expect(resolveExercise('seated lateral raise')?.id).toBe('seated-dumbbell-lateral-raise');
       expect(resolveExercise('rope overhead triceps extension')?.id).toBe('cable-overhead-triceps-extension');
       expect(resolveExercise('standing dumbbell calf raise')?.id).toBe('dumbbell-standing-calf-raise');
+      expect(resolveExercise('military press')?.id).toBe('barbell-overhead-press');
+      expect(resolveExercise('ohp')?.id).toBe('barbell-overhead-press');
+      expect(resolveExercise('barbell curl')?.id).toBe('barbell-curl');
+      expect(resolveExercise('trap bar deadlift')?.id).toBe('trap-bar-deadlift');
+      expect(resolveExercise('negative pull ups')?.id).toBe('negative-pull-up');
+      expect(resolveExercise('bird dog')?.id).toBe('bird-dog');
+      expect(resolveExercise('split squat')?.id).toBe('split-squat');
+      expect(resolveExercise('hollow hold')?.id).toBe('hollow-hold');
+      expect(resolveExercise('dragon flags')?.id).toBe('dragon-flag');
+      expect(resolveExercise('wide grip bench')?.id).toBe('wide-grip-bench-press');
 
       // Search exercises
       expect(searchExercises({ query: 'pullover' }).some((e) => e.id === 'dumbbell-pullover')).toBe(true);
@@ -237,6 +291,9 @@ describe('Exercise Swap Recommendations & Running Workout Context', () => {
       expect(searchExercises({ query: 'rope hammer' }).some((e) => e.id === 'cable-rope-hammer-curl')).toBe(true);
       expect(searchExercises({ query: 'overhead triceps' }).some((e) => e.id === 'cable-overhead-triceps-extension')).toBe(true);
       expect(searchExercises({ query: 'standing calf' }).some((e) => e.id === 'dumbbell-standing-calf-raise')).toBe(true);
+      expect(searchExercises({ query: 'overhead press' }).some((e) => e.id === 'barbell-overhead-press')).toBe(true);
+      expect(searchExercises({ query: 'spider curl' }).some((e) => e.id === 'spider-curl')).toBe(true);
+      expect(searchExercises({ query: 'split squat' }).some((e) => e.id === 'split-squat')).toBe(true);
     });
   });
 });
