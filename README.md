@@ -14,7 +14,7 @@ NextRep is a **coach in your pocket**. It ships with a comprehensive exercise kn
 - **Smart Next-Workout Engine** — State-driven progression recommendations on Home that maintain routine continuity across rest gaps, celebrate same-day completed sessions with next-workout previews, auto-restart from Day 1 after long layoffs (>14d), resolve custom plan names via 3-tier matching, and offer 1-tap plan swapping. The rotation always follows the **user's My Plans order** (Day 1 = the first plan in the list, including after a long-layoff reset).
 - **Unified Workout Builder** — Build custom routines directly using the full exercise browser, inspect exercise details, and save routines to your plans and cloud storage (duplicate routine titles are blocked).
 - **Drag & Drop Routine Ordering** — Press and hold any plan in **My Plans** to lift it, drag it into a new position, and drop it in place while the other cards slide to reveal the slot. Dragging near the top or bottom edge auto-scrolls the page, so long routines can be reordered in one gesture. The custom order is persisted locally and to the cloud (`workout_plans.sort_order`), so the routine sequence survives restarts, reinstalls, and syncs across devices. Accessible "Move up / Move down" actions are exposed for assistive tech.
-- **Active Workout & Live Notifications** — Start workouts with tactile set logging (primary 'Complete Set' and secondary 'Save' actions), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal. An in-progress workout is restored automatically on cold start.
+- **Active Workout & Live Notifications** — Start workouts with tactile set logging (the set logger saves weight, reps, RPE, and notes; sets are completed from the workout screen), integrated plate calculator, automated rest timers, and silent ongoing native notifications with live set/rest tracking and post-completion dismissal. An in-progress workout is restored automatically on cold start.
 - **Progress Analytics & Heatmap** — All-time cumulative muscle development heatmap (with primary and secondary fractional volume crediting), estimated 1RM strength progression, volume by muscle group, regularity heatmap and streaks, body measurements, and automatic PR detection.
 - **Friend Challenges & Social** *(coming soon — currently gated behind a feature flag)* — Challenge friends to weekly workout volume or streaks via share links (`nextrep://challenge`), with cloud friendship and challenge synchronization.
 - **Supabase Cloud Sync & Account Isolation** — Authenticate with Google OAuth or Email/Password. Full verification guard ensuring smooth post-auth transitions without onboarding flashes, bidirectional synchronization for profiles, workouts, sets, body measurements, and plans, backed by a validated offline mutation queue and clean multi-account cache isolation.
@@ -126,7 +126,7 @@ src/data/exercises.ts ──► EXERCISE_MAP[id] ──► screens / components 
 **Workout data** (the active session & routine persistence):
 ```
 Plan ──► startWorkout() ──► activeWorkout (store)
-      ──► set logger (patchSet / completeSet)
+      ──► set logger & workout screen (patchSet / completeSet)
             ├─► updates activeWorkout sets & auto-fills subsequent sets
             ├─► updates exerciseDefaults (global memory per exercise)
             ├─► synchronizes all user plans containing the exercise in plans[] (targetWeightKg, targetReps)
@@ -315,7 +315,7 @@ Quality gates:
 ```bash
 npm run typecheck  # tsc --noEmit (strict)
 npm run lint       # expo lint (pre-existing React-Compiler warnings remain)
-npm test           # jest - 44 consolidated test suites (495 tests)
+npm test           # jest - 47 consolidated test suites (502 tests)
 ```
 
 ### Database Migrations

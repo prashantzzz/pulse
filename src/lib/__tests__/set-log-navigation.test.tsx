@@ -161,4 +161,32 @@ describe('Set logger — Save navigation', () => {
       root.unmount();
     });
   });
+
+  it('Save never completes a set — even when it is the last incomplete one', () => {
+    // Make the current set the only remaining incomplete set in the workout.
+    act(() => {
+      usePulse.getState().patchSet('squat', 's-2', { completed: true, completedAt: new Date().toISOString() });
+    });
+
+    let root!: renderer.ReactTestRenderer;
+    act(() => {
+      root = renderer.create(React.createElement(LogSetScreen));
+    });
+
+    const save = findButton(root, 'Save');
+    act(() => {
+      save!.props.onPress();
+    });
+
+    const sets = usePulse.getState().activeWorkout?.exercises[0].sets;
+    expect(sets?.[0].completed).toBe(false);
+    expect(sets?.[1].completed).toBe(true);
+    // The logger must not finish the workout or navigate to the summary.
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+  });
 });
