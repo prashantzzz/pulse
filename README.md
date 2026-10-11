@@ -332,6 +332,13 @@ Migrations live in `supabase/migrations/` and are applied in timestamp order. Th
 > corresponding app build; until then the app keeps the local plan order and
 > skips cloud plan pulls.
 
+> Every exercise in `src/data/exercises.ts` must also be seeded into
+> `public.exercises` (with its aliases in `public.exercise_aliases`) through a
+> `supabase/migrations/*_seed_*.sql` migration:
+> `workout_plan_exercises.exercise_id` references that table, so a plan
+> containing an unseeded exercise fails to sync. The `db-seed-integrity`
+> suite enforces this parity.
+
 ### Android Build & Release
 
 ```bash
