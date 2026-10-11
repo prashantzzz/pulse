@@ -1,0 +1,62 @@
+name: Deploy promo to GitHub Pages
+
+# Builds the promo/kinetic branch (animated promo build with mocked data)
+# and publishes dist/ to GitHub Pages.
+#
+# One-time repo setup: Settings → Pages → Source: "GitHub Actions".
+# No secrets required: the promo build never contacts Supabase.
+
+on:
+  push:
+    branches: [promo/kinetic]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-promo
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate promo seed
+        run: npm run promo:seed
+
+      - name: Export web build
+        run: npm run build:web
+
+      - name: Disable Jekyll (keep _expo/ servable)
+        run: touch dist/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
