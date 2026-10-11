@@ -144,28 +144,18 @@ export function StrengthView({
             <T variant="label" dim>
               {repsMode ? 'Best reps' : 'Estimated 1RM'}
             </T>
-            <Row gap={10} style={{ marginTop: 4 }}>
-              <T variant="numLg" accent>
-                {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? formatUserWeightWithUnit(best.maxE1rm.e1rm, weightUnit) : '—'}
+            <T variant="numLg" accent style={{ marginTop: 4 }}>
+              {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? formatUserWeightWithUnit(best.maxE1rm.e1rm, weightUnit) : '—'}
+            </T>
+          </View>
+          {deltaPct != null && deltaPct !== 0 ? (
+            <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
+              <T variant="micro" style={{ color: deltaPct > 0 ? colors.accent : colors.red }}>
+                {deltaPct > 0 ? '+' : ''}
+                {deltaPct}%
               </T>
-              {deltaPct != null && deltaPct !== 0 ? (
-                <View style={[progressStyles.deltaBadge, { backgroundColor: deltaPct > 0 ? colors.accentSoft : colors.dangerSoft }]}>
-                  <T variant="micro" style={{ color: deltaPct > 0 ? colors.accent : colors.red }}>
-                    {deltaPct > 0 ? '+' : ''}
-                    {deltaPct}%
-                  </T>
-                </View>
-              ) : null}
-            </Row>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <T variant="micro" muted>
-              Best set
-            </T>
-            <T variant="bodySemi" style={{ marginTop: 2 }}>
-              {repsMode ? (bestReps > 0 ? `${bestReps} reps` : '—') : best ? `${formatUserWeightWithUnit(best.maxWeight.weightKg, weightUnit)} × ${best.maxWeight.reps}` : '—'}
-            </T>
-          </View>
+            </View>
+          ) : null}
         </Row>
         <View style={{ marginTop: spacing.md }}>
           <LineChart data={prog.map((p) => p.value)} labels={prog.map((p) => p.label)} width={chartW} height={140} />
