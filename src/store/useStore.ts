@@ -120,6 +120,16 @@ interface PulseState {
   cancelActiveWorkout: () => void;
   /** Finalize active workout into history; returns the finished workout */
   finishWorkout: () => Workout | null;
+  /**
+   * One-shot request to open the workout options menu for a workout id
+   * (e.g. the notification Finish button). Transient UI state — deliberately
+   * NOT persisted (partialize is an allowlist). Reactive via the store so the
+   * running screen opens it whether it mounts fresh, regains focus, or is
+   * already open behind the notification shade.
+   */
+  workoutMenuRequest: string | null;
+  requestWorkoutMenu: (workoutId: string) => void;
+  consumeWorkoutMenu: () => void;
 
   saveBuiltWorkout: (title: string, exercises: WorkoutExercise[], startTime: string, endTime: string) => void;
   /** Append a new workout plan (e.g. built via the builder). Returns false if the title conflicts with an existing plan. */
@@ -245,8 +255,12 @@ export const usePulse = create<PulseState>()(
       activeWorkout: null,
       autoRestTimer: true,
       hapticsEnabled: true,
+      workoutMenuRequest: null,
 
       setHydrated: () => set({ hydrated: true }),
+
+      requestWorkoutMenu: (workoutId) => set({ workoutMenuRequest: workoutId }),
+      consumeWorkoutMenu: () => set({ workoutMenuRequest: null }),
 
       setAccent: (key) => {
         applyAccent(key);
@@ -712,7 +726,7 @@ export const usePulse = create<PulseState>()(
           dismissActiveWorkoutNotification();
           syncWorkoutReminder({ workouts: get().workouts, activeWorkout: null });
         }).catch(() => {});
-        set({ activeWorkout: null });
+        set({ activeWorkout: null, workoutMenuRequest: null });
       },
 
       finishWorkout: () => {
@@ -734,6 +748,7 @@ export const usePulse = create<PulseState>()(
         set({
           workouts: nextWorkouts,
           activeWorkout: null,
+          workoutMenuRequest: null,
         });
         // Sync evening notification reminder since user trained today
         import('../lib/notifications').then(({ syncWorkoutReminder }) => {

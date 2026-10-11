@@ -112,6 +112,12 @@ export default function RootLayout() {
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         syncWorkoutReminder().catch(() => {});
+        // A rest timer may have expired while the app was away: flip the live
+        // notification back to the next set (silent — the workout screen owns
+        // the chime/toast when it is open).
+        import('../lib/notifications').then(({ reconcileExpiredRestTimer }) => {
+          reconcileExpiredRestTimer().catch(() => {});
+        }).catch(() => {});
       }
     });
 
@@ -194,9 +200,19 @@ export default function RootLayout() {
       router.navigate(target as never);
     };
 
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const sub = Notifications.addNotificationResponseReceivedListener(async (response) => {
       const actionId = response.actionIdentifier;
       const data = response.notification.request.content.data as { url?: string; workoutId?: string } | undefined;
+
+      // A rest timer may have expired while the app was away: clear it first so
+      // every branch below (and its notification sync) observes fresh state
+      // instead of a stuck "Resting" timer.
+      try {
+        const { reconcileExpiredRestTimer } = await import('../lib/notifications');
+        await reconcileExpiredRestTimer();
+      } catch {
+        // A failed reconcile must never block the tapped action.
+      }
 
       if (actionId === 'START_WORKOUT') {
         openRoute('/(tabs)/workouts');
@@ -244,12 +260,18 @@ export default function RootLayout() {
           }).catch(() => {});
         }
       } else if (actionId === 'FINISH_WORKOUT') {
-        import('../lib/notifications').then(({ dismissActiveWorkoutNotification }) => dismissActiveWorkoutNotification()).catch(() => {});
-        const finished = usePulse.getState().finishWorkout();
-        if (finished) {
-          router.replace(`/workout/${finished.id}/summary` as never);
+        const curr = usePulse.getState().activeWorkout;
+        const targetId = data?.workoutId;
+        if (curr && (!targetId || curr.id === targetId)) {
+          // Do NOT finish here. Open the running workout with the options menu
+          // so the user explicitly confirms. Finishing first used to strand this
+          // screen on a history copy with dead buttons: the beforeRemove guard
+          // blocked the summary route because the finish came from outside.
+          usePulse.getState().requestWorkoutMenu(curr.id);
+          openRoute(`/workout/${curr.id}`);
         } else {
-          openRoute(resolveNotificationRoute(data));
+          // Stale notification — the workout was already finished or discarded.
+          openRoute('/(tabs)/home');
         }
       } else if (actionId === Notifications.DEFAULT_ACTION_IDENTIFIER) {
         openRoute(resolveNotificationRoute(data));

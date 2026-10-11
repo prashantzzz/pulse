@@ -381,6 +381,30 @@ export async function dismissActiveWorkoutNotification(): Promise<void> {
 }
 
 /**
+ * Clears a rest timer that already expired while the app was away and flips
+ * the live notification back to the next set. Natural expiry mutates no store
+ * state, so without this the shade can stick on "Resting" until the next
+ * set/pause/skip — the expiry path is the one place the notification is never
+ * re-posted. Silent by design: the in-app workout screen owns the chime and
+ * toast when it is open. Returns true when it cleared an expired timer.
+ */
+export async function reconcileExpiredRestTimer(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  try {
+    const state = getStoreState();
+    const curr = state?.activeWorkout;
+    const rt = curr?.restTimer;
+    if (!curr || !rt || rt.paused || rt.targetEndTimeMs > Date.now()) return false;
+    (state as { clearRestTimer?: () => void }).clearRestTimer?.();
+    const updated = getStoreState()?.activeWorkout;
+    if (updated) await syncActiveWorkoutNotification(updated);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Cancel any scheduled evening workout reminder.
  */
 export async function cancelEveningReminder(): Promise<void> {

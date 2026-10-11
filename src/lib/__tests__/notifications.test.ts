@@ -1,3 +1,4 @@
+import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 import * as Notifications from 'expo-notifications';
 import {
   ACTIVE_WORKOUT_CATEGORY,
@@ -11,13 +12,16 @@ import {
   handleNotificationPresentation,
   isReminderSuppressed,
   presentActiveWorkoutNotification,
+  reconcileExpiredRestTimer,
   resolveNotificationRoute,
   scheduleEveningReminder,
   setupNotificationCategories,
   syncActiveWorkoutNotification,
   syncWorkoutReminder,
 } from '../notifications';
+import { usePulse } from '../../store/useStore';
 
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   setNotificationCategoryAsync: jest.fn().mockResolvedValue(undefined),
@@ -533,5 +537,102 @@ describe('resolveNotificationRoute', () => {
     expect(resolveNotificationRoute({})).toBeNull();
     expect(resolveNotificationRoute(null)).toBeNull();
     expect(resolveNotificationRoute(undefined)).toBeNull();
+  });
+});
+
+describe('reconcileExpiredRestTimer', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function setActiveWorkout(restTimer: any) {    usePulse.setState({
+      activeWorkout: {
+        id: 'w-live-1',
+        title: 'Push Day A',
+        startTime: new Date().toISOString(),
+        exercises: [
+          {
+            id: 'we-1',
+            exerciseId: 'bench-press',
+            order: 1,
+            notes: null,
+            plannedSets: 3,
+            targetReps: '8',
+            sets: [
+              { id: 's-1', setIndex: 1, completed: true },
+              { id: 's-2', setIndex: 2, completed: false },
+            ],
+          },
+        ],
+        restTimer,
+      } as any,
+    });
+  }
+
+  afterEach(() => {
+    usePulse.setState({ activeWorkout: null });
+  });
+
+  it('clears an expired unpaused rest timer and flips the notification back to the next set', async () => {
+    setActiveWorkout({
+      targetEndTimeMs: Date.now() - 10_000,
+      totalSeconds: 90,
+      exerciseName: 'Bench Press',
+      reason: 'Muscular Recovery (90s)',
+      paused: false,
+    });
+
+    const cleared = await reconcileExpiredRestTimer();
+
+    expect(cleared).toBe(true);
+    expect(usePulse.getState().activeWorkout?.restTimer).toBeNull();
+    // The re-posted notification is the non-resting variant (next set), not "Resting".
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: ACTIVE_WORKOUT_NOTIFICATION_ID,
+      content: expect.objectContaining({
+        title: 'Push Day A',
+        categoryIdentifier: ACTIVE_WORKOUT_CATEGORY,
+        data: expect.objectContaining({ isResting: false }),
+      }),
+      trigger: null,
+    });
+  });
+
+  it('leaves a paused rest timer untouched (no clear, no re-post)', async () => {
+    setActiveWorkout({
+      targetEndTimeMs: Date.now() - 10_000,
+      totalSeconds: 90,
+      exerciseName: 'Bench Press',
+      reason: 'Muscular Recovery (90s)',
+      paused: true,
+      remainingSecWhenPaused: 30,
+    });
+
+    expect(await reconcileExpiredRestTimer()).toBe(false);
+    expect(usePulse.getState().activeWorkout?.restTimer).not.toBeNull();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('leaves a still-running rest timer untouched', async () => {
+    setActiveWorkout({
+      targetEndTimeMs: Date.now() + 60_000,
+      totalSeconds: 90,
+      exerciseName: 'Bench Press',
+      reason: 'Muscular Recovery (90s)',
+      paused: false,
+    });
+
+    expect(await reconcileExpiredRestTimer()).toBe(false);
+    expect(usePulse.getState().activeWorkout?.restTimer).not.toBeNull();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns false with no active workout or no rest timer', async () => {
+    usePulse.setState({ activeWorkout: null });
+    expect(await reconcileExpiredRestTimer()).toBe(false);
+
+    setActiveWorkout(null);
+    expect(await reconcileExpiredRestTimer()).toBe(false);
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 });

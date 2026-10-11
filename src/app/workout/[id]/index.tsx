@@ -471,6 +471,10 @@ export default function ActiveWorkoutScreen() {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       // Allow navigation when explicitly finishing or discarding the workout
       if (isCompletingWorkoutRef.current) return;
+      // Nothing live to protect: a finish triggered from the notification shade
+      // (or any already-finished state) must be allowed to reach its target.
+      // Blocking it strands this screen on a history copy whose buttons are dead.
+      if (!usePulse.getState().activeWorkout) return;
       // Otherwise intercept and show the options popup
       e.preventDefault();
       setMenuOpen(true);
@@ -479,6 +483,22 @@ export default function ActiveWorkoutScreen() {
   }, [navigation]);
 
   const workout = activeWorkout && activeWorkout.id === id ? activeWorkout : workouts.find((w) => w.id === id);
+
+  // Open the options menu when requested out-of-band (the notification Finish
+  // button). Reactive via the store, so it works whether this screen mounts
+  // fresh, regains focus, or is already open behind the notification shade.
+  const menuRequest = usePulse((s) => s.workoutMenuRequest);
+  const consumeMenuRequest = usePulse((s) => s.consumeWorkoutMenu);
+  // Consume-once: opening clears the request, so this can never loop. A plain
+  // effect (not focus-only) is required because the screen may already be open
+  // behind the shade when the request arrives — no focus change fires then.
+  useEffect(() => {
+    if (menuRequest && workout && menuRequest === workout.id) {
+      consumeMenuRequest();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- consume-once request, cannot loop
+      setMenuOpen(true);
+    }
+  }, [menuRequest, workout, consumeMenuRequest]);
 
   // while paused the elapsed timer is frozen at the pause moment
   const elapsedSec = workout
@@ -516,6 +536,13 @@ export default function ActiveWorkoutScreen() {
       playRestOverSound(storeRestTimer.targetEndTimeMs).catch(() => {});
       clearRestTimer();
       hapticsSuccess();
+      const curr = usePulse.getState().activeWorkout;
+      if (curr) {
+        // Natural expiry mutates nothing else, so the store subscriber below
+        // would skip (same dedup key) — post the flipped state explicitly.
+        _lastNotifKey = buildNotifKey(curr);
+        postWorkoutNotification(curr);
+      }
       // Don't tell the user to get ready for a next set if there are none left
       if (doneSets < totalSets) {
         toast('Rest complete — ready for next set!');
