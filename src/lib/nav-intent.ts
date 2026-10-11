@@ -21,7 +21,7 @@ export function consumeWorkoutsTab(): WorkoutsTab | null {
 }
 
 /** Segments of the Progress tab, in display order. */
-export const PROGRESS_VIEWS = ['Body', 'Strength', 'Volume', 'Regularity', 'Records'] as const;
+export const PROGRESS_VIEWS = ['Body', 'Records', 'Strength', 'Volume', 'Regularity'] as const;
 
 export type ProgressView = (typeof PROGRESS_VIEWS)[number];
 
