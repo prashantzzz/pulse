@@ -99,8 +99,8 @@ export default function HomeScreen() {
         </View>
         <Row gap={10}>
           <View style={[styles.streakChip, { backgroundColor: colors.accentSoft, borderColor: `${colors.accent}33` }]}>
-            <Ionicons name="flame" size={15} color={colors.accent} />
-            <T variant="bodySemi" style={{ fontSize: 14, color: colors.accent }}>
+            <Ionicons name="flame" size={16} color={colors.accent} />
+            <T variant="bodySemi" style={{ fontSize: 15, color: colors.accent }}>
               {streak}
             </T>
           </View>
@@ -517,12 +517,14 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   notifDot: { position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: 4 },
   streakChip: {
+    height: 40,
+    minWidth: 40,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 20,
     borderWidth: 1,
   },
   dividerV: { width: 1, height: 40, backgroundColor: colors.border },
