@@ -134,7 +134,22 @@ describe('Records tab redesign (real data only)', () => {
     expect(text).toContain('133.3 kg');
     // The real set behind the record is shown (weight × reps)
     expect(text).toContain('100 kg × 10');
-    expect(text).toContain('Highest');
+    // No standalone 'Highest' pill (it overlapped the name) — rank lives on the
+    // thumbnails. Note: the sort pill reads 'Highest 1RM', which is unaffected.
+    const pill = root.root
+      .findAllByType(T)
+      .find((n) => n.props.children === 'Highest');
+    expect(pill).toBeUndefined();
+  });
+
+  it('overlays ranks 1–3 on the top thumbnails instead of a number column', () => {
+    const ranks = root.root.findAll(
+      (node) =>
+        typeof node.props?.accessibilityLabel === 'string' &&
+        node.props.accessibilityLabel.startsWith('Rank '),
+    );
+    // One overlay per row for the fixture's two records (ranks 1 and 2).
+    expect([...new Set(ranks.map((n) => n.props.accessibilityLabel))]).toEqual(['Rank 1', 'Rank 2']);
   });
 
   it('opens the exercise when a record row is pressed', () => {

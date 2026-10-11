@@ -8,7 +8,7 @@ import { Sparkline } from '../charts';
 import { BottomSheet, EmptyState } from '../misc';
 import { ExerciseThumb } from '../muscle-icon';
 import { T } from '../Text';
-import { Row, Tag } from '../ui';
+import { Row } from '../ui';
 import { EXERCISE_MAP } from '../../data/exercises';
 import {
   buildRecords,
@@ -136,32 +136,28 @@ export function RecordsView({ workouts }: { workouts: Workout[] }) {
               accessibilityRole="button"
               accessibilityLabel={`Open ${ex?.name ?? r.exerciseId} record`}
               style={({ pressed }) => [styles.recordRow, pressed && { opacity: 0.85 }]}>
-              <View
-                style={[
-                  styles.rankBadge,
-                  rankTint
-                    ? { backgroundColor: `${rankTint}22`, borderColor: `${rankTint}55` }
-                    : null,
-                ]}>
-                <T variant="micro" style={{ fontWeight: '700', color: rankTint ?? colors.textDim }}>
-                  {index + 1}
-                </T>
+              <View style={{ position: 'relative' }}>
+                <ExerciseThumb
+                  exerciseId={r.exerciseId}
+                  muscle={ex?.muscleGroup ?? 'Core'}
+                  size={50}
+                  rounded={14}
+                />
+                {index < 3 && rankTint ? (
+                  <View
+                    style={[styles.rankOverlay, { backgroundColor: rankTint, borderColor: colors.bg }]}
+                    accessibilityLabel={`Rank ${index + 1}`}>
+                    <T variant="micro" style={{ fontSize: 10, fontWeight: '700', color: colors.bg }}>
+                      {index + 1}
+                    </T>
+                  </View>
+                ) : null}
               </View>
 
-              <ExerciseThumb
-                exerciseId={r.exerciseId}
-                muscle={ex?.muscleGroup ?? 'Core'}
-                size={50}
-                rounded={14}
-              />
-
               <View style={{ flex: 1, gap: 3 }}>
-                <Row gap={6}>
-                  <T variant="bodySemi" numberOfLines={1} style={{ flexShrink: 1, fontSize: 14 }}>
-                    {ex?.name ?? r.exerciseId}
-                  </T>
-                  {index === 0 ? <Tag label="Highest" color={colors.gold} bg={colors.goldSoft} /> : null}
-                </Row>
+                <T variant="bodySemi" numberOfLines={1} style={{ fontSize: 14 }}>
+                  {ex?.name ?? r.exerciseId}
+                </T>
                 <T variant="micro" dim numberOfLines={1}>
                   {formatUserWeightWithUnit(r.weightKg, weightUnit)} × {r.reps}
                   {r.date
@@ -377,13 +373,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
-  rankBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface3,
+  rankOverlay: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
