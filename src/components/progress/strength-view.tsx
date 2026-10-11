@@ -123,7 +123,7 @@ export function StrengthView({
           flex1
         />
         <SummaryCard label="Volume" value={exVolFormatted} accent={exVolKg > 0} icon="layers" flex1 />
-        <SummaryCard label="Consistency" value={consistencyScore != null ? `${consistencyScore}%` : '—'} icon="checkmark-done" flex1 />
+        <SummaryCard label="Regularity" value={consistencyScore != null ? `${consistencyScore}%` : '—'} icon="checkmark-done" flex1 />
       </Row>
 
       <Pressable onPress={onOpenPicker} style={progressStyles.exercisePicker}>
