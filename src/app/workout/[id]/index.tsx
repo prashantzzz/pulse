@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProgressRing } from '../../../components/ring';
+import { ExerciseThumb } from '../../../components/muscle-icon';
 import { SetRow } from '../../../components/set-row';
 import { T } from '../../../components/Text';
 import { BottomSheet, toast } from '../../../components/misc';
@@ -127,10 +128,22 @@ function ExerciseAccordionCard({
           hitSlop={4}
           accessibilityRole="button"
           accessibilityLabel={isOpen ? `View ${ex.name} details` : `Expand ${ex.name}`}>
-          <View style={[styles.exNum, doneCount === totalCount && { backgroundColor: colors.accent }]}>
-            <T variant="micro" style={{ color: doneCount === totalCount ? colors.bg : colors.accent }}>
-              {doneCount}/{totalCount}
-            </T>
+          <View style={{ position: 'relative' }}>
+            <ExerciseThumb
+              exerciseId={we.exerciseId}
+              muscle={ex.muscleGroup ?? 'Core'}
+              size={34}
+              rounded={12}
+            />
+            {totalCount > 0 && doneCount === totalCount ? (
+              <View
+                style={styles.exThumbDone}
+                accessibilityLabel={`${doneCount} of ${totalCount} sets completed`}>
+                <T variant="micro" style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>
+                  {doneCount}/{totalCount}
+                </T>
+              </View>
+            ) : null}
           </View>
           <View style={{ flex: 1 }}>
             <T variant="bodySemi">{ex.name}</T>
@@ -958,10 +971,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  exNum: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+  exThumbDone: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 17,
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
   },
