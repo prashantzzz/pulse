@@ -41,6 +41,11 @@ jobs:
 
       - name: Export web build
         run: npm run build:web
+        env:
+          # Project Pages serve under /<repo>/ — rewrite root-absolute
+          # asset URLs to that subpath (no-op for user-site/custom domains
+          # if you clear this to an empty string).
+          PROMO_BASE_PATH: /${{ github.event.repository.name }}
 
       - name: Disable Jekyll (keep _expo/ servable)
         run: touch dist/.nojekyll
