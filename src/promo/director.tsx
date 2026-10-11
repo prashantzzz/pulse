@@ -1,10 +1,11 @@
 /**
+ * PromoRoot — the promo director (no visible UI).
  *
- * Wraps the app with the reveal engine and provides:
- *  - a replay token so pressing R re-runs every entrance animation,
- *  - S slow-motion for buttery capture, H to hide the HUD,
- *  - digits 1-0 to jump between recording scenes,
- *  - ⇧R to restore the pristine demo snapshot mid-session,
+ * Wraps the app with the reveal engine. Every screen animates on entry and
+ * replays deterministically on navigation, so there is no control panel to
+ * operate during recording — just use the app. Also provides:
+ *  - R replays the current screen, ⇧R restores the pristine demo snapshot,
+ *    S toggles slow motion, digits 1-0 jump between scenes (desktop keys),
  *  - a click ripple so taps read clearly on video,
  *  - confetti on the workout summary,
  *  - `window.__nextrepPromo` automation hooks.
@@ -13,13 +14,11 @@
  */
 import { usePathname, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { T } from '../components/Text';
-import { colors, radius } from '../theme';
+import { Platform } from 'react-native';
+import { colors } from '../theme';
 import { PROMO } from './config';
 import { burstConfetti } from './confetti';
 import { resetPromoData } from './install';
-import { useReducedMotion } from './motion';
 import { PromoPlayProvider, resetPromoSequence } from './reveal';
 import { requestProgressTab, type ProgressView } from '../lib/nav-intent';
 import { usePulse } from '../store/useStore';
@@ -55,10 +54,8 @@ const PROGRESS_SCENES: { view: ProgressView; label: string }[] = [
 function PromoSession({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const reducedMotion = useReducedMotion();
   const [token, setToken] = useState(0);
   const [slowMo, setSlowMo] = useState(false);
-  const [hud, setHud] = useState(true);
 
   const replay = useCallback(() => {
     resetPromoSequence();
@@ -93,8 +90,6 @@ function PromoSession({ children }: { children: React.ReactNode }) {
         else replay();
       } else if (e.key === 's' || e.key === 'S') {
         setSlowMo((v) => !v);
-      } else if (e.key === 'h' || e.key === 'H') {
-        setHud((v) => !v);
       } else if (/^[0-9]$/.test(e.key)) {
         const scene = SCENES.find((s) => s.key === e.key);
         if (scene) router.navigate(scene.route as never);
@@ -165,144 +160,6 @@ function PromoSession({ children }: { children: React.ReactNode }) {
   return (
     <PromoPlayProvider value={playValue}>
       {children}
-      {PROMO.hud && hud ? (
-        <PromoHud
-          token={token}
-          slowMo={slowMo}
-          reducedMotion={reducedMotion}
-          onReplay={replay}
-          onReset={resetAll}
-          onToggleSlow={() => setSlowMo((v) => !v)}
-          onHide={() => setHud(false)}
-          onGo={(route) => {
-            // Same-route clicks replay instead of no-op'ing, so every HUD
-            // jump performs the choreography regardless of where you are.
-            if (pathname === route) replay();
-            else router.navigate(route as never);
-          }}
-          onGoProgress={(view) => {
-            requestProgressTab(view);
-            // Always replay: same-view re-clicks re-run the charts, and
-            // cross-view jumps replay on arrival.
-            replay();
-            router.navigate(`/(tabs)/progress?tab=${view}` as never);
-          }}
-        />
-      ) : null}
     </PromoPlayProvider>
   );
 }
-
-function PromoHud({
-  token,
-  slowMo,
-  reducedMotion,
-  onReplay,
-  onReset,
-  onToggleSlow,
-  onHide,
-  onGo,
-  onGoProgress,
-}: {
-  token: number;
-  slowMo: boolean;
-  reducedMotion: boolean;
-  onReplay: () => void;
-  onReset: () => void;
-  onToggleSlow: () => void;
-  onHide: () => void;
-  onGo: (route: string) => void;
-  onGoProgress: (view: ProgressView) => void;
-}) {
-  return (
-    <View style={styles.hudRoot} pointerEvents="box-none">
-      <View style={styles.panel}>
-        <View style={styles.row}>
-          <T variant="micro" style={styles.brand}>
-            PROMO
-          </T>
-          <HudBtn label="Replay R" onPress={onReplay} active />
-          <HudBtn label="Reset ⇧R" onPress={onReset} />
-          <HudBtn label="Slow S" onPress={onToggleSlow} active={slowMo} />
-          <HudBtn label="Hide H" onPress={onHide} />
-          <T variant="micro" muted>
-            #{token}
-          </T>
-          <T
-            variant="micro"
-            style={{ color: reducedMotion ? colors.gold : colors.accent, fontWeight: '700' }}>
-            {reducedMotion ? 'REDUCED' : 'FULL'}
-          </T>
-        </View>
-        <View style={[styles.row, styles.sceneRow]}>
-          {SCENES.map((s) => (
-            <HudBtn key={s.key} label={`${s.key} ${s.label}`} onPress={() => onGo(s.route)} />
-          ))}
-        </View>
-        <View style={[styles.row, styles.sceneRow]}>
-          <T variant="micro" style={styles.brand}>
-            PRG
-          </T>
-          {PROGRESS_SCENES.map((s) => (
-            <HudBtn key={s.view} label={s.label} onPress={() => onGoProgress(s.view)} />
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function HudBtn({ label, onPress, active }: { label: string; onPress: () => void; active?: boolean }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.btn, active && styles.btnActive]}>
-      <T variant="micro" style={{ color: active ? colors.bg : colors.textDim, fontWeight: '600' }}>
-        {label}
-      </T>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  hudRoot: {
-    position: 'absolute',
-    top: 44,
-    left: 8,
-    zIndex: 99999,
-  },
-  panel: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    opacity: 0.94,
-    maxWidth: 340,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  sceneRow: {
-    marginTop: 6,
-  },
-  brand: {
-    color: colors.accent,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  btn: {
-    borderWidth: 1,
-    borderColor: colors.borderBright,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: colors.surface2,
-  },
-  btnActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-});

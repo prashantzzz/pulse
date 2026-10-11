@@ -56,7 +56,6 @@ export const PROMO = {
   clampLatestToNow: true,
 
   // ---- web presentation extras ---------------------------------------------
-  hud: Platform.OS === 'web',
   clickRipple: Platform.OS === 'web',
   confettiOnSummary: Platform.OS === 'web',
 
