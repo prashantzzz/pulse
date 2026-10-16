@@ -673,8 +673,10 @@ describe('syncRestOverNotification', () => {
       trigger: expect.objectContaining({ type: 'timeInterval' }),
     });
     const trigger = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0].trigger;
-    expect(trigger.seconds).toBeGreaterThan(0);
-    expect(trigger.seconds).toBeLessThanOrEqual(90);
+    // 90s rest + the anti-double-sound delay: the in-app expiry path chimes and
+    // cancels within ~1s, so the OS alert must be scheduled strictly later.
+    expect(trigger.seconds).toBeGreaterThanOrEqual(91);
+    expect(trigger.seconds).toBeLessThanOrEqual(96);
   });
 
   it('falls back to a generic body when there is no next-set info', async () => {

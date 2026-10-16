@@ -409,11 +409,18 @@ export async function reconcileExpiredRestTimer(): Promise<boolean> {
  * Keeps a one-shot OS-level "rest over" alert in sync with the live rest
  * timer. Unlike the JS-timeout chime, a scheduled notification fires even when
  * the app is backgrounded or killed, so the user hears the end of rest (with
- * the next set named) without having to open the app. Tapping it opens the
- * running workout, where the foreground reconcile flips the live notification.
- * Single identifier: every re-sync replaces the previous schedule, so alerts
- * can never stack. Pass null (or a paused/already-expired timer) to cancel.
+ * the next set named) without having to open the app. Single identifier: every
+ * re-sync replaces the previous schedule, so alerts can never stack. Pass null
+ * (or a paused/already-expired timer) to cancel.
+ *
+ * The trigger carries a small delay on top of the remaining rest on purpose:
+ * when the app is open, the in-app expiry path chimes and cancels this alert
+ * within ~1s, so without the delay the user would hear BOTH the OS sound and
+ * the chime on every rest. When backgrounded nothing cancels, and the alert
+ * sounds a few seconds after rest ends.
  */
+const REST_OVER_ALERT_DELAY_MS = 3000;
+
 export async function syncRestOverNotification(
   rt: RestTimerState | null | undefined,
   workout: { id: string; title: string } | null | undefined,
@@ -435,7 +442,7 @@ export async function syncRestOverNotification(
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, Math.ceil(ms / 1000)),
+        seconds: Math.max(1, Math.ceil((ms + REST_OVER_ALERT_DELAY_MS) / 1000)),
         ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
       },
     });
