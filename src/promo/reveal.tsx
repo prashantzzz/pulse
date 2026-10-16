@@ -71,6 +71,7 @@ const PromoScreenSeqContext = createContext<{ next: (stepMs: number) => number }
 export function PromoScreen({ children }: { children: ReactNode }) {
   const { token, route } = usePromoPlay();
   const state = useRef({ key: '', seq: 0 });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const key = `${route}#${token}`;
   if (state.current.key !== key) {
@@ -78,12 +79,31 @@ export function PromoScreen({ children }: { children: ReactNode }) {
     state.current.seq = 0;
   }
 
+  useEffect(
+    () => () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    },
+    [],
+  );
+
   const value = useRef<{ next: (stepMs: number) => number } | null>(null);
   if (!value.current) {
     value.current = {
       next: (stepMs: number) => {
         const slot = state.current.seq;
         state.current.seq += 1;
+        // Quiet-reset (mirrors the global pool): in-app tab switches reuse
+        // the same route+token, so without this the slots would accumulate
+        // across switches until every card saturates at the max delay while
+        // time-based chart drivers run invisibly behind them.
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+          state.current.seq = 0;
+          timer.current = null;
+        }, PROMO.seqQuietMs);
         return Math.min(slot * stepMs, PROMO.maxDelayMs);
       },
     };
