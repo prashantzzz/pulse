@@ -72,6 +72,7 @@ export function ExerciseThumb({
   icon,
   rounded = 14,
   useThemeAccent = false,
+  blurred = false,
 }: {
   /** When the exercise has a video, its first-frame thumbnail is shown */
   exerciseId?: string;
@@ -80,6 +81,8 @@ export function ExerciseThumb({
   icon?: React.ReactNode;
   rounded?: number;
   useThemeAccent?: boolean;
+  /** Frost the photo (static GPU blur — cheap, no per-frame cost) */
+  blurred?: boolean;
 }) {
   const accentKey = useAccent();
   const g = GROUP_GRADIENT[muscle] ?? 'accentVertical';
@@ -114,6 +117,7 @@ export function ExerciseThumb({
           transition={140}
           cachePolicy="memory-disk"
           recyclingKey={exerciseId}
+          blurRadius={blurred ? 10 : 0}
         />
       ) : null}
     </LinearGradient>

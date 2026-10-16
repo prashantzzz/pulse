@@ -134,6 +134,7 @@ function ExerciseAccordionCard({
               muscle={ex.muscleGroup ?? 'Core'}
               size={34}
               rounded={12}
+              blurred={totalCount > 0 && doneCount === totalCount}
             />
             {totalCount > 0 && doneCount === totalCount ? (
               <View
@@ -1004,8 +1005,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 17,
-    backgroundColor: colors.overlay,
+    borderRadius: 12,
+    // Light scrim only — the frosted photo beneath does the visual work.
+    // Keeps the count legible over bright frames.
+    backgroundColor: 'rgba(10, 11, 13, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -57,6 +57,7 @@ jest.mock('expo-router', () => ({
 
 import ActiveWorkoutScreen from '../../app/workout/[id]/index';
 import { BottomSheet } from '../../components/misc';
+import { ExerciseThumb } from '../../components/muscle-icon';
 import { usePulse } from '../../store/useStore';
 
 describe('Running Workout Screen Back Navigation & Rest UI', () => {
@@ -330,5 +331,47 @@ describe('Running Workout Screen Back Navigation & Rest UI', () => {
     usePulse.getState().requestWorkoutMenu('w-running-1');
     usePulse.getState().cancelActiveWorkout();
     expect(usePulse.getState().workoutMenuRequest).toBeNull();
+  });
+
+  it('frosts the exercise thumbnail only when all of its sets are completed', () => {
+    const sets = (completed: boolean) => [
+      { id: 's-1', setIndex: 1, setType: 'working', completed, weightKg: 40, reps: 8 },
+      { id: 's-2', setIndex: 2, setType: 'working', completed, weightKg: 40, reps: 8 },
+    ];
+    const workoutWith = (completed: boolean) => ({
+      id: 'w-running-1',
+      title: 'Full Body Push',
+      startTime: new Date().toISOString(),
+      exercises: [
+        {
+          id: 'we-1',
+          exerciseId: 'bench-press',
+          order: 1,
+          notes: null,
+          plannedSets: 2,
+          targetReps: '8',
+          sets: sets(completed),
+        },
+      ],
+    });
+
+    let root: renderer.ReactTestRenderer;
+    usePulse.setState({ activeWorkout: workoutWith(false) as any });
+    act(() => {
+      root = renderer.create(React.createElement(ActiveWorkoutScreen));
+    });
+    expect(root.root.findByType(ExerciseThumb).props.blurred).toBe(false);
+    act(() => {
+      root.unmount();
+    });
+
+    usePulse.setState({ activeWorkout: workoutWith(true) as any });
+    act(() => {
+      root = renderer.create(React.createElement(ActiveWorkoutScreen));
+    });
+    expect(root.root.findByType(ExerciseThumb).props.blurred).toBe(true);
+    act(() => {
+      root.unmount();
+    });
   });
 });
