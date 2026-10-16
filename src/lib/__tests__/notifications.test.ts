@@ -7,6 +7,7 @@ import {
   ACTIVE_WORKOUT_RESTING_CATEGORY,
   EVENING_REMINDER_CATEGORY,
   EVENING_REMINDER_ID,
+  REST_OVER_NOTIFICATION_ID,
   dismissActiveWorkoutNotification,
   hasCompletedWorkoutOnDate,
   handleNotificationPresentation,
@@ -17,6 +18,7 @@ import {
   scheduleEveningReminder,
   setupNotificationCategories,
   syncActiveWorkoutNotification,
+  syncRestOverNotification,
   syncWorkoutReminder,
 } from '../notifications';
 import { usePulse } from '../../store/useStore';
@@ -633,6 +635,65 @@ describe('reconcileExpiredRestTimer', () => {
 
     setActiveWorkout(null);
     expect(await reconcileExpiredRestTimer()).toBe(false);
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('syncRestOverNotification', () => {
+  const workout = { id: 'w-live-1', title: 'Push Day A' };
+
+  function liveTimer() {
+    return {
+      targetEndTimeMs: Date.now() + 90_000,
+      totalSeconds: 90,
+      exerciseName: 'Bench Press',
+      reason: 'Muscular Recovery (90s)',
+      paused: false,
+      nextSetInfo: 'Set 2 · Bench Press (80 kg × 8 reps)',
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('schedules a sounding alert naming the next set, replacing any previous one', async () => {
+    await syncRestOverNotification(liveTimer(), workout);
+
+    // Cancel-first keeps a single pending alert: re-syncs never stack.
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(REST_OVER_NOTIFICATION_ID);
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      identifier: REST_OVER_NOTIFICATION_ID,
+      content: expect.objectContaining({
+        title: 'Rest over · Push Day A',
+        body: 'Up next: Set 2 · Bench Press',
+        sound: true,
+        data: expect.objectContaining({ workoutId: 'w-live-1', url: '/workout/w-live-1' }),
+      }),
+      trigger: expect.objectContaining({ type: 'timeInterval' }),
+    });
+    const trigger = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0].trigger;
+    expect(trigger.seconds).toBeGreaterThan(0);
+    expect(trigger.seconds).toBeLessThanOrEqual(90);
+  });
+
+  it('falls back to a generic body when there is no next-set info', async () => {
+    await syncRestOverNotification({ ...liveTimer(), nextSetInfo: '' }, workout);
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({ body: 'Time for your next set' }),
+      }),
+    );
+  });
+
+  it('cancels without scheduling when there is no timer, no workout, a pause, or an expired timer', async () => {
+    await syncRestOverNotification(null, workout);
+    await syncRestOverNotification(liveTimer(), null);
+    await syncRestOverNotification({ ...liveTimer(), paused: true }, workout);
+    await syncRestOverNotification({ ...liveTimer(), targetEndTimeMs: Date.now() - 1000 }, workout);
+
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledTimes(4);
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 });

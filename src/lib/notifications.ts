@@ -1,10 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { EXERCISE_MAP } from '../data/exercises';
-import type { ActiveWorkout, Workout } from '../types';
+import type { ActiveWorkout, RestTimerState, Workout } from '../types';
 
 export const EVENING_REMINDER_ID = 'pulse-evening-workout-reminder';
 export const ACTIVE_WORKOUT_NOTIFICATION_ID = 'pulse-active-workout-live';
+export const REST_OVER_NOTIFICATION_ID = 'pulse-rest-over';
 
 export const EVENING_REMINDER_CATEGORY = 'evening-reminder-category';
 export const ACTIVE_WORKOUT_CATEGORY = 'active-workout-category';
@@ -401,6 +402,45 @@ export async function reconcileExpiredRestTimer(): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Keeps a one-shot OS-level "rest over" alert in sync with the live rest
+ * timer. Unlike the JS-timeout chime, a scheduled notification fires even when
+ * the app is backgrounded or killed, so the user hears the end of rest (with
+ * the next set named) without having to open the app. Tapping it opens the
+ * running workout, where the foreground reconcile flips the live notification.
+ * Single identifier: every re-sync replaces the previous schedule, so alerts
+ * can never stack. Pass null (or a paused/already-expired timer) to cancel.
+ */
+export async function syncRestOverNotification(
+  rt: RestTimerState | null | undefined,
+  workout: { id: string; title: string } | null | undefined,
+): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(REST_OVER_NOTIFICATION_ID);
+    if (!rt || !workout || rt.paused) return;
+    const ms = rt.targetEndTimeMs - Date.now();
+    if (ms <= 0) return;
+    const stripped = rt.nextSetInfo ? rt.nextSetInfo.replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_OVER_NOTIFICATION_ID,
+      content: {
+        title: `Rest over · ${workout.title}`,
+        body: stripped ? `Up next: ${stripped}` : 'Time for your next set',
+        sound: true,
+        data: { workoutId: workout.id, url: `/workout/${workout.id}` },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.ceil(ms / 1000)),
+        ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
+      },
+    });
+  } catch {
+    // A failed schedule must never affect the workout.
   }
 }
 

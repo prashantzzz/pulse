@@ -336,6 +336,12 @@ export default function RootLayout() {
     };
 
     checkRestTimer();
+    // Align the OS-level alert with any rest timer restored from storage
+    // (an expired one just cancels; a live one is re-scheduled idempotently).
+    import('../lib/notifications').then(({ syncRestOverNotification }) => {
+      const aw = usePulse.getState().activeWorkout;
+      syncRestOverNotification(aw?.restTimer ?? null, aw ?? null).catch(() => {});
+    }).catch(() => {});
 
     const unsub = usePulse.subscribe((state, prevState) => {
       const prevRt = prevState.activeWorkout?.restTimer;
@@ -345,6 +351,12 @@ export default function RootLayout() {
         prevRt?.paused !== currRt?.paused
       ) {
         checkRestTimer();
+        // Keep the OS-level "rest over" alert in lockstep with the timer:
+        // a fresh/changed timer (re)schedules it, a pause/clear/finish cancels
+        // it. Single identifier, so alerts can never stack.
+        import('../lib/notifications').then(({ syncRestOverNotification }) => {
+          syncRestOverNotification(currRt ?? null, state.activeWorkout ?? null).catch(() => {});
+        }).catch(() => {});
       }
     });
 
