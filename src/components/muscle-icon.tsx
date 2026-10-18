@@ -117,7 +117,7 @@ export function ExerciseThumb({
           transition={140}
           cachePolicy="memory-disk"
           recyclingKey={exerciseId}
-          blurRadius={blurred ? 10 : 0}
+          blurRadius={blurred ? 3 : 0}
         />
       ) : null}
     </LinearGradient>
