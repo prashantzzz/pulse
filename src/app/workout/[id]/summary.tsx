@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Home, Share2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +25,21 @@ import { useAnimatedValue } from '../../../lib/useAnimatedValue';
 import { usePulse } from '../../../store/useStore';
 import { colors, radius, spacing, useAccent } from '../../../theme';
 
+function withAlpha(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const full =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : clean;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function SummaryScreen() {
   useAccent();
   const insets = useSafeAreaInsets();
@@ -35,7 +52,21 @@ export default function SummaryScreen() {
 
   const shareCardRef = useRef<WorkoutShareCardHandle>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [stageHeight, setStageHeight] = useState(0);
+  const { width: windowWidth } = useWindowDimensions();
   const hasNavigatedRef = useRef(false);
+
+  // A 9:16 canvas is tall. On short screens, constrain the width to the height
+  // the stage actually offers so the entire artwork remains visible without
+  // scrolling. The footer actions stay fixed outside the exportable card.
+  const cardMaxWidth =
+    stageHeight > 0
+      ? Math.min(
+          windowWidth - spacing.md * 2,
+          375,
+          Math.max(230, (stageHeight - 8) * (9 / 16)),
+        )
+      : Math.min(windowWidth - spacing.md * 2, 375);
 
   // Safely navigate back to the Workouts page without minimizing the app
   const handleBackToWorkouts = useCallback(() => {
@@ -148,6 +179,15 @@ export default function SummaryScreen() {
           paddingBottom: Math.max(insets.bottom + 6, 12),
         },
       ]}>
+      {/* A restrained atmospheric wash keeps the app chrome separate from the artwork */}
+      <LinearGradient
+        colors={[withAlpha(colors.accent, 0.1), 'transparent', withAlpha(colors.accent, 0.04)]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
       {/* Top Header Dismiss Bar */}
       <View style={styles.topHeaderBar}>
         <T style={styles.topHeaderTitle}>Workout Complete</T>
@@ -156,19 +196,24 @@ export default function SummaryScreen() {
           hitSlop={12}
           accessibilityLabel="Close Summary"
           style={styles.closeBtn}>
-          <X size={18} color={colors.textDim} />
+          <X size={17} color="rgba(247, 248, 246, 0.58)" />
         </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        bounces={false}>
+        bounces={false}
+        onLayout={(event) => {
+          const height = event.nativeEvent.layout.height;
+          setStageHeight((current) => (Math.abs(current - height) > 0.5 ? height : current));
+        }}>
         {/* Animated 9:16 Shareable Workout Summary Canvas */}
         <Animated.View
           style={[
             styles.cardWrapper,
             {
+              maxWidth: cardMaxWidth,
               opacity: cardOpacity,
               transform: [{ scale: cardScale }],
             },
@@ -201,14 +246,18 @@ export default function SummaryScreen() {
             style={({ pressed }) => [
               styles.parallelBtn,
               styles.shareBtn,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              {
+                backgroundColor: colors.accent,
+                shadowColor: colors.accent,
+              },
+              pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
               isSharing && { opacity: 0.7 },
             ]}>
             {isSharing ? (
-              <ActivityIndicator size="small" color="#000000" />
+              <ActivityIndicator size="small" color="#07110C" />
             ) : (
               <Row gap={8} align="center">
-                <Share2 size={18} color="#000000" strokeWidth={2.4} />
+                <Share2 size={17} color="#07110C" strokeWidth={2.4} />
                 <T style={styles.shareBtnText}>Share</T>
               </Row>
             )}
@@ -238,9 +287,10 @@ export default function SummaryScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#05070A',
+    backgroundColor: '#040706',
     paddingHorizontal: spacing.md,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   notFoundRoot: {
     flex: 1,
@@ -250,21 +300,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-    paddingBottom: 4,
+    paddingHorizontal: 2,
+    paddingBottom: 6,
     zIndex: 10,
   },
   topHeaderTitle: {
-    fontSize: 13.5,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: colors.textDim,
-    letterSpacing: 0.5,
+    color: 'rgba(247, 248, 246, 0.46)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   closeBtn: {
     width: 30,
     height: 30,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -272,7 +325,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   cardWrapper: {
     width: '100%',
@@ -284,7 +337,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 375,
     alignSelf: 'center',
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 2,
   },
   footerRow: {
@@ -298,28 +351,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   shareBtn: {
-    backgroundColor: '#22C55E',
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
     elevation: 5,
   },
   shareBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#000000',
+    color: '#07110C',
     letterSpacing: 0.2,
   },
   homeBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
   },
   homeBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: 'rgba(247, 248, 246, 0.86)',
     letterSpacing: 0.2,
   },
 });

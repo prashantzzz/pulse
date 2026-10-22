@@ -1,13 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
-import {
-  Calendar,
-  Clock,
-  Share2,
-  Trophy,
-  Weight,
-} from 'lucide-react-native';
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { Calendar, Check, Share2 } from 'lucide-react-native';
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,9 +15,9 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
 import { formatDurationLabel } from '../lib/format';
@@ -43,20 +43,51 @@ export interface WorkoutShareCardProps {
   gender?: 'male' | 'female';
 }
 
+/** Turn a hex theme accent into an alpha tint for atmospheric glows and hairlines. */
+function withAlpha(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const full =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : clean;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getCardScale(availableWidth: number): number {
+  // The summary screen keeps 16px of horizontal breathing room and caps the
+  // preview at 375px wide. On short devices the screen also narrows the canvas
+  // to the available height so the whole 9:16 artwork stays on screen.
+  return Math.max(0.58, Math.min(1, availableWidth / 375));
+}
+
 /**
- * 9:16 Shareable "Workout Summary" social asset matching the NextRep redesigned
- * dark athletic aesthetic. Optimized for Instagram Stories, WhatsApp status,
- * and high-impact viral sharing.
+ * 9:16 shareable workout completion asset.
+ *
+ * A dark, heavily blurred gym photograph supplies the atmosphere; the data sits
+ * on two restrained frosted surfaces and the typography carries the hierarchy.
+ * All values, PR detection and sharing behavior remain live from the store.
  */
 export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareCardProps>(
   function WorkoutShareCard({ workout, allWorkouts, gender = 'male' }, ref) {
     useAccent();
+    const { width: windowWidth } = useWindowDimensions();
     const workouts = usePulse((s) => s.workouts);
     const weightUnit = usePulse((s) => s.weightUnit);
     const history = allWorkouts ?? workouts;
     const cardRef = useRef<View>(null);
     const [isSharing, setIsSharing] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
+    const [canvasWidth, setCanvasWidth] = useState(0);
+
+    const availableWidth = canvasWidth > 0 ? canvasWidth : Math.min(windowWidth - 32, 375);
+    const scale = getCardScale(availableWidth);
+    const styles = useMemo(() => createStyles(scale), [scale]);
 
     const stats = workoutStats(workout);
     const prs = detectPRs(workout, history);
@@ -73,6 +104,12 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
       year: 'numeric',
     });
 
+    const accent = colors.accent;
+    const volumeValue = `${formatCompact(toUserVolume(stats.volumeKg, weightUnit))} ${weightUnit}`;
+    const prValue = prs.length > 0 ? String(prs.length) : hasBaseline ? '0' : '—';
+    const figureHeight = 188 * scale;
+    const figureWidth = figureHeight / 2;
+
     const handleShare = async () => {
       if (isSharing) return;
       setIsSharing(true);
@@ -86,6 +123,8 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
         const uri = await captureRef(cardRef, {
           format: 'png',
           quality: 1.0,
+          width: 1080,
+          height: 1920,
           result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
         });
 
@@ -165,61 +204,62 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
     return (
       <>
         {/* Renderable 9:16 Canvas Card */}
-        <View ref={cardRef} collapsable={false} style={styles.cardCanvas}>
-          {/* Top-Left Ambient Emerald Glow */}
+        <View
+          ref={cardRef}
+          collapsable={false}
+          style={styles.cardCanvas}
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width;
+            setCanvasWidth((current) => (Math.abs(current - width) > 0.5 ? width : current));
+          }}>
+          {/* Blurred, darkened gym photograph — atmosphere only */}
+          <Image
+            source={require('../../assets/images/gym-atmosphere.jpg')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+
+          {/* Neutral scrim protects the type without flattening the photograph */}
           <LinearGradient
-            colors={['rgba(34, 197, 94, 0.15)', 'rgba(34, 197, 94, 0.03)', 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.6, y: 0.4 }}
+            colors={[
+              'rgba(2, 6, 5, 0.34)',
+              'rgba(2, 6, 5, 0.12)',
+              'rgba(2, 6, 5, 0.46)',
+            ]}
+            locations={[0, 0.44, 1]}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
 
-          {/* Top-Right Athlete Silhouette Background Layer */}
-          <View style={styles.athleteBgWrapper} pointerEvents="none">
-            <Image
-              source={require('../../assets/images/athlete-silhouette-bg.jpg')}
-              style={styles.athleteBgImage}
-              resizeMode="cover"
-            />
-            {/* Horizontal fade protecting text legibility on left */}
-            <LinearGradient
-              colors={['#070A0E', '#070A0E', 'rgba(7, 10, 14, 0.88)', 'rgba(7, 10, 14, 0.35)', 'transparent']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 0.85, y: 0.5 }}
-              style={StyleSheet.absoluteFill}
-            />
-            {/* Vertical fade into card base */}
-            <LinearGradient
-              colors={['transparent', 'rgba(7, 10, 14, 0.65)', '#070A0E']}
-              start={{ x: 0.5, y: 0.2 }}
-              end={{ x: 0.5, y: 0.95 }}
-              style={StyleSheet.absoluteFill}
-            />
-            {/* Subtle top edge blend */}
-            <LinearGradient
-              colors={['rgba(7, 10, 14, 0.5)', 'transparent']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 0.15 }}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
+          {/* Live theme atmosphere, never a fixed green */}
+          <LinearGradient
+            colors={[withAlpha(accent, 0.16), withAlpha(accent, 0.035), 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.72, y: 0.6 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={['transparent', withAlpha(accent, 0.055)]}
+            start={{ x: 0.6, y: 0.5 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
 
-          {/* Top-Right Artistic Gym Motivational Typography */}
-          <View style={styles.topRightMotivationalBox} pointerEvents="none">
-            <T style={styles.betterThanYesterday}>Better Than{"\n"}Yesterday</T>
-            <T style={styles.sameDiscipline}>
-              SAME{"\n"}DISCIPLINE{"\n"}DIFFERENT{"\n"}RESULTS
-            </T>
-          </View>
+          {/* Barely-there film grain keeps the photo and glass from feeling sterile */}
+          <Image
+            source={require('../../assets/images/grain.png')}
+            style={styles.grainLayer}
+            resizeMode="cover"
+          />
 
           {/* Accessible title string for screen readers and automated test suites */}
           <T style={styles.accessibleTitle}>Workout Complete!</T>
 
-          {/* CARD CONTENT */}
           <View style={styles.cardBody}>
-            {/* Top Section: Brand Identity & Date Badge */}
-            <View style={styles.topSection}>
+            <View>
+              {/* Brand — present, never dominant */}
               <View style={styles.brandRow}>
                 <Image
                   source={require('../../assets/images/logo.png')}
@@ -228,153 +268,127 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                 />
                 <View style={styles.brandTextCol}>
                   <T style={styles.brandName}>NextRep</T>
-                  <T style={styles.brandTagline}>TRACK   PROGRESS   GET STRONGER</T>
+                  <T style={styles.brandTagline}>TRACK · PROGRESS · GET STRONGER</T>
                 </View>
               </View>
 
-              {/* Workout Routine & Date Pill */}
-              <View style={styles.datePill}>
-                <Calendar size={12} color="#9CA3AF" strokeWidth={2} />
-                <T style={styles.datePillText} numberOfLines={1}>
-                  {workout.title.toUpperCase()}  ·  {formattedDate.toUpperCase()}
+              {/* Workout identity + date */}
+              <View style={styles.metaPill}>
+                <Calendar size={9.5 * scale} color="rgba(247, 248, 246, 0.55)" strokeWidth={2} />
+                <T style={styles.metaTitle} numberOfLines={1}>
+                  {workout.title}
                 </T>
+                <View style={styles.metaDivider} />
+                <T style={styles.metaDate}>{formattedDate}</T>
               </View>
-            </View>
 
-            {/* Hero Section: "Workout Complete!" + Golden Trophy */}
-            <View style={styles.heroSection}>
-              <View style={styles.heroTitlesCol}>
-                <T style={styles.heroWhiteWorkout}>Workout</T>
-                <Row align="center" gap={3}>
-                  <T style={styles.heroGoldComplete}>Complete!</T>
-                  {/* Glowing Trophy Illustration with Energy Rays */}
-                  <View style={styles.trophyWrapper}>
-                    <Svg width={42} height={40} viewBox="0 0 48 46" fill="none">
-                      {/* Energy Rays */}
-                      <Path d="M16 6L13 2" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
-                      <Path d="M24 5L24 1" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
-                      <Path d="M32 6L35 2" stroke="#FFD700" strokeWidth="2.2" strokeLinecap="round" />
-                      {/* Trophy Cup */}
-                      <Path
-                        d="M14 10H34V20C34 25.5 29.5 30 24 30C18.5 30 14 25.5 14 20V10Z"
-                        fill="url(#trophyGrad)"
-                      />
-                      <Path
-                        d="M14 13H10C8.5 13 7 14.5 7 16C7 19 9.5 21 14 21"
-                        stroke="#FFB800"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      <Path
-                        d="M34 13H38C39.5 13 41 14.5 41 16C41 19 38.5 21 34 21"
-                        stroke="#FFB800"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                      <Path d="M24 30V36M18 36H30" stroke="#FFB800" strokeWidth="3" strokeLinecap="round" />
-                      <Defs>
-                        <SvgLinearGradient id="trophyGrad" x1="0" y1="0" x2="1" y2="1">
-                          <Stop offset="0%" stopColor="#FFF176" />
-                          <Stop offset="50%" stopColor="#FFB800" />
-                          <Stop offset="100%" stopColor="#F59E0B" />
-                        </SvgLinearGradient>
-                      </Defs>
-                    </Svg>
+              {/* Completion hero */}
+              <View style={styles.heroBlock}>
+                <T style={styles.heroLine}>Workout</T>
+                <View style={styles.heroCompleteRow}>
+                  <T style={[styles.heroLine, { color: accent }]}>Complete.</T>
+                  <View
+                    style={[
+                      styles.checkBadge,
+                      {
+                        backgroundColor: withAlpha(accent, 0.12),
+                        borderColor: withAlpha(accent, 0.48),
+                        shadowColor: accent,
+                      },
+                    ]}>
+                    <Check size={15.5 * scale} color={accent} strokeWidth={3} />
                   </View>
-                </Row>
-                <T style={styles.heroSubtitle}>
-                  Crushed it in {formatDurationLabel(stats.durationMin)}  ·  Great intensity
-                </T>
-              </View>
-            </View>
-
-            {/* Primary 3 Big Stat Cards in a Row */}
-            <View style={styles.primaryStatsRow}>
-              {/* Duration Card */}
-              <View style={[styles.statCardBase, styles.statCardGreen]}>
-                <View style={[styles.statIconBadge, styles.statIconBadgeGreen]}>
-                  <Clock size={16} color="#22C55E" strokeWidth={2.4} />
                 </View>
-                <View style={styles.statTextCol}>
-                  <T style={styles.statNumText}>{formatDurationLabel(stats.durationMin)}</T>
-                  <T style={styles.statLabelText}>Duration</T>
-                </View>
-              </View>
-
-              {/* Total Volume Card */}
-              <View style={[styles.statCardBase, styles.statCardPurple]}>
-                <View style={[styles.statIconBadge, styles.statIconBadgePurple]}>
-                  <Weight size={16} color="#A855F7" strokeWidth={2.4} />
-                </View>
-                <View style={styles.statTextCol}>
-                  <T style={styles.statNumText}>
-                    {formatCompact(toUserVolume(stats.volumeKg, weightUnit))} {weightUnit}
+                <View style={styles.subtitleRow}>
+                  <T style={styles.subtitleText}>
+                    Crushed it in {formatDurationLabel(stats.durationMin)}
                   </T>
-                  <T style={styles.statLabelText}>Total Volume</T>
+                  <View style={styles.subtitleDot} />
+                  <T style={styles.subtitleText}>Great intensity</T>
                 </View>
               </View>
 
-              {/* PRs Card */}
-              <View style={[styles.statCardBase, styles.statCardGold]}>
-                <View style={[styles.statIconBadge, styles.statIconBadgeGold]}>
-                  <Trophy size={16} color="#F59E0B" strokeWidth={2.4} />
-                </View>
-                <View style={styles.statTextCol}>
-                  <T style={styles.statNumText}>
-                    {prs.length > 0 ? prs.length : (hasBaseline ? '0' : '—')}
+              {/* Primary metrics — one quiet glass surface, three clear numbers */}
+              <View style={styles.statsTray}>
+                <View style={styles.topHighlight} pointerEvents="none" />
+                <View style={styles.statCell}>
+                  <T
+                    style={styles.statValue}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}>
+                    {formatDurationLabel(stats.durationMin)}
                   </T>
-                  <T style={styles.statLabelText}>PRs</T>
+                  <T style={styles.statLabel}>Duration</T>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statCell}>
+                  <T
+                    style={styles.statValue}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.68}>
+                    {volumeValue}
+                  </T>
+                  <T style={styles.statLabel}>Total Volume</T>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statCell}>
+                  <T
+                    style={[
+                      styles.statValue,
+                      prs.length > 0 && { color: colors.gold },
+                    ]}
+                    numberOfLines={1}>
+                    {prValue}
+                  </T>
+                  <T style={styles.statLabel}>PRs</T>
                 </View>
               </View>
-            </View>
 
-            {/* Secondary 4-Metric Grid Card */}
-            <View style={styles.secondaryGridCard}>
-              <View style={styles.secondaryCol}>
-                <T style={styles.secondaryVal}>{stats.exercises}</T>
+              {/* Quiet session summary */}
+              <View style={styles.secondaryRow}>
+                <T style={styles.secondaryValue}>{stats.exercises}</T>
                 <T style={styles.secondaryLabel}>Exercises</T>
-              </View>
-              <View style={styles.secondaryDivider} />
-              <View style={styles.secondaryCol}>
-                <T style={styles.secondaryVal}>{stats.sets}</T>
+                <T style={styles.secondarySeparator}>·</T>
+                <T style={styles.secondaryValue}>{stats.sets}</T>
                 <T style={styles.secondaryLabel}>Sets</T>
-              </View>
-              <View style={styles.secondaryDivider} />
-              <View style={styles.secondaryCol}>
-                <T style={styles.secondaryVal}>
-                  {formatCompact(toUserVolume(stats.volumeKg, weightUnit))}
-                </T>
-                <T style={styles.secondaryLabel}>{`Volume ${weightUnit}`}</T>
-              </View>
-              <View style={styles.secondaryDivider} />
-              <View style={styles.secondaryCol}>
-                <T style={styles.secondaryVal}>~{stats.calories}</T>
-                <T style={styles.secondaryLabel}>est. kcal</T>
+                <T style={styles.secondarySeparator}>·</T>
+                <T style={styles.secondaryValue}>~{stats.calories}</T>
+                <T style={styles.secondaryLabel}>kcal</T>
               </View>
             </View>
 
-            {/* MUSCLES WORKED Showcase Card */}
-            <View style={styles.musclesWorkedCard}>
-              <Row align="space-between" style={styles.musclesHeaderRow}>
-                <T style={styles.musclesWorkedHeader}>MUSCLES WORKED</T>
-                <View style={styles.targetLegendPill}>
-                  <View style={styles.legendNeonDot} />
+            {/* MUSCLES WORKED */}
+            <View style={styles.musclePanel}>
+              <View style={styles.topHighlight} pointerEvents="none" />
+              <Row align="space-between" style={styles.muscleHeaderRow}>
+                <T style={styles.muscleHeader}>MUSCLES WORKED</T>
+                <View style={styles.targetLegend}>
+                  <View style={[styles.legendDot, { backgroundColor: accent }]} />
                   <T style={styles.legendText}>Targeted Muscles</T>
                 </View>
               </Row>
 
-              {/* Dual 2D Anatomical Models (Front & Back) with Neon Highlights */}
-              <View style={styles.musclesVisualArea}>
-                <WorkoutMuscleHero workout={workout} gender={gender} height={172} />
+              <View style={styles.muscleVisual}>
+                <WorkoutMuscleHero
+                  workout={workout}
+                  gender={gender}
+                  height={figureHeight}
+                  accent={accent}
+                  bare
+                />
+                <View style={styles.figureLabelsRow}>
+                  <T style={[styles.figureLabel, { width: figureWidth }]}>FRONT</T>
+                  <T style={[styles.figureLabel, { width: figureWidth }]}>BACK</T>
+                </View>
               </View>
+            </View>
 
-              {/* Bottom-Right Motivational Stamp */}
-              <View style={styles.strongerEveryRepBox} pointerEvents="none">
-                <T style={styles.strongerEveryRepText}>STRONGER EVERY REP</T>
-                <Svg width={115} height={3} viewBox="0 0 115 3" style={{ marginTop: 2 }}>
-                  <Path d="M1 1.5 C 35 1, 80 2.5, 113 1.5" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round" />
-                </Svg>
-              </View>
+            {/* Signature — part of the social artwork, not an app button */}
+            <View style={styles.signature}>
+              <View style={[styles.signatureRule, { backgroundColor: accent }]} />
+              <T style={styles.signatureText}>STRONGER EVERY REP</T>
             </View>
           </View>
         </View>
@@ -397,7 +411,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               </Row>
 
               <T variant="small" dim style={{ marginBottom: spacing.lg }}>
-                Ready to share as 9:16 story on Instagram, WhatsApp, or messages.
+                Ready to share as a 9:16 story on Instagram, WhatsApp, or messages.
               </T>
 
               <Pressable
@@ -405,372 +419,383 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                   setPreviewVisible(false);
                   await handleShare();
                 }}
-                style={styles.modalShareBtn}>
-                <Share2 size={18} color={colors.bg} />
-                <T variant="bodySemi" style={{ color: colors.bg }}>
-                  Share Story
-                </T>
+                style={[styles.modalShareBtn, { backgroundColor: colors.accent }]}>
+                {isSharing ? (
+                  <ActivityIndicator size="small" color={colors.bg} />
+                ) : (
+                  <>
+                    <Share2 size={18} color={colors.bg} />
+                    <T variant="bodySemi" style={{ color: colors.bg }}>
+                      Share Story
+                    </T>
+                  </>
+                )}
               </Pressable>
             </View>
           </View>
         </Modal>
       </>
     );
-  }
+  },
 );
 
-const styles = StyleSheet.create({
-  cardCanvas: {
-    width: '100%',
-    aspectRatio: 9 / 16,
-    maxHeight: 700,
-    backgroundColor: '#070A0E',
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    overflow: 'hidden',
-    position: 'relative',
-    justifyContent: 'space-between',
-  },
-  cardBody: {
-    flex: 1,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 13,
-    justifyContent: 'space-between',
-    zIndex: 2,
-  },
-  accessibleTitle: {
-    position: 'absolute',
-    opacity: 0,
-    height: 0,
-    width: 0,
-  },
+function createStyles(scale: number) {
+  const s = (value: number) => value * scale;
 
-  // Athlete Background Layer
-  athleteBgWrapper: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '100%',
-    height: '60%',
-    overflow: 'hidden',
-    zIndex: 1,
-  },
-  athleteBgImage: {
-    position: 'absolute',
-    top: 0,
-    right: -8,
-    width: '74%',
-    height: '100%',
-    opacity: 0.5,
-  },
+  return StyleSheet.create({
+    cardCanvas: {
+      width: '100%',
+      aspectRatio: 9 / 16,
+      backgroundColor: '#050807',
+      borderRadius: s(24),
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.12)',
+      overflow: 'hidden',
+      position: 'relative',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: s(18) },
+      shadowOpacity: 0.5,
+      shadowRadius: s(28),
+      elevation: 12,
+    },
+    grainLayer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      opacity: 0.62,
+    },
+    cardBody: {
+      flex: 1,
+      paddingHorizontal: s(22),
+      paddingTop: s(26),
+      paddingBottom: s(50),
+      zIndex: 2,
+    },
+    accessibleTitle: {
+      position: 'absolute',
+      opacity: 0,
+      height: 0,
+      width: 0,
+    },
 
-  // Top-right motivational typography
-  topRightMotivationalBox: {
-    position: 'absolute',
-    top: 16,
-    right: 14,
-    alignItems: 'flex-end',
-    zIndex: 3,
-  },
-  betterThanYesterday: {
-    fontFamily: Platform.select({
-      ios: 'Snell Roundhand',
-      android: 'cursive',
-      web: 'cursive, "Brush Script MT", "Caveat", cursive',
-    }),
-    fontSize: 16,
-    fontStyle: 'italic',
-    fontWeight: '700',
-    color: '#94A3B8',
-    textAlign: 'right',
-    letterSpacing: 0.5,
-    lineHeight: 18,
-  },
-  sameDiscipline: {
-    fontSize: 6.5,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    color: '#475569',
-    textAlign: 'right',
-    marginTop: 20,
-    lineHeight: 9.5,
-  },
+    // Brand
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(9),
+    },
+    brandLogoImg: {
+      width: s(28),
+      height: s(28),
+      borderRadius: s(8),
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.16)',
+      overflow: 'hidden',
+    },
+    brandTextCol: {
+      justifyContent: 'center',
+    },
+    brandName: {
+      fontFamily: fonts.display,
+      fontSize: s(17),
+      lineHeight: s(19),
+      letterSpacing: s(-0.2),
+      color: '#F7F8F6',
+    },
+    brandTagline: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(6.4),
+      lineHeight: s(9),
+      letterSpacing: s(1.45),
+      color: 'rgba(247, 248, 246, 0.42)',
+      marginTop: s(2),
+    },
 
-  // Top Section: Brand & Date
-  topSection: {
-    gap: 8,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  brandLogoImg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  brandTextCol: {
-    justifyContent: 'center',
-  },
-  brandName: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-    lineHeight: 20,
-  },
-  brandTagline: {
-    fontSize: 7.5,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    color: '#6B7280',
-    lineHeight: 10,
-    marginTop: 2,
-  },
-  datePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  datePillText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: '#9CA3AF',
-  },
+    // Workout identity
+    metaPill: {
+      marginTop: s(16),
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(6),
+      paddingHorizontal: s(10),
+      paddingVertical: s(6),
+      borderRadius: radius.pill,
+      backgroundColor: 'rgba(255, 255, 255, 0.055)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.10)',
+      overflow: 'hidden',
+    },
+    metaTitle: {
+      flexShrink: 1,
+      fontFamily: fonts.bodySemi,
+      fontSize: s(8.8),
+      lineHeight: s(11),
+      letterSpacing: s(1.05),
+      textTransform: 'uppercase',
+      color: 'rgba(247, 248, 246, 0.86)',
+    },
+    metaDivider: {
+      width: 1,
+      height: s(9),
+      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      marginHorizontal: s(2),
+    },
+    metaDate: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: s(8.8),
+      lineHeight: s(11),
+      letterSpacing: s(0.85),
+      textTransform: 'uppercase',
+      color: 'rgba(247, 248, 246, 0.54)',
+    },
 
-  // Hero Section
-  heroSection: {
-    position: 'relative',
-    marginTop: 14,
-  },
-  heroTitlesCol: {
-    gap: 0,
-  },
-  heroWhiteWorkout: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.6,
-    lineHeight: 36,
-  },
-  heroGoldComplete: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#FFB800',
-    letterSpacing: -0.6,
-    lineHeight: 38,
-  },
-  trophyWrapper: {
-    marginLeft: 0,
-    marginTop: -3,
-  },
-  heroSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 3,
-  },
+    // Hero
+    heroBlock: {
+      marginTop: s(18),
+    },
+    heroLine: {
+      fontFamily: fonts.display,
+      fontSize: s(38),
+      lineHeight: s(41),
+      letterSpacing: s(-1.2),
+      color: '#F8FAF8',
+    },
+    heroCompleteRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(9),
+      marginTop: s(-1),
+    },
+    checkBadge: {
+      width: s(31),
+      height: s(31),
+      borderRadius: s(16),
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: s(2),
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.28,
+      shadowRadius: s(10),
+      elevation: 3,
+    },
+    subtitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: s(6),
+      marginTop: s(8),
+    },
+    subtitleText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: s(10.6),
+      lineHeight: s(14),
+      letterSpacing: s(0.1),
+      color: 'rgba(247, 248, 246, 0.58)',
+    },
+    subtitleDot: {
+      width: s(2.5),
+      height: s(2.5),
+      borderRadius: s(2),
+      backgroundColor: 'rgba(247, 248, 246, 0.28)',
+    },
 
-  // Primary 3 Stat Cards Row
-  primaryStatsRow: {
-    flexDirection: 'row',
-    gap: 7,
-    marginTop: 10,
-  },
-  statCardBase: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  statCardGreen: {
-    backgroundColor: 'rgba(34, 197, 94, 0.06)',
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  statCardPurple: {
-    flex: 1.15,
-    backgroundColor: 'rgba(168, 85, 247, 0.06)',
-    borderColor: 'rgba(168, 85, 247, 0.2)',
-  },
-  statCardGold: {
-    flex: 0.95,
-    backgroundColor: 'rgba(234, 179, 8, 0.06)',
-    borderColor: 'rgba(234, 179, 8, 0.2)',
-  },
-  statIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  statIconBadgeGreen: {
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-  },
-  statIconBadgePurple: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
-  },
-  statIconBadgeGold: {
-    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-  },
-  statTextCol: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  statNumText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-    lineHeight: 15,
-  },
-  statLabelText: {
-    fontSize: 9,
-    color: '#6B7280',
-    lineHeight: 11,
-    marginTop: 1,
-  },
+    // Primary metrics
+    statsTray: {
+      marginTop: s(18),
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      borderRadius: s(16),
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.105)',
+      backgroundColor: 'rgba(8, 12, 11, 0.48)',
+      paddingVertical: s(12),
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    topHighlight: {
+      position: 'absolute',
+      top: 0,
+      left: s(18),
+      right: s(18),
+      height: 1,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      zIndex: 2,
+    },
+    statCell: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: s(4),
+    },
+    statValue: {
+      fontFamily: fonts.display,
+      fontSize: s(20.5),
+      lineHeight: s(24),
+      letterSpacing: s(-0.4),
+      color: '#F7F8F6',
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+    },
+    statLabel: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(7.4),
+      lineHeight: s(10),
+      letterSpacing: s(1.15),
+      textTransform: 'uppercase',
+      color: 'rgba(247, 248, 246, 0.45)',
+      marginTop: s(3),
+      textAlign: 'center',
+    },
+    statDivider: {
+      width: 1,
+      backgroundColor: 'rgba(255, 255, 255, 0.095)',
+      marginVertical: s(4),
+    },
 
-  // Secondary 4-Metric Grid Card
-  secondaryGridCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.025)',
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  secondaryCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 1.5,
-  },
-  secondaryVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  secondaryLabel: {
-    fontSize: 9.5,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  secondaryDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
+    // Secondary session summary
+    secondaryRow: {
+      marginTop: s(12),
+      paddingLeft: s(4),
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(5),
+    },
+    secondaryValue: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(9.6),
+      lineHeight: s(12),
+      letterSpacing: s(0.2),
+      color: 'rgba(247, 248, 246, 0.82)',
+    },
+    secondaryLabel: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(7.3),
+      lineHeight: s(11),
+      letterSpacing: s(1.05),
+      textTransform: 'uppercase',
+      color: 'rgba(247, 248, 246, 0.42)',
+    },
+    secondarySeparator: {
+      fontFamily: fonts.body,
+      fontSize: s(9),
+      lineHeight: s(11),
+      color: 'rgba(247, 248, 246, 0.22)',
+      marginHorizontal: s(1),
+    },
 
-  // Muscles Worked Card
-  musclesWorkedCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-    marginTop: 8,
-    flex: 1,
-    justifyContent: 'space-between',
-    position: 'relative',
-  },
-  musclesHeaderRow: {
-    width: '100%',
-  },
-  musclesWorkedHeader: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: '#64748B',
-  },
-  targetLegendPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.18)',
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  legendNeonDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#22C55E',
-  },
-  legendText: {
-    fontSize: 8.5,
-    fontWeight: '600',
-    color: '#CBD5E1',
-  },
-  musclesVisualArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  strongerEveryRepBox: {
-    position: 'absolute',
-    bottom: 22,
-    right: 10,
-    transform: [{ rotate: '-8deg' }],
-  },
-  strongerEveryRepText: {
-    fontSize: 11.5,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    letterSpacing: 0.8,
-    color: '#4B5563',
-  },
+    // Muscles
+    musclePanel: {
+      flex: 1,
+      minHeight: s(228),
+      marginTop: s(14),
+      borderRadius: s(18),
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.10)',
+      backgroundColor: 'rgba(7, 11, 10, 0.44)',
+      paddingHorizontal: s(13),
+      paddingTop: s(11),
+      paddingBottom: s(8),
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    muscleHeaderRow: {
+      width: '100%',
+    },
+    muscleHeader: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(8.6),
+      lineHeight: s(11),
+      letterSpacing: s(1.6),
+      color: 'rgba(247, 248, 246, 0.48)',
+    },
+    targetLegend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: s(5),
+      paddingVertical: s(2),
+    },
+    legendDot: {
+      width: s(5),
+      height: s(5),
+      borderRadius: s(3),
+    },
+    legendText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: s(7.6),
+      lineHeight: s(10),
+      letterSpacing: s(0.2),
+      color: 'rgba(247, 248, 246, 0.58)',
+    },
+    muscleVisual: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    figureLabelsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 24,
+      marginTop: s(3),
+    },
+    figureLabel: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(6.7),
+      lineHeight: s(9),
+      letterSpacing: s(1.9),
+      textAlign: 'center',
+      color: 'rgba(247, 248, 246, 0.3)',
+    },
 
-  // Modal
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalShareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    height: 48,
-  },
-});
+    // Signature
+    signature: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: s(10),
+    },
+    signatureRule: {
+      width: s(24),
+      height: s(1.5),
+      borderRadius: s(2),
+      marginBottom: s(6),
+    },
+    signatureText: {
+      fontFamily: fonts.bodySemi,
+      fontSize: s(7.1),
+      lineHeight: s(9),
+      letterSpacing: s(2.75),
+      color: 'rgba(247, 248, 246, 0.36)',
+    },
+
+    // Modal
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    modalContent: {
+      width: '100%',
+      maxWidth: 380,
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalShareBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: radius.pill,
+      height: 48,
+    },
+  });
+}

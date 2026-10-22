@@ -14,7 +14,7 @@ const VIEW_W = 200;
 const UNWORKED_FILL = '#1B2129';
 const UNWORKED_STROKE = 'rgba(255, 255, 255, 0.12)';
 
-/** Vibrant neon green for worked muscles */
+/** Default highlight for worked muscles (callers can pass the live theme accent) */
 const WORKED_FILL = '#22C55E';
 const WORKED_STROKE = '#4ADE80';
 
@@ -86,14 +86,18 @@ export function getWorkedSlugsForWorkout(workout: Workout): Set<Slug> {
   return worked;
 }
 
-function buildSideData(side: Side, workedSlugs: Set<Slug>): ExtendedBodyPart[] {
+function buildSideData(
+  side: Side,
+  workedSlugs: Set<Slug>,
+  accentColor: string,
+): ExtendedBodyPart[] {
   const data: ExtendedBodyPart[] = [];
   for (const slug of SIDE_SLUGS[side]) {
     if (workedSlugs.has(slug)) {
       data.push({
         slug,
         styles: {
-          fill: WORKED_FILL,
+          fill: accentColor,
           stroke: WORKED_STROKE,
           strokeWidth: 1.2,
         },
@@ -109,29 +113,46 @@ export interface WorkoutMuscleHeroProps {
   workout: Workout;
   gender?: 'male' | 'female';
   height?: number;
+  /** Highlight color for worked muscles. Pass the live theme accent to stay on-brand. */
+  accent?: string;
+  /** Render without the inner glass box when the parent already supplies a surface. */
+  bare?: boolean;
 }
 
 /**
  * Modern, minimalist 2D anatomical muscle model showing Front and Back views side-by-side.
  * Strictly no text labels and no pointer lines.
- * Highlights worked muscles in vibrant green, with unworked muscles in subtle dark slate outline.
+ * Highlights worked muscles in the supplied accent, with unworked muscles in subtle dark slate outline.
  */
 export function WorkoutMuscleHero({
   workout,
   gender = 'male',
   height = 200,
+  accent,
+  bare = false,
 }: WorkoutMuscleHeroProps) {
   const scale = height / VIEW_H;
   const figureWidth = VIEW_W * scale;
 
   const workedSlugs = useMemo(() => getWorkedSlugsForWorkout(workout), [workout]);
-  const frontData = useMemo(() => buildSideData('front', workedSlugs), [workedSlugs]);
-  const backData = useMemo(() => buildSideData('back', workedSlugs), [workedSlugs]);
+  const accentColor = accent ?? WORKED_FILL;
+  const frontData = useMemo(
+    () => buildSideData('front', workedSlugs, accentColor),
+    [workedSlugs, accentColor],
+  );
+  const backData = useMemo(
+    () => buildSideData('back', workedSlugs, accentColor),
+    [workedSlugs, accentColor],
+  );
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Well-spaced rounded rectangular enclosure framing both anatomical models */}
-      <View style={styles.roundedRectangleEnclosure}>
+      {/* Optional enclosure — the share card already provides a larger glass panel. */}
+      <View
+        style={[
+          styles.roundedRectangleEnclosure,
+          bare && styles.roundedRectangleEnclosureBare,
+        ]}>
         {/* Front View */}
         <View style={[styles.figureWrapper, { width: figureWidth, height }]}>
           <Body
@@ -184,6 +205,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     alignSelf: 'center',
+  },
+  roundedRectangleEnclosureBare: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    gap: 24,
   },
   figureWrapper: {
     alignItems: 'center',

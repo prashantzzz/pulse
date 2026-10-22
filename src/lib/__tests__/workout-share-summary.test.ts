@@ -222,7 +222,7 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     jest.clearAllMocks();
   });
 
-  it('renders branding in top-right and celebratory title horizontally with trophy', () => {
+  it('renders the branded completion card with all primary workout metrics', () => {
     let tree: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(WorkoutShareCard, { workout: mockWorkout }));
@@ -235,7 +235,7 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     expect(allText).toContain('Workout Complete!');
     expect(allText).toContain('Exercises');
     expect(allText).toContain('Sets');
-    expect(allText).toContain('Volume kg');
+    expect(allText).toContain('1.6k kg');
     expect(allText).toContain('Duration');
     expect(allText).toContain('Total Volume');
     expect(allText).toContain('PRs');
@@ -256,7 +256,7 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     const textNodes = tree!.root.findAll((node) => node.type === 'Text' || (node.props && node.props.children));
     const allText = textNodes.map((n) => (typeof n.props.children === 'string' ? n.props.children : '')).join(' ');
 
-    expect(allText).toContain('Volume lbs');
+    expect(allText).toContain('3.6k lbs');
     expect(allText).toContain('lbs');
     act(() => {
       tree.unmount();
