@@ -18,12 +18,13 @@ import {
   StyleSheet,
   useWindowDimensions,
   View,
+  type TextStyle,
 } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { formatDurationLabel } from '../lib/format';
 import { hapticsLight, hapticsSuccess, hapticsWarning } from '../lib/haptics';
-import { detectPRs, formatCompact, whatChanged, workoutStats } from '../lib/stats';
+import { detectPRs, formatCompact, workoutStats } from '../lib/stats';
 import { toUserVolume } from '../lib/units';
 import { usePulse } from '../store/useStore';
 import { colors, fonts, radius, spacing, useAccent } from '../theme';
@@ -46,25 +47,9 @@ export interface WorkoutShareCardProps {
 
 /** Turn a hex theme accent into an alpha tint for atmospheric glows and hairlines. */
 function withAlpha(hex: string, alpha: number): string {
-  const clean = hex.replace('#', '');
-  const full =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : clean;
-  const r = parseInt(full.slice(0, 2), 16) || 0;
-  const g = parseInt(full.slice(2, 4), 16) || 0;
-  const b = parseInt(full.slice(4, 6), 16) || 0;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function getCardScale(availableWidth: number): number {
-  // The summary screen keeps 16px of horizontal breathing room and caps the
-  // preview at 375px wide. On short devices the screen also narrows the canvas
-  // to the available height so the whole 9:16 artwork stays on screen.
-  return Math.max(0.58, Math.min(1, availableWidth / 375));
+  const full = hex.replace('#', '').replace(/^(.)(.)(.)$/, '$1$1$2$2$3$3');
+  const channel = (start: number) => parseInt(full.slice(start, start + 2), 16) || 0;
+  return `rgba(${channel(0)}, ${channel(2)}, ${channel(4)}, ${alpha})`;
 }
 
 /**
@@ -87,7 +72,8 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
     const [canvasWidth, setCanvasWidth] = useState(0);
 
     const availableWidth = canvasWidth > 0 ? canvasWidth : Math.min(windowWidth - 32, 375);
-    const scale = getCardScale(availableWidth);
+    // Keep the full 9:16 artwork visible when the screen narrows it by height.
+    const scale = Math.max(0.58, Math.min(1, availableWidth / 375));
     const styles = useMemo(() => createStyles(scale), [scale]);
 
     const stats = workoutStats(workout);
@@ -95,9 +81,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
     const prevEquivalent = [...history]
       .reverse()
       .find((w) => w.title === workout.title && w.id !== workout.id);
-    const changed = prevEquivalent ? whatChanged(workout, prevEquivalent) : null;
-    const prevStats = prevEquivalent ? workoutStats(prevEquivalent) : null;
-    const hasBaseline = prevStats != null && prevStats.sets > 0;
+    const hasBaseline = prevEquivalent ? workoutStats(prevEquivalent).sets > 0 : false;
 
     const formattedDate = new Date(workout.startTime).toLocaleDateString('en-US', {
       month: 'short',
@@ -110,6 +94,8 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
     const prValue = prs.length > 0 ? String(prs.length) : hasBaseline ? '0' : '—';
     const figureHeight = 188 * scale;
     const figureWidth = figureHeight / 2;
+    const shareTitle = `NextRep: ${workout.title} Completed`;
+    const shareText = `Crushed ${workout.title} on NextRep! ${stats.exercises} exercises, ${formatCompact(toUserVolume(stats.volumeKg, weightUnit))} ${weightUnit} volume lifted.`;
 
     const handleShare = async () => {
       if (isSharing) return;
@@ -147,8 +133,8 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               const file = new File([blob], 'workout-summary.png', { type: 'image/png' });
               if ((navigator as any).canShare?.({ files: [file] }) !== false) {
                 await (navigator as any).share({
-                  title: `NextRep: ${workout.title} Completed`,
-                  text: `Crushed ${workout.title} on NextRep! ${stats.exercises} exercises, ${formatCompact(toUserVolume(stats.volumeKg, weightUnit))} ${weightUnit} volume lifted.`,
+                  title: shareTitle,
+                  text: shareText,
                   files: [file],
                 });
                 shared = true;
@@ -179,8 +165,8 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
         if (Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator as any).share) {
           try {
             await (navigator as any).share({
-              title: `NextRep: ${workout.title} Completed`,
-              text: `Crushed ${workout.title} on NextRep! ${stats.exercises} exercises, ${formatCompact(toUserVolume(stats.volumeKg, weightUnit))} ${weightUnit} volume lifted.`,
+              title: shareTitle,
+              text: shareText,
             });
             hapticsSuccess();
             toast('Workout summary shared!');
@@ -216,7 +202,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
           {/* Crisp gym photograph — the subject stays readable behind the type */}
           <ExpoImage
             source={require('../../assets/images/gym-atmosphere.jpg')}
-            style={styles.backgroundImage}
+            style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={0}
           />
@@ -252,7 +238,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
           {/* Slight film grain keeps the photograph from looking too digital */}
           <ExpoImage
             source={require('../../assets/images/grain.png')}
-            style={styles.grainLayer}
+            style={[StyleSheet.absoluteFill, styles.grainLayer]}
             contentFit="cover"
             transition={0}
           />
@@ -358,9 +344,7 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             {/* MUSCLES WORKED */}
             <View style={styles.musclePanel}>
               <View style={styles.topHighlight} pointerEvents="none" />
-              <Row align="space-between" style={styles.muscleHeaderRow}>
-                <T style={styles.muscleHeader}>MUSCLES WORKED</T>
-              </Row>
+              <T style={styles.muscleHeader}>MUSCLES WORKED</T>
 
               <View style={styles.muscleVisual}>
                 <WorkoutMuscleHero
@@ -442,342 +426,154 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
 
 function createStyles(scale: number) {
   const s = (value: number) => value * scale;
-
+  const font = (
+    family: string,
+    size: number,
+    lineHeight: number,
+    extra?: TextStyle,
+  ): TextStyle => ({
+    fontFamily: family,
+    fontSize: s(size),
+    lineHeight: s(lineHeight),
+    ...extra,
+  });
   return StyleSheet.create({
     cardCanvas: {
-      width: '100%',
-      aspectRatio: 9 / 16,
-      backgroundColor: '#050807',
-      borderRadius: s(24),
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.12)',
-      overflow: 'hidden',
-      position: 'relative',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: s(18) },
-      shadowOpacity: 0.5,
-      shadowRadius: s(28),
-      elevation: 12,
+      width: '100%', aspectRatio: 9 / 16, backgroundColor: '#050807',
+      borderRadius: s(24), borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)',
+      overflow: 'hidden', position: 'relative',
+      shadowColor: '#000000', shadowOffset: { width: 0, height: s(18) },
+      shadowOpacity: 0.5, shadowRadius: s(28), elevation: 12,
     },
-    backgroundImage: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100%',
-      height: '100%',
-    },
-    grainLayer: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100%',
-      height: '100%',
-      opacity: 0.16,
-    },
-    dumbbellOverlay: {
-      position: 'absolute',
-      left: 0,
-      bottom: 0,
-      width: '88%',
-      height: '88%',
-      zIndex: 3,
-    },
-    cardBody: {
-      flex: 1,
-      paddingHorizontal: s(22),
-      paddingTop: s(48),
-      paddingBottom: s(50),
-      zIndex: 2,
-    },
-    accessibleTitle: {
-      position: 'absolute',
-      opacity: 0,
-      height: 0,
-      width: 0,
-    },
+    grainLayer: { opacity: 0.16 },
+    dumbbellOverlay: { position: 'absolute', left: 0, bottom: 0, width: '88%', height: '88%', zIndex: 3 },
+    cardBody: { flex: 1, paddingHorizontal: s(22), paddingTop: s(48), paddingBottom: s(50), zIndex: 2 },
+    accessibleTitle: { position: 'absolute', opacity: 0, height: 0, width: 0 },
 
     // Brand
-    brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(9),
-    },
+    brandRow: { flexDirection: 'row', alignItems: 'center', gap: s(9) },
     brandLogoImg: {
-      width: s(28),
-      height: s(28),
-      borderRadius: s(8),
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.16)',
-      overflow: 'hidden',
+      width: s(28), height: s(28), borderRadius: s(8),
+      borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.16)', overflow: 'hidden',
     },
-    brandTextCol: {
-      justifyContent: 'center',
-    },
-    brandName: {
-      fontFamily: fonts.display,
-      fontSize: s(17),
-      lineHeight: s(19),
-      letterSpacing: s(-0.2),
-      color: '#F7F8F6',
-    },
-    brandTagline: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(6.4),
-      lineHeight: s(9),
-      letterSpacing: s(1.45),
-      color: 'rgba(247, 248, 246, 0.42)',
-      marginTop: s(2),
-    },
+    brandTextCol: { justifyContent: 'center' },
+    brandName: font(fonts.display, 17, 19, { letterSpacing: s(-0.2), color: '#F7F8F6' }),
+    brandTagline: font(fonts.bodySemi, 6.4, 9, {
+      letterSpacing: s(1.45), color: 'rgba(247, 248, 246, 0.42)', marginTop: s(2),
+    }),
 
     // Workout identity
     metaPill: {
-      marginTop: s(16),
-      alignSelf: 'flex-start',
-      maxWidth: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(6),
-      paddingHorizontal: s(10),
-      paddingVertical: s(6),
-      borderRadius: radius.pill,
-      backgroundColor: 'rgba(255, 255, 255, 0.055)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.10)',
-      overflow: 'hidden',
+      marginTop: s(16), alignSelf: 'flex-start', maxWidth: '100%',
+      flexDirection: 'row', alignItems: 'center', gap: s(6),
+      paddingHorizontal: s(10), paddingVertical: s(6),
+      borderRadius: radius.pill, backgroundColor: 'rgba(255, 255, 255, 0.055)',
+      borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.10)', overflow: 'hidden',
     },
-    metaTitle: {
-      flexShrink: 1,
-      fontFamily: fonts.bodySemi,
-      fontSize: s(8.8),
-      lineHeight: s(11),
-      letterSpacing: s(1.05),
-      textTransform: 'uppercase',
+    metaTitle: font(fonts.bodySemi, 8.8, 11, {
+      flexShrink: 1, letterSpacing: s(1.05), textTransform: 'uppercase',
       color: 'rgba(247, 248, 246, 0.86)',
-    },
+    }),
     metaDivider: {
-      width: 1,
-      height: s(9),
-      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      width: 1, height: s(9), backgroundColor: 'rgba(255, 255, 255, 0.16)',
       marginHorizontal: s(2),
     },
-    metaDate: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: s(8.8),
-      lineHeight: s(11),
-      letterSpacing: s(0.85),
-      textTransform: 'uppercase',
+    metaDate: font(fonts.bodyMedium, 8.8, 11, {
+      letterSpacing: s(0.85), textTransform: 'uppercase',
       color: 'rgba(247, 248, 246, 0.54)',
-    },
+    }),
 
     // Hero
-    heroBlock: {
-      marginTop: s(18),
-    },
-    heroLine: {
-      fontFamily: fonts.display,
-      fontSize: s(38),
-      lineHeight: s(41),
-      letterSpacing: s(-1.2),
-      color: '#F8FAF8',
-    },
-    heroCompleteRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(9),
-      marginTop: s(-1),
-    },
+    heroBlock: { marginTop: s(18) },
+    heroLine: font(fonts.display, 38, 41, { letterSpacing: s(-1.2), color: '#F8FAF8' }),
+    heroCompleteRow: { flexDirection: 'row', alignItems: 'center', gap: s(9), marginTop: s(-1) },
     checkBadge: {
-      width: s(31),
-      height: s(31),
-      borderRadius: s(16),
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: s(2),
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.28,
-      shadowRadius: s(10),
-      elevation: 3,
+      width: s(31), height: s(31), borderRadius: s(16), borderWidth: 1,
+      alignItems: 'center', justifyContent: 'center', marginTop: s(2),
+      shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.28,
+      shadowRadius: s(10), elevation: 3,
     },
 
     // Primary metrics
     statsTray: {
-      marginTop: s(18),
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      borderRadius: s(16),
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.105)',
-      backgroundColor: 'rgba(8, 12, 11, 0.48)',
-      paddingVertical: s(12),
-      overflow: 'hidden',
-      position: 'relative',
+      marginTop: s(18), flexDirection: 'row', alignItems: 'stretch',
+      borderRadius: s(16), borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.105)',
+      backgroundColor: 'rgba(8, 12, 11, 0.48)', paddingVertical: s(12),
+      overflow: 'hidden', position: 'relative',
     },
     topHighlight: {
-      position: 'absolute',
-      top: 0,
-      left: s(18),
-      right: s(18),
-      height: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-      zIndex: 2,
+      position: 'absolute', top: 0, left: s(18), right: s(18), height: 1,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)', zIndex: 2,
     },
-    statCell: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: s(4),
-    },
-    statValue: {
-      fontFamily: fonts.display,
-      fontSize: s(20.5),
-      lineHeight: s(24),
-      letterSpacing: s(-0.4),
-      color: '#F7F8F6',
-      textAlign: 'center',
+    statCell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: s(4) },
+    statValue: font(fonts.display, 20.5, 24, {
+      letterSpacing: s(-0.4), color: '#F7F8F6', textAlign: 'center',
       fontVariant: ['tabular-nums'],
-    },
-    statLabel: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(7.4),
-      lineHeight: s(10),
-      letterSpacing: s(1.15),
-      textTransform: 'uppercase',
-      color: 'rgba(247, 248, 246, 0.45)',
-      marginTop: s(3),
-      textAlign: 'center',
-    },
-    statDivider: {
-      width: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.095)',
-      marginVertical: s(4),
-    },
+    }),
+    statLabel: font(fonts.bodySemi, 7.4, 10, {
+      letterSpacing: s(1.15), textTransform: 'uppercase',
+      color: 'rgba(247, 248, 246, 0.45)', marginTop: s(3), textAlign: 'center',
+    }),
+    statDivider: { width: 1, backgroundColor: 'rgba(255, 255, 255, 0.095)', marginVertical: s(4) },
 
     // Secondary session summary
     secondaryRow: {
-      marginTop: s(12),
-      paddingLeft: s(4),
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(5),
+      marginTop: s(12), paddingLeft: s(4), flexDirection: 'row',
+      alignItems: 'center', gap: s(5),
     },
-    secondaryValue: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(9.6),
-      lineHeight: s(12),
-      letterSpacing: s(0.2),
-      color: 'rgba(247, 248, 246, 0.82)',
-    },
-    secondaryLabel: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(7.3),
-      lineHeight: s(11),
-      letterSpacing: s(1.05),
-      textTransform: 'uppercase',
+    secondaryValue: font(fonts.bodySemi, 9.6, 12, {
+      letterSpacing: s(0.2), color: 'rgba(247, 248, 246, 0.82)',
+    }),
+    secondaryLabel: font(fonts.bodySemi, 7.3, 11, {
+      letterSpacing: s(1.05), textTransform: 'uppercase',
       color: 'rgba(247, 248, 246, 0.42)',
-    },
-    secondarySeparator: {
-      fontFamily: fonts.body,
-      fontSize: s(9),
-      lineHeight: s(11),
-      color: 'rgba(247, 248, 246, 0.22)',
-      marginHorizontal: s(1),
-    },
+    }),
+    secondarySeparator: font(fonts.body, 9, 11, {
+      color: 'rgba(247, 248, 246, 0.22)', marginHorizontal: s(1),
+    }),
 
     // Muscles
     musclePanel: {
-      flex: 1,
-      minHeight: s(228),
-      marginTop: s(14),
-      borderRadius: s(18),
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.10)',
+      flex: 1, minHeight: s(228), marginTop: s(14), borderRadius: s(18),
+      borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.10)',
       backgroundColor: 'rgba(7, 11, 10, 0.44)',
-      paddingHorizontal: s(13),
-      paddingTop: s(11),
-      paddingBottom: s(8),
-      overflow: 'hidden',
-      position: 'relative',
+      paddingHorizontal: s(13), paddingTop: s(11), paddingBottom: s(8),
+      overflow: 'hidden', position: 'relative',
     },
-    muscleHeaderRow: {
-      width: '100%',
-    },
-    muscleHeader: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(8.6),
-      lineHeight: s(11),
-      letterSpacing: s(1.6),
-      color: 'rgba(247, 248, 246, 0.48)',
-    },
-    muscleVisual: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    muscleHeader: font(fonts.bodySemi, 8.6, 11, {
+      letterSpacing: s(1.6), color: 'rgba(247, 248, 246, 0.48)',
+    }),
+    muscleVisual: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     figureLabelsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 24,
-      marginTop: s(3),
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 24, marginTop: s(3),
     },
-    figureLabel: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(6.7),
-      lineHeight: s(9),
-      letterSpacing: s(1.9),
-      textAlign: 'center',
-      color: 'rgba(247, 248, 246, 0.3)',
-    },
+    figureLabel: font(fonts.bodySemi, 6.7, 9, {
+      letterSpacing: s(1.9), textAlign: 'center', color: 'rgba(247, 248, 246, 0.3)',
+    }),
 
     // Signature
-    signature: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: s(10),
-    },
+    signature: { alignItems: 'center', justifyContent: 'center', paddingTop: s(10) },
     signatureRule: {
-      width: s(24),
-      height: s(1.5),
-      borderRadius: s(2),
-      marginBottom: s(6),
+      width: s(24), height: s(1.5), borderRadius: s(2), marginBottom: s(6),
     },
-    signatureText: {
-      fontFamily: fonts.bodySemi,
-      fontSize: s(7.1),
-      lineHeight: s(9),
-      letterSpacing: s(2.75),
-      color: 'rgba(247, 248, 246, 0.36)',
-    },
+    signatureText: font(fonts.bodySemi, 7.1, 9, {
+      letterSpacing: s(2.75), color: 'rgba(247, 248, 246, 0.36)',
+    }),
 
     // Modal
     modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.85)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: spacing.xl,
+      flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      alignItems: 'center', justifyContent: 'center', padding: spacing.xl,
     },
     modalContent: {
-      width: '100%',
-      maxWidth: 380,
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
+      width: '100%', maxWidth: 380, backgroundColor: colors.surface,
+      borderRadius: radius.xl, padding: spacing.xl,
+      borderWidth: 1, borderColor: colors.border,
     },
     modalShareBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      borderRadius: radius.pill,
-      height: 48,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, borderRadius: radius.pill, height: 48,
     },
   });
 }
