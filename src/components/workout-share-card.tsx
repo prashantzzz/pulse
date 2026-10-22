@@ -221,12 +221,12 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             transition={0}
           />
 
-          {/* Neutral scrim protects the type without flattening the photograph */}
+          {/* Neutral scrim keeps the photo present but a little deeper */}
           <LinearGradient
             colors={[
-              'rgba(2, 6, 5, 0.22)',
-              'rgba(2, 6, 5, 0.04)',
-              'rgba(2, 6, 5, 0.34)',
+              'rgba(2, 6, 5, 0.32)',
+              'rgba(2, 6, 5, 0.14)',
+              'rgba(2, 6, 5, 0.44)',
             ]}
             locations={[0, 0.44, 1]}
             style={StyleSheet.absoluteFill}
@@ -247,6 +247,14 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
+          />
+
+          {/* Slight film grain keeps the photograph from looking too digital */}
+          <ExpoImage
+            source={require('../../assets/images/grain.png')}
+            style={styles.grainLayer}
+            contentFit="cover"
+            transition={0}
           />
 
           {/* Accessible title string for screen readers and automated test suites */}
@@ -293,13 +301,6 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
                     ]}>
                     <Check size={15.5 * scale} color={accent} strokeWidth={3} />
                   </View>
-                </View>
-                <View style={styles.subtitleRow}>
-                  <T style={styles.subtitleText}>
-                    Crushed it in {formatDurationLabel(stats.durationMin)}
-                  </T>
-                  <View style={styles.subtitleDot} />
-                  <T style={styles.subtitleText}>Great intensity</T>
                 </View>
               </View>
 
@@ -386,6 +387,15 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               <T style={styles.signatureText}>STRONGER EVERY REP</T>
             </View>
           </View>
+
+          {/* Foreground dumbbell corner — sits above every card element */}
+          <ExpoImage
+            source={require('../../assets/images/dumbbell-corner.png')}
+            style={styles.dumbbellOverlay}
+            contentFit="cover"
+            transition={0}
+            pointerEvents="none"
+          />
         </View>
 
         {/* Full Preview Modal for Web or Interactive Check */}
@@ -462,10 +472,30 @@ function createStyles(scale: number) {
       width: '100%',
       height: '100%',
     },
+    grainLayer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: '100%',
+      opacity: 0.16,
+    },
+    dumbbellOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: '100%',
+      zIndex: 3,
+    },
     cardBody: {
       flex: 1,
       paddingHorizontal: s(22),
-      paddingTop: s(26),
+      paddingTop: s(48),
       paddingBottom: s(50),
       zIndex: 2,
     },
@@ -578,29 +608,6 @@ function createStyles(scale: number) {
       shadowOpacity: 0.28,
       shadowRadius: s(10),
       elevation: 3,
-    },
-    subtitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      gap: s(6),
-      marginTop: s(8),
-    },
-    subtitleText: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: s(10.6),
-      lineHeight: s(14),
-      letterSpacing: s(0.1),
-      color: 'rgba(247, 248, 246, 0.66)',
-      textShadowColor: 'rgba(0, 0, 0, 0.5)',
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: s(6),
-    },
-    subtitleDot: {
-      width: s(2.5),
-      height: s(2.5),
-      borderRadius: s(2),
-      backgroundColor: 'rgba(247, 248, 246, 0.28)',
     },
 
     // Primary metrics
