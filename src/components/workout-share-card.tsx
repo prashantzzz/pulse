@@ -1,3 +1,4 @@
+import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { Calendar, Check, Share2 } from 'lucide-react-native';
@@ -69,9 +70,9 @@ function getCardScale(availableWidth: number): number {
 /**
  * 9:16 shareable workout completion asset.
  *
- * A dark, heavily blurred gym photograph supplies the atmosphere; the data sits
- * on two restrained frosted surfaces and the typography carries the hierarchy.
- * All values, PR detection and sharing behavior remain live from the store.
+ * A crisp, low-key gym photograph supplies the atmosphere; the data sits on two
+ * restrained frosted surfaces and the typography carries the hierarchy. All
+ * values, PR detection and sharing behavior remain live from the store.
  */
 export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareCardProps>(
   function WorkoutShareCard({ workout, allWorkouts, gender = 'male' }, ref) {
@@ -212,19 +213,20 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
             const width = event.nativeEvent.layout.width;
             setCanvasWidth((current) => (Math.abs(current - width) > 0.5 ? width : current));
           }}>
-          {/* Blurred, darkened gym photograph — atmosphere only */}
-          <Image
+          {/* Crisp gym photograph — the subject stays readable behind the type */}
+          <ExpoImage
             source={require('../../assets/images/gym-atmosphere.jpg')}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            style={styles.backgroundImage}
+            contentFit="cover"
+            transition={0}
           />
 
           {/* Neutral scrim protects the type without flattening the photograph */}
           <LinearGradient
             colors={[
+              'rgba(2, 6, 5, 0.22)',
+              'rgba(2, 6, 5, 0.04)',
               'rgba(2, 6, 5, 0.34)',
-              'rgba(2, 6, 5, 0.12)',
-              'rgba(2, 6, 5, 0.46)',
             ]}
             locations={[0, 0.44, 1]}
             style={StyleSheet.absoluteFill}
@@ -233,25 +235,18 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
 
           {/* Live theme atmosphere, never a fixed green */}
           <LinearGradient
-            colors={[withAlpha(accent, 0.16), withAlpha(accent, 0.035), 'transparent']}
+            colors={[withAlpha(accent, 0.10), withAlpha(accent, 0.02), 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.72, y: 0.6 }}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
           <LinearGradient
-            colors={['transparent', withAlpha(accent, 0.055)]}
+            colors={['transparent', withAlpha(accent, 0.04)]}
             start={{ x: 0.6, y: 0.5 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
-          />
-
-          {/* Barely-there film grain keeps the photo and glass from feeling sterile */}
-          <Image
-            source={require('../../assets/images/grain.png')}
-            style={styles.grainLayer}
-            resizeMode="cover"
           />
 
           {/* Accessible title string for screen readers and automated test suites */}
@@ -458,13 +453,14 @@ function createStyles(scale: number) {
       shadowRadius: s(28),
       elevation: 12,
     },
-    grainLayer: {
+    backgroundImage: {
       position: 'absolute',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      opacity: 0.62,
+      width: '100%',
+      height: '100%',
     },
     cardBody: {
       flex: 1,
@@ -595,7 +591,10 @@ function createStyles(scale: number) {
       fontSize: s(10.6),
       lineHeight: s(14),
       letterSpacing: s(0.1),
-      color: 'rgba(247, 248, 246, 0.58)',
+      color: 'rgba(247, 248, 246, 0.66)',
+      textShadowColor: 'rgba(0, 0, 0, 0.5)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: s(6),
     },
     subtitleDot: {
       width: s(2.5),
