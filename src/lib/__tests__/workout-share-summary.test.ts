@@ -240,7 +240,7 @@ describe('WorkoutShareCard 9:16 Social Story Asset', () => {
     expect(allText).toContain('Total Volume');
     expect(allText).toContain('PRs');
     expect(allText).toContain('MUSCLES WORKED');
-    expect(allText).toContain('Targeted Muscles');
+    expect(allText).not.toContain('Targeted Muscles');
     expect(allText).toContain('STRONGER EVERY REP');
   });
 

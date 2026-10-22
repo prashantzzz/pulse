@@ -360,10 +360,6 @@ export const WorkoutShareCard = forwardRef<WorkoutShareCardHandle, WorkoutShareC
               <View style={styles.topHighlight} pointerEvents="none" />
               <Row align="space-between" style={styles.muscleHeaderRow}>
                 <T style={styles.muscleHeader}>MUSCLES WORKED</T>
-                <View style={styles.targetLegend}>
-                  <View style={[styles.legendDot, { backgroundColor: accent }]} />
-                  <T style={styles.legendText}>Targeted Muscles</T>
-                </View>
               </Row>
 
               <View style={styles.muscleVisual}>
@@ -484,12 +480,10 @@ function createStyles(scale: number) {
     },
     dumbbellOverlay: {
       position: 'absolute',
-      top: 0,
       left: 0,
-      right: 0,
       bottom: 0,
-      width: '100%',
-      height: '100%',
+      width: '88%',
+      height: '88%',
       zIndex: 3,
     },
     cardBody: {
@@ -718,24 +712,6 @@ function createStyles(scale: number) {
       lineHeight: s(11),
       letterSpacing: s(1.6),
       color: 'rgba(247, 248, 246, 0.48)',
-    },
-    targetLegend: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: s(5),
-      paddingVertical: s(2),
-    },
-    legendDot: {
-      width: s(5),
-      height: s(5),
-      borderRadius: s(3),
-    },
-    legendText: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: s(7.6),
-      lineHeight: s(10),
-      letterSpacing: s(0.2),
-      color: 'rgba(247, 248, 246, 0.58)',
     },
     muscleVisual: {
       flex: 1,
