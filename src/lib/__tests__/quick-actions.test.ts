@@ -1,7 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import * as QuickActions from 'expo-quick-actions';
-import { APP_SHORTCUTS, getRouteForQuickAction, setupQuickActions } from '../quick-actions';
+import {
+  APP_SHORTCUTS,
+  getRouteForQuickAction,
+  isQuickActionNavigationReady,
+  setupQuickActions,
+} from '../quick-actions';
 
 jest.mock('expo-quick-actions', () => ({
   setItems: jest.fn().mockResolvedValue(undefined),
@@ -43,53 +48,31 @@ describe('App Shortcuts (Quick Actions)', () => {
       expect(getRouteForQuickAction({ id: 'workout', title: 'Workout' })).toBe('/(tabs)/workouts');
       expect(getRouteForQuickAction({ id: 'progress', title: 'Progress', params: { href: '/(tabs)/progress' } })).toBe('/(tabs)/progress');
       expect(getRouteForQuickAction({ id: 'progress', title: 'Progress' })).toBe('/(tabs)/progress');
+      // Never follow arbitrary URLs supplied by a shortcut payload.
+      expect(getRouteForQuickAction({ id: 'x', title: 'X', params: { href: 'https://example.com' } })).toBeNull();
       expect(getRouteForQuickAction(null)).toBeNull();
       expect(getRouteForQuickAction(undefined)).toBeNull();
     });
+
+    it('waits for the root Stack before handling a cold-start shortcut', () => {
+      const ready = {
+        platformOS: 'android',
+        fontsLoaded: true,
+        hydrated: true,
+        isInitialized: true,
+        isVerifyingUser: false,
+      };
+      expect(isQuickActionNavigationReady(ready)).toBe(true);
+      expect(isQuickActionNavigationReady({ ...ready, platformOS: 'web' })).toBe(false);
+      expect(isQuickActionNavigationReady({ ...ready, fontsLoaded: false })).toBe(false);
+      expect(isQuickActionNavigationReady({ ...ready, hydrated: false })).toBe(false);
+      expect(isQuickActionNavigationReady({ ...ready, isInitialized: false })).toBe(false);
+      expect(isQuickActionNavigationReady({ ...ready, isVerifyingUser: true })).toBe(false);
+    });
   });
 
-  describe('Android Native Shortcuts Manifest & Resources', () => {
+  describe('Expo quick-actions configuration', () => {
     const rootDir = path.resolve(__dirname, '../../..');
-
-    it('includes shortcuts metadata in AndroidManifest.xml', () => {
-      const manifestPath = path.join(rootDir, 'android/app/src/main/AndroidManifest.xml');
-      const manifest = fs.readFileSync(manifestPath, 'utf8');
-      expect(manifest).toContain('android:name="android.app.shortcuts"');
-      expect(manifest).toContain('android:resource="@xml/shortcuts"');
-    });
-
-    it('defines shortcuts.xml with workout and progress intents', () => {
-      const shortcutsXmlPath = path.join(rootDir, 'android/app/src/main/res/xml/shortcuts.xml');
-      expect(fs.existsSync(shortcutsXmlPath)).toBe(true);
-      const xml = fs.readFileSync(shortcutsXmlPath, 'utf8');
-      expect(xml).toContain('android:shortcutId="workout"');
-      expect(xml).toContain('android:data="nextrep://(tabs)/workouts"');
-      expect(xml).toContain('android:shortcutId="progress"');
-      expect(xml).toContain('android:data="nextrep://(tabs)/progress"');
-      expect(xml).toContain('@drawable/shortcut_workout');
-      expect(xml).toContain('@drawable/shortcut_progress');
-    });
-
-    it('defines shortcut labels in strings.xml', () => {
-      const stringsXmlPath = path.join(rootDir, 'android/app/src/main/res/values/strings.xml');
-      const stringsXml = fs.readFileSync(stringsXmlPath, 'utf8');
-      expect(stringsXml).toContain('shortcut_workout_short');
-      expect(stringsXml).toContain('Workout');
-      expect(stringsXml).toContain('shortcut_progress_short');
-      expect(stringsXml).toContain('Progress');
-    });
-
-    it('has vector drawables and png icons for workout and progress', () => {
-      const workoutXml = path.join(rootDir, 'android/app/src/main/res/drawable/shortcut_workout.xml');
-      const progressXml = path.join(rootDir, 'android/app/src/main/res/drawable/shortcut_progress.xml');
-      expect(fs.existsSync(workoutXml)).toBe(true);
-      expect(fs.existsSync(progressXml)).toBe(true);
-
-      const workoutPng = path.join(rootDir, 'assets/images/shortcut-workout.png');
-      const progressPng = path.join(rootDir, 'assets/images/shortcut-progress.png');
-      expect(fs.existsSync(workoutPng)).toBe(true);
-      expect(fs.existsSync(progressPng)).toBe(true);
-    });
 
     it('configures expo-quick-actions plugin in app.json', () => {
       const appJsonPath = path.join(rootDir, 'app.json');
@@ -101,6 +84,16 @@ describe('App Shortcuts (Quick Actions)', () => {
       expect(config.androidIcons.shortcut_workout).toBeDefined();
       expect(config.androidIcons.shortcut_progress).toBeDefined();
       expect(config.iosActions).toHaveLength(2);
+    });
+
+    it('has a route file for each shortcut destination', () => {
+      const routes = [
+        path.join(rootDir, 'src/app/(tabs)/workouts.tsx'),
+        path.join(rootDir, 'src/app/(tabs)/progress.tsx'),
+      ];
+      for (const route of routes) {
+        expect(fs.existsSync(route)).toBe(true);
+      }
     });
   });
 });

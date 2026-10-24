@@ -12,7 +12,7 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -31,7 +31,11 @@ import {
   syncWorkoutReminder,
 } from '../lib/notifications';
 import * as QuickActions from 'expo-quick-actions';
-import { getRouteForQuickAction, setupQuickActions } from '../lib/quick-actions';
+import {
+  getRouteForQuickAction,
+  isQuickActionNavigationReady,
+  setupQuickActions,
+} from '../lib/quick-actions';
 import { schedulePlayStoreUpdateCheck } from '../lib/in-app-update';
 
 // react-native-web dev mode logs `Received false for a non-boolean attribute
@@ -82,6 +86,8 @@ export default function RootLayout() {
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();
+  const quickActionsRegistered = useRef(false);
+  const initialQuickActionHandled = useRef(false);
 
   // Initialize Supabase auth session check and subscription
   useEffect(() => {
@@ -150,31 +156,51 @@ export default function RootLayout() {
     };
   }, [hydrated]);
 
-  // Register and handle home screen / app drawer quick actions (Workout, Progress)
-  useEffect(() => {
-    if (Platform.OS === 'web' || !hydrated) return;
+  // Register and handle home screen / app drawer quick actions (Workout, Progress).
+  // Wait until fonts, auth and the root Stack are ready: navigating from a cold
+  // start before the navigator mounted could drop the action or crash the app.
+  const quickActionsReady = isQuickActionNavigationReady({
+    platformOS: Platform.OS,
+    fontsLoaded,
+    hydrated,
+    isInitialized,
+    isVerifyingUser,
+  });
 
-    setupQuickActions().catch(() => {});
+  useEffect(() => {
+    if (!quickActionsReady) return;
+
+    if (!quickActionsRegistered.current) {
+      quickActionsRegistered.current = true;
+      setupQuickActions().catch(() => {});
+    }
 
     const handleAction = (action: QuickActions.Action | null | undefined) => {
+      if (!isAuthenticated) return;
       const targetRoute = getRouteForQuickAction(action);
-      if (targetRoute) {
-        router.push(targetRoute as never);
+      if (!targetRoute) return;
+      try {
+        router.navigate(targetRoute as never);
+      } catch {
+        // A malformed shortcut must never take down the app.
       }
     };
 
-    if (QuickActions.initial) {
-      handleAction(QuickActions.initial);
+    let initialTimer: ReturnType<typeof setTimeout> | undefined;
+    if (isAuthenticated && !initialQuickActionHandled.current && QuickActions.initial) {
+      initialQuickActionHandled.current = true;
+      // Let the splash screen enqueue its own launch redirect first so the
+      // shortcut destination wins instead of being replaced by Home.
+      initialTimer = setTimeout(() => handleAction(QuickActions.initial), 0);
     }
 
-    const sub = QuickActions.addListener((action) => {
-      handleAction(action);
-    });
+    const sub = QuickActions.addListener(handleAction);
 
     return () => {
+      if (initialTimer) clearTimeout(initialTimer);
       sub.remove();
     };
-  }, [hydrated, router]);
+  }, [isAuthenticated, quickActionsReady, router]);
 
   // Play Store in-app update prompt (release Android builds only): deferred,
   // fire-and-forget, at most once per day, and skipped during an active workout.
