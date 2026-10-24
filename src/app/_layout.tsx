@@ -78,6 +78,7 @@ export default function RootLayout() {
     Inter_700Bold,
   });
   const hydrated = usePulse((s) => s.hydrated);
+  const onboarded = usePulse((s) => s.onboarded);
   const accentKey = usePulse((s) => s.accentKey);
   const initializeAuth = useAuth((s) => s.initialize);
   const isInitialized = useAuth((s) => s.isInitialized);
@@ -157,14 +158,13 @@ export default function RootLayout() {
   }, [hydrated]);
 
   // Register and handle home screen / app drawer quick actions (Workout, Progress).
-  // Wait until fonts, auth and the root Stack are ready: navigating from a cold
-  // start before the navigator mounted could drop the action or crash the app.
+  // `appShellReady` is exactly the condition that mounts the root Stack below, so
+  // a cold-start shortcut can never navigate before the navigator exists.
+  const appShellReady = fontsLoaded && hydrated && !isVerifyingUser;
   const quickActionsReady = isQuickActionNavigationReady({
     platformOS: Platform.OS,
-    fontsLoaded,
-    hydrated,
+    appShellReady,
     isInitialized,
-    isVerifyingUser,
   });
 
   useEffect(() => {
@@ -176,7 +176,9 @@ export default function RootLayout() {
     }
 
     const handleAction = (action: QuickActions.Action | null | undefined) => {
-      if (!isAuthenticated) return;
+      // Respect the same entry rules as the splash screen: never skip auth or
+      // onboarding by launching a protected tab from a shortcut.
+      if (!isAuthenticated || !onboarded) return;
       const targetRoute = getRouteForQuickAction(action);
       if (!targetRoute) return;
       try {
@@ -187,11 +189,14 @@ export default function RootLayout() {
     };
 
     let initialTimer: ReturnType<typeof setTimeout> | undefined;
-    if (isAuthenticated && !initialQuickActionHandled.current && QuickActions.initial) {
-      initialQuickActionHandled.current = true;
-      // Let the splash screen enqueue its own launch redirect first so the
+    const initialAction = QuickActions.initial;
+    if (isAuthenticated && onboarded && !initialQuickActionHandled.current && initialAction) {
+      // Let the splash/auth guards enqueue their own redirect first so the
       // shortcut destination wins instead of being replaced by Home.
-      initialTimer = setTimeout(() => handleAction(QuickActions.initial), 0);
+      initialTimer = setTimeout(() => {
+        initialQuickActionHandled.current = true;
+        handleAction(initialAction);
+      }, 0);
     }
 
     const sub = QuickActions.addListener(handleAction);
@@ -200,7 +205,7 @@ export default function RootLayout() {
       if (initialTimer) clearTimeout(initialTimer);
       sub.remove();
     };
-  }, [isAuthenticated, quickActionsReady, router]);
+  }, [isAuthenticated, onboarded, quickActionsReady, router]);
 
   // Play Store in-app update prompt (release Android builds only): deferred,
   // fire-and-forget, at most once per day, and skipped during an active workout.
@@ -394,9 +399,9 @@ export default function RootLayout() {
 
   // Global Route Guard: strictly allow only auth and challenge invite routes when not authenticated
   useEffect(() => {
-    if (!fontsLoaded || !hydrated || !isInitialized) return;
-    // CRITICAL: Do not route or show onboarding while the user's cloud status is being verified!
-    if (isVerifyingUser) return;
+    // CRITICAL: Do not route or show onboarding while the app shell auth state
+    // is still loading or the user's cloud status is being verified.
+    if (!appShellReady || !isInitialized) return;
 
     const segList = segments as string[];
     const inAuthGroup = segList[0] === 'auth';
@@ -416,14 +421,14 @@ export default function RootLayout() {
         router.replace(onboarded ? '/(tabs)/home' : '/onboarding');
       }
     }
-  }, [fontsLoaded, hydrated, isInitialized, isAuthenticated, isVerifyingUser, segments, router]);
+  }, [appShellReady, isInitialized, isAuthenticated, segments, router]);
 
   // apply the user's accent palette when it changes
   useEffect(() => {
     applyAccent(accentKey);
   }, [accentKey]);
 
-  if (!fontsLoaded || !hydrated || isVerifyingUser) {
+  if (!appShellReady) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <StatusBar style="light" />

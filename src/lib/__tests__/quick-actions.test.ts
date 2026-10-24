@@ -50,6 +50,7 @@ describe('App Shortcuts (Quick Actions)', () => {
       expect(getRouteForQuickAction({ id: 'progress', title: 'Progress' })).toBe('/(tabs)/progress');
       // Never follow arbitrary URLs supplied by a shortcut payload.
       expect(getRouteForQuickAction({ id: 'x', title: 'X', params: { href: 'https://example.com' } })).toBeNull();
+      expect(getRouteForQuickAction({ id: 'x', title: 'X', params: { href: '//example.com' } })).toBeNull();
       expect(getRouteForQuickAction(null)).toBeNull();
       expect(getRouteForQuickAction(undefined)).toBeNull();
     });
@@ -57,17 +58,13 @@ describe('App Shortcuts (Quick Actions)', () => {
     it('waits for the root Stack before handling a cold-start shortcut', () => {
       const ready = {
         platformOS: 'android',
-        fontsLoaded: true,
-        hydrated: true,
+        appShellReady: true,
         isInitialized: true,
-        isVerifyingUser: false,
       };
       expect(isQuickActionNavigationReady(ready)).toBe(true);
       expect(isQuickActionNavigationReady({ ...ready, platformOS: 'web' })).toBe(false);
-      expect(isQuickActionNavigationReady({ ...ready, fontsLoaded: false })).toBe(false);
-      expect(isQuickActionNavigationReady({ ...ready, hydrated: false })).toBe(false);
+      expect(isQuickActionNavigationReady({ ...ready, appShellReady: false })).toBe(false);
       expect(isQuickActionNavigationReady({ ...ready, isInitialized: false })).toBe(false);
-      expect(isQuickActionNavigationReady({ ...ready, isVerifyingUser: true })).toBe(false);
     });
   });
 

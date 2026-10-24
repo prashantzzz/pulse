@@ -1,5 +1,5 @@
 import * as QuickActions from 'expo-quick-actions';
-import { Platform } from 'react-native';
+import { Platform, type PlatformOSType } from 'react-native';
 
 export interface AppShortcut {
   id: string;
@@ -28,26 +28,22 @@ export const APP_SHORTCUTS: AppShortcut[] = [
   },
 ];
 
+// Single source of truth for id-based shortcut fallbacks, so routes never have
+// to be repeated here when a shortcut is added or renamed.
+const SHORTCUT_ROUTES = new Map(APP_SHORTCUTS.map((shortcut) => [shortcut.id, shortcut.params.href]));
+
 /**
- * Quick-action navigation must wait until the same conditions that mount the
- * root Stack are true. Otherwise a cold-start shortcut can fire while the app
- * still shows the loading view (no navigator), which drops the action or
- * crashes the app.
+ * Quick-action navigation must wait until the same `appShellReady` condition
+ * that mounts the root Stack is true. Otherwise a cold-start shortcut can fire
+ * while the app still shows the loading view (no navigator), which drops the
+ * action or crashes the app.
  */
 export function isQuickActionNavigationReady(params: {
-  platformOS: string;
-  fontsLoaded: boolean;
-  hydrated: boolean;
+  platformOS: PlatformOSType;
+  appShellReady: boolean;
   isInitialized: boolean;
-  isVerifyingUser: boolean;
 }): boolean {
-  return (
-    params.platformOS !== 'web' &&
-    params.fontsLoaded &&
-    params.hydrated &&
-    params.isInitialized &&
-    !params.isVerifyingUser
-  );
+  return params.platformOS !== 'web' && params.appShellReady && params.isInitialized;
 }
 
 /**
@@ -74,14 +70,8 @@ export async function setupQuickActions(): Promise<void> {
 export function getRouteForQuickAction(action: QuickActions.Action | null | undefined): string | null {
   if (!action) return null;
   const href = action.params?.href;
-  if (typeof href === 'string' && href.startsWith('/')) {
+  if (typeof href === 'string' && href.startsWith('/') && !href.startsWith('//')) {
     return href;
   }
-  if (action.id === 'workout') {
-    return '/(tabs)/workouts';
-  }
-  if (action.id === 'progress') {
-    return '/(tabs)/progress';
-  }
-  return null;
+  return SHORTCUT_ROUTES.get(action.id) ?? null;
 }
